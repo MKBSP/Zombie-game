@@ -46,6 +46,10 @@ func _physics_process(delta: float) -> void:
 	_check_contact_damage(delta)
 
 
+func set_target(new_target: Node2D) -> void:
+	target = new_target
+
+
 func _update_navigation() -> void:
 	if target != null:
 		nav_agent.target_position = target.global_position

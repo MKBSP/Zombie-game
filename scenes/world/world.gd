@@ -25,8 +25,8 @@ func _spawn_shooter() -> void:
 func _spawn_master_zombie() -> void:
 	master_zombie = master_zombie_scene.instantiate()
 	master_zombie.global_position = Vector2(2700, 2700)  # far corner
-	master_zombie.target = shooter
 	add_child(master_zombie)
+	master_zombie.set_target(shooter)
 	# Connect win condition
 	master_zombie.master_zombie_died.connect(_on_master_zombie_died)
 
@@ -43,8 +43,8 @@ func _spawn_standard_zombies() -> void:
 	for offset in spawn_offsets:
 		var z := zombie_scene.instantiate()
 		z.global_position = master_zombie.global_position + offset
-		z.target = shooter
 		add_child(z)
+		z.set_target(shooter)
 		z.zombie_died.connect(_on_zombie_died)
 
 

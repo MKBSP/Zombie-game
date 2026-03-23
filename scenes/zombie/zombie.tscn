@@ -1,0 +1,26 @@
+[gd_scene load_steps=4 format=3 uid="uid://bdj7uqucnce8w"]
+
+[sub_resource type="Gradient" id="Gradient_i00w5"]
+colors = PackedColorArray(0.6, 0, 0, 1, 0.6, 0, 0, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_48acg"]
+gradient = SubResource("Gradient_i00w5")
+width = 28
+height = 28
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_wq15x"]
+radius = 13.0
+
+[node name="Zombie" type="CharacterBody2D"]
+collision_layer = 2
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = SubResource("GradientTexture2D_48acg")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_wq15x")
+debug_color = Color(0.643508, 0.466133, 0.636578, 0.42)
+
+[node name="NavigationAgent2D" type="NavigationAgent2D" parent="."]
+path_desired_distance = 8.0
+target_desired_distance = 8.0

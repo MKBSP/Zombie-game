@@ -1,0 +1,20 @@
+[gd_scene load_steps=3 format=3 uid="uid://u1g04fuyle1k"]
+
+[ext_resource type="Script" path="res://scenes/world/world.gd" id="1_rvrav"]
+
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_abdnr"]
+vertices = PackedVector2Array(2990, 3134, 10, 3134, 10, 10, 2990, 10)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(0, 0, 3000, 0, 3000, 3144, 0, 3144)])
+
+[node name="World" type="Node2D"]
+script = ExtResource("1_rvrav")
+
+[node name="ColorRect" type="ColorRect" parent="."]
+custom_minimum_size = Vector2(3000, 3000)
+offset_right = 3000.0
+offset_bottom = 3144.0
+color = Color(0.101961, 0.227451, 0.101961, 1)
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+navigation_polygon = SubResource("NavigationPolygon_abdnr")

@@ -1,5 +1,7 @@
 extends Node2D
 
+@onready var hud: Control = $HUDLayer/HUD
+
 var shooter_scene := preload("res://scenes/shooter/shooter.tscn")
 var zombie_scene := preload("res://scenes/zombie/zombie.tscn")
 var master_zombie_scene := preload("res://scenes/zombie/master_zombie.tscn")
@@ -13,6 +15,8 @@ func _ready() -> void:
 	_spawn_shooter()
 	_spawn_master_zombie()
 	_spawn_standard_zombies()
+	# Set up HUD
+	hud.setup(shooter, master_zombie)
 
 
 func _create_grid() -> void:

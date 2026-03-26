@@ -1,6 +1,8 @@
 extends Node2D
 
 @onready var hud: Control = $HUDLayer/HUD
+@onready var game_over_screen: Control = $HUDLayer/GameOverScreen
+
 
 var shooter_scene := preload("res://scenes/shooter/shooter.tscn")
 var zombie_scene := preload("res://scenes/zombie/zombie.tscn")
@@ -69,8 +71,7 @@ func _on_player_died() -> void:
 
 
 func _show_game_over(message: String) -> void:
-	print(message)
-	get_tree().paused = true
+	game_over_screen.show_message(message)
 
 
 # Inner class — draws grid lines on its own Node2D

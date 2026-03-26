@@ -1,7 +1,8 @@
-[gd_scene load_steps=6 format=3 uid="uid://u1g04fuyle1k"]
+[gd_scene load_steps=7 format=3 uid="uid://u1g04fuyle1k"]
 
 [ext_resource type="Script" path="res://scenes/world/world.gd" id="1_rvrav"]
 [ext_resource type="Script" path="res://scenes/ui/hud.gd" id="2_4676e"]
+[ext_resource type="PackedScene" uid="uid://ct8xtlcyubd03" path="res://scenes/ui/game_over.tscn" id="3_1b30x"]
 
 [sub_resource type="NavigationPolygon" id="NavigationPolygon_abdnr"]
 vertices = PackedVector2Array(2990, 3134, 10, 3134, 10, 10, 2990, 10)
@@ -76,3 +77,6 @@ offset_left = -40.0
 offset_bottom = 23.0
 grow_horizontal = 0
 horizontal_alignment = 2
+
+[node name="GameOverScreen" parent="HUDLayer" instance=ExtResource("3_1b30x")]
+visible = false

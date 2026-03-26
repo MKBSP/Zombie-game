@@ -9,6 +9,8 @@ extends CharacterBody2D
 var hp: int
 var can_shoot: bool = true
 var is_dead: bool = false
+var _damage_accumulator: float = 0.0
+
 
 # --- Node references (filled in _ready) ---
 @onready var gun_tip: Marker2D = $GunTip
@@ -75,11 +77,15 @@ func _on_shoot_cooldown_timeout() -> void:
 func take_damage(amount: float) -> void:
 	if is_dead:
 		return
-	hp -= int(amount)
-	hp = max(hp, 0)
-	hp_changed.emit(hp)
-	if hp <= 0:
-		die()
+	_damage_accumulator += amount
+	var whole_damage := int(_damage_accumulator)
+	if whole_damage >= 1:
+		hp -= whole_damage
+		_damage_accumulator -= whole_damage
+		hp = max(hp, 0)
+		hp_changed.emit(hp)
+		if hp <= 0:
+			die()
 
 
 func die() -> void:

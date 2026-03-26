@@ -1,7 +1,7 @@
-[gd_scene load_steps=7 format=3 uid="uid://u1g04fuyle1k"]
+[gd_scene format=3 uid="uid://u1g04fuyle1k"]
 
-[ext_resource type="Script" path="res://scenes/world/world.gd" id="1_rvrav"]
-[ext_resource type="Script" path="res://scenes/ui/hud.gd" id="2_4676e"]
+[ext_resource type="Script" uid="uid://2vwucpwv7r35" path="res://scenes/world/world.gd" id="1_rvrav"]
+[ext_resource type="Script" uid="uid://bxy2abnykiaey" path="res://scenes/ui/hud.gd" id="2_4676e"]
 [ext_resource type="PackedScene" uid="uid://ct8xtlcyubd03" path="res://scenes/ui/game_over.tscn" id="3_1b30x"]
 
 [sub_resource type="NavigationPolygon" id="NavigationPolygon_abdnr"]
@@ -18,23 +18,23 @@ width = 3000
 height = 3000
 metadata/_snap_enabled = true
 
-[node name="World" type="Node2D"]
+[node name="World" type="Node2D" unique_id=907865207]
 script = ExtResource("1_rvrav")
 
-[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="." unique_id=4338167]
 position = Vector2(0, -144)
 navigation_polygon = SubResource("NavigationPolygon_abdnr")
 
-[node name="TextureRect" type="TextureRect" parent="."]
+[node name="TextureRect" type="TextureRect" parent="." unique_id=1923818789]
 offset_right = 40.0
 offset_bottom = 40.0
 texture = SubResource("GradientTexture2D_5ssbh")
 stretch_mode = 1
 
-[node name="HUDLayer" type="CanvasLayer" parent="."]
+[node name="HUDLayer" type="CanvasLayer" parent="." unique_id=1253927125]
 layer = 20
 
-[node name="HUD" type="Control" parent="HUDLayer"]
+[node name="HUD" type="Control" parent="HUDLayer" unique_id=2136232874]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -43,7 +43,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("2_4676e")
 
-[node name="HPBar" type="ProgressBar" parent="HUDLayer/HUD"]
+[node name="HPBar" type="ProgressBar" parent="HUDLayer/HUD" unique_id=991335888]
 layout_mode = 0
 offset_left = 20.0
 offset_top = 20.0
@@ -52,7 +52,7 @@ offset_bottom = 47.0
 value = 100.0
 show_percentage = false
 
-[node name="HPLabel" type="Label" parent="HUDLayer/HUD"]
+[node name="HPLabel" type="Label" parent="HUDLayer/HUD" unique_id=76516358]
 layout_mode = 0
 offset_left = 230.0
 offset_top = 20.0
@@ -60,14 +60,14 @@ offset_right = 270.0
 offset_bottom = 43.0
 text = "HP 100"
 
-[node name="CompassLabel" type="Label" parent="HUDLayer/HUD"]
+[node name="CompassLabel" type="Label" parent="HUDLayer/HUD" unique_id=395362161]
 custom_minimum_size = Vector2(20, 60)
 layout_mode = 0
 offset_right = 40.0
 offset_bottom = 23.0
 text = "Master Zombie: -> "
 
-[node name="DebugCoords" type="Label" parent="HUDLayer/HUD"]
+[node name="DebugCoords" type="Label" parent="HUDLayer/HUD" unique_id=446424310]
 custom_minimum_size = Vector2(0, 20)
 layout_mode = 1
 anchors_preset = 1
@@ -78,5 +78,5 @@ offset_bottom = 23.0
 grow_horizontal = 0
 horizontal_alignment = 2
 
-[node name="GameOverScreen" parent="HUDLayer" instance=ExtResource("3_1b30x")]
+[node name="GameOverScreen" parent="HUDLayer" unique_id=474424163 instance=ExtResource("3_1b30x")]
 visible = false

@@ -1,6 +1,6 @@
-[gd_scene load_steps=5 format=3 uid="uid://bjuicwad48jii"]
+[gd_scene format=3 uid="uid://bjuicwad48jii"]
 
-[ext_resource type="Script" path="res://scenes/shooter/shooter.gd" id="1_tblkw"]
+[ext_resource type="Script" uid="uid://c66xv2nn0ldow" path="res://scenes/shooter/shooter.gd" id="1_tblkw"]
 
 [sub_resource type="Gradient" id="Gradient_whfcy"]
 colors = PackedColorArray(0, 1, 0, 1, 0, 1, 0, 1)
@@ -13,17 +13,16 @@ height = 32
 [sub_resource type="CircleShape2D" id="CircleShape2D_fumq1"]
 radius = 15.0
 
-[node name="shooter" type="CharacterBody2D"]
-collision_mask = 2
+[node name="shooter" type="CharacterBody2D" unique_id=1650744308]
 script = ExtResource("1_tblkw")
 
-[node name="Sprite2D" type="Sprite2D" parent="."]
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1678443454]
 texture = SubResource("GradientTexture2D_50tyo")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=565866944]
 shape = SubResource("CircleShape2D_fumq1")
 
-[node name="Camera2D" type="Camera2D" parent="."]
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1943093476]
 limit_left = 0
 limit_top = 0
 limit_right = 3000
@@ -35,9 +34,9 @@ drag_top_margin = 0.1
 drag_right_margin = 0.1
 drag_bottom_margin = 0.1
 
-[node name="GunTip" type="Marker2D" parent="."]
+[node name="GunTip" type="Marker2D" parent="." unique_id=1706090124]
 position = Vector2(20, 0)
 
-[node name="ShootCooldown" type="Timer" parent="."]
+[node name="ShootCooldown" type="Timer" parent="." unique_id=697604511]
 wait_time = 0.28
 one_shot = true

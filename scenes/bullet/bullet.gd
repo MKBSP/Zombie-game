@@ -1,31 +1,33 @@
 extends Area2D
 
 @export var speed: float = 600.0
-@export var damage: int = 35
+@export var damage: float = 35.0
+@export var lifetime: float = 1.8
 
-var direction := Vector2.RIGHT  # overridden on spawn
-
-@onready var lifetime: Timer = $Lifetime
-
+var direction: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
-	# Direction is determined by rotation (set by the shooter before adding to tree)
-	direction = Vector2.RIGHT.rotated(rotation)
-	lifetime.timeout.connect(_on_lifetime_timeout)
-	# Connect the body_entered signal for detecting CharacterBody2D zombies
-	body_entered.connect(_on_body_entered)
+	# Despawn after lifetime expires
+	var timer := get_tree().create_timer(lifetime)
+	timer.timeout.connect(queue_free)
 
+	# Connect to body_entered for TileMapLayer collision (buildings)
+	body_entered.connect(_on_body_entered)
+	# Connect to area_entered if zombies use Area2D (depends on your Phase 1 setup)
+	# If zombies are CharacterBody2D, they're detected by body_entered too.
 
 func _physics_process(delta: float) -> void:
 	position += direction * speed * delta
 
-
 func _on_body_entered(body: Node2D) -> void:
-	# If the body has a take_damage method, call it
-	if body.has_method("take_damage"):
-		body.take_damage(damage)
-	queue_free()
-
-
-func _on_lifetime_timeout() -> void:
-	queue_free()
+	if body.is_in_group("zombies"):
+		# Deal damage to the zombie
+		if body.has_method("take_damage"):
+			body.take_damage(damage)
+		queue_free()
+	elif body is TileMapLayer:
+		# Hit a building or edge tile — despawn
+		queue_free()
+	elif body is StaticBody2D:
+		# Hit a prop (car, fence, etc.) — despawn
+		queue_free()

@@ -66,6 +66,7 @@ func shoot() -> void:
 	var bullet := bullet_scene.instantiate()
 	bullet.global_position = gun_tip.global_position
 	bullet.rotation = global_rotation
+	bullet.direction = Vector2.from_angle(global_rotation)
 	# Add the bullet to the world (parent of the shooter), not to the shooter itself
 	get_tree().current_scene.add_child(bullet)
 

@@ -4,6 +4,7 @@ extends Node2D
 @onready var game_over_screen: Control = $HUDLayer/GameOverScreen
 @onready var ground_layer: TileMapLayer = $GroundLayer
 @onready var building_layer: TileMapLayer = $BuildingLayer
+@onready var prop_scatter: Node = $PropScatter
 
 var shooter_scene := preload("res://scenes/shooter/shooter.tscn")
 var zombie_scene := preload("res://scenes/zombie/zombie.tscn")
@@ -18,6 +19,16 @@ func _ready() -> void:
 	_spawn_master_zombie()
 	_spawn_standard_zombies()
 	hud.setup(shooter, master_zombie)
+	# Scatter props before spawning entities
+	prop_scatter.scatter()
+
+	# Spawn entities (your Phase 1 spawning code goes here)
+	_spawn_entities()
+
+func _spawn_entities() -> void:
+	# This function replaces your Phase 1 hardcoded spawn positions.
+	# We'll update it in Part 8.
+	pass
 
 func _create_grid() -> void:
 	var grid := GridDrawer.new()

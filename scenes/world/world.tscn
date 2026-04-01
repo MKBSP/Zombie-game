@@ -5,6 +5,11 @@
 [ext_resource type="Script" uid="uid://bxy2abnykiaey" path="res://scenes/ui/hud.gd" id="2_4676e"]
 [ext_resource type="PackedScene" uid="uid://ct8xtlcyubd03" path="res://scenes/ui/game_over.tscn" id="3_1b30x"]
 [ext_resource type="Script" uid="uid://cwpmi5vl50l00" path="res://scripts/prop_scatter.gd" id="5_v5dby"]
+[ext_resource type="PackedScene" uid="uid://c6ybd5e8xxkoe" path="res://scenes/props/prop_car.tscn" id="6_t5ptc"]
+[ext_resource type="PackedScene" uid="uid://cj1kaemyobmkr" path="res://scenes/props/prop_tree.tscn" id="7_gb53w"]
+[ext_resource type="PackedScene" uid="uid://bewfgngiudw3s" path="res://scenes/props/prop_fence.tscn" id="8_5qq27"]
+[ext_resource type="PackedScene" uid="uid://iwyenmim4kk8" path="res://scenes/props/prop_statue.tscn" id="9_dlabj"]
+[ext_resource type="PackedScene" uid="uid://d25x7v3pwjerr" path="res://scenes/props/prop_dumpster.tscn" id="10_srmg5"]
 
 [node name="World" type="Node2D" unique_id=907865207]
 script = ExtResource("1_rvrav")
@@ -72,3 +77,13 @@ visible = false
 
 [node name="PropScatter" type="Node" parent="." unique_id=1925195708]
 script = ExtResource("5_v5dby")
+
+[node name="PropCar" parent="PropScatter" unique_id=1145335606 instance=ExtResource("6_t5ptc")]
+
+[node name="PropTree" parent="PropScatter" unique_id=961520128 instance=ExtResource("7_gb53w")]
+
+[node name="PropFence" parent="PropScatter" unique_id=537427453 instance=ExtResource("8_5qq27")]
+
+[node name="PropStatue" parent="PropScatter" unique_id=1557478503 instance=ExtResource("9_dlabj")]
+
+[node name="PropDumpster" parent="PropScatter" unique_id=1223447651 instance=ExtResource("10_srmg5")]

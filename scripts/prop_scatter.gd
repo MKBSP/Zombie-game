@@ -80,17 +80,17 @@ func _get_tiles_of_type(types: Array[String]) -> Array[Vector2i]:
 ## Returns sidewalk tiles that have at least one adjacent building tile.
 func _get_sidewalk_tiles_near_buildings(sidewalk_tiles: Array[Vector2i]) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
-	var neighbors := [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)]
+	var neighbors: Array[Vector2i] = [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)]
 
-	for tile_pos in sidewalk_tiles:
-		for offset in neighbors:
-			var neighbor_pos := tile_pos + offset
-			# Check if the neighbor is a building tile on the BuildingLayer
-			if building_layer:
+	for tile_pos: Vector2i in sidewalk_tiles:
+		for offset: Vector2i in neighbors:
+			var neighbor_pos: Vector2i = tile_pos + offset
+
+			if building_layer != null:
 				var building_data: TileData = building_layer.get_cell_tile_data(neighbor_pos)
 				if building_data != null:
 					result.append(tile_pos)
-					break  # One adjacent building is enough
+					break
 	return result
 
 

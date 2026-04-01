@@ -1,6 +1,6 @@
-[gd_scene load_steps=5 format=3 uid="uid://bdj7uqucnce8w"]
+[gd_scene format=3 uid="uid://bdj7uqucnce8w"]
 
-[ext_resource type="Script" path="res://scenes/zombie/zombie.gd" id="1_v408t"]
+[ext_resource type="Script" uid="uid://d1216cpy8072y" path="res://scenes/zombie/zombie.gd" id="1_v408t"]
 
 [sub_resource type="Gradient" id="Gradient_i00w5"]
 colors = PackedColorArray(0.6, 0, 0, 1, 0.6, 0, 0, 1)
@@ -13,17 +13,17 @@ height = 28
 [sub_resource type="CircleShape2D" id="CircleShape2D_wq15x"]
 radius = 13.0
 
-[node name="Zombie" type="CharacterBody2D"]
+[node name="Zombie" type="CharacterBody2D" unique_id=1597845788 groups=["zombies"]]
 collision_layer = 2
 script = ExtResource("1_v408t")
 
-[node name="Sprite2D" type="Sprite2D" parent="."]
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=957261396]
 texture = SubResource("GradientTexture2D_48acg")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=520756258]
 shape = SubResource("CircleShape2D_wq15x")
 debug_color = Color(0.643508, 0.466133, 0.636578, 0.42)
 
-[node name="NavigationAgent2D" type="NavigationAgent2D" parent="."]
+[node name="NavigationAgent2D" type="NavigationAgent2D" parent="." unique_id=1064585985]
 path_desired_distance = 8.0
 target_desired_distance = 8.0

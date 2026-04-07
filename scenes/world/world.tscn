@@ -1,6 +1,7 @@
 [gd_scene format=4 uid="uid://u1g04fuyle1k"]
 
 [ext_resource type="Script" uid="uid://2vwucpwv7r35" path="res://scenes/world/world.gd" id="1_rvrav"]
+[ext_resource type="Shader" uid="uid://52oyy3j07jf1" path="res://shader/fog_of_war.gdshader" id="2_5qq27"]
 [ext_resource type="TileSet" uid="uid://cf1misi0mm7de" path="res://resources/city_tileset.tres" id="2_6m72w"]
 [ext_resource type="Script" uid="uid://bxy2abnykiaey" path="res://scenes/ui/hud.gd" id="2_4676e"]
 [ext_resource type="PackedScene" uid="uid://ct8xtlcyubd03" path="res://scenes/ui/game_over.tscn" id="3_1b30x"]
@@ -11,8 +12,23 @@
 [ext_resource type="PackedScene" uid="uid://iwyenmim4kk8" path="res://scenes/props/prop_statue.tscn" id="9_dlabj"]
 [ext_resource type="PackedScene" uid="uid://d25x7v3pwjerr" path="res://scenes/props/prop_dumpster.tscn" id="10_srmg5"]
 
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_dlabj"]
+shader = ExtResource("2_5qq27")
+shader_parameter/grid_w = 47.0
+shader_parameter/grid_h = 47.0
+shader_parameter/tile_size = 64.0
+
 [node name="World" type="Node2D" unique_id=907865207]
 script = ExtResource("1_rvrav")
+
+[node name="ShooterFogRect" type="TextureRect" parent="." unique_id=1069173936]
+material = SubResource("ShaderMaterial_dlabj")
+anchors_preset = -1
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_bottom = 9.0
+grow_horizontal = 2
+grow_vertical = 2
 
 [node name="GroundLayer" type="TileMapLayer" parent="." unique_id=1217265410]
 position = Vector2(1, 0)

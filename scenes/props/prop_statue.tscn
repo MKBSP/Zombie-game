@@ -3,7 +3,7 @@
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_rw8e2"]
 size = Vector2(32, 32)
 
-[node name="PropStatue" type="StaticBody2D" unique_id=1557478503]
+[node name="PropStatue" type="StaticBody2D" unique_id=1557478503 groups=["occluders"]]
 collision_mask = 0
 
 [node name="ColorRect" type="ColorRect" parent="." unique_id=1214997472]

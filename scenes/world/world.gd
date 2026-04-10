@@ -5,7 +5,7 @@ extends Node2D
 @onready var ground_layer: TileMapLayer = $GroundLayer
 @onready var building_layer: TileMapLayer = $BuildingLayer
 @onready var prop_scatter: Node = $PropScatter
-@onready var shooter_fog_rect: TextureRect = $ShooterFogRect
+@onready var shooter_fog_rect: TextureRect = $HUDLayer/ShooterFogRect
 
 var shooter_scene := preload("res://scenes/shooter/shooter.tscn")
 var zombie_scene := preload("res://scenes/zombie/zombie.tscn")

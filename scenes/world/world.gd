@@ -5,7 +5,7 @@ extends Node2D
 @onready var ground_layer: TileMapLayer = $GroundLayer
 @onready var building_layer: TileMapLayer = $BuildingLayer
 @onready var prop_scatter: Node = $PropScatter
-@onready var shooter_fog_rect: TextureRect = $HUDLayer/ShooterFogRect
+@onready var shooter_fog_rect: ColorRect = $HUDLayer/ShooterFogRect
 
 var shooter_scene := preload("res://scenes/shooter/shooter.tscn")
 var zombie_scene := preload("res://scenes/zombie/zombie.tscn")
@@ -54,6 +54,16 @@ func _process(_delta: float) -> void:
 	var facing_angle: float = shooter.global_rotation
 	fog_shooter.update_visibility(shooter_tile, facing_angle)
 	fog_texture.update(fog_shooter.visibility_image)
+
+	# Update camera position in the shader
+	var camera: Camera2D = shooter.get_node("Camera2D")
+	var vp_size: Vector2 = get_viewport().get_visible_rect().size
+	var cam_center: Vector2 = camera.get_screen_center_position()
+	var cam_top_left: Vector2 = cam_center - vp_size / 2.0
+
+	var shader_material: ShaderMaterial = shooter_fog_rect.material as ShaderMaterial
+	shader_material.set_shader_parameter("camera_top_left", cam_top_left)
+	shader_material.set_shader_parameter("viewport_size", vp_size)
 
 func _create_grid() -> void:
 	var grid := GridDrawer.new()

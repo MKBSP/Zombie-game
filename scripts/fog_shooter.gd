@@ -98,17 +98,15 @@ func update_visibility(shooter_tile: Vector2i, facing_angle: float) -> void:
 	var perp := Vector2(-dir.y, dir.x)  # perpendicular to facing direction
 
 	for depth in range(1, CONE_DEPTH + 1):
-		# Width at this depth: linearly interpolate from 0.5 at depth 1 to 1.5 at depth 5
 		var half_w: float = 0.5 + (CONE_HALF_WIDTH - 0.5) * float(depth - 1) / float(CONE_DEPTH - 1)
 
-		# Sample across the width at this depth
-		# Use enough samples to not miss tiles
-		var sample_count: int = int(ceil(half_w * 2.0)) + 1
+		# Use many more samples to eliminate gaps — 2 samples per tile width minimum
+		var sample_count: int = int(ceil(half_w * 4.0)) + 3
 		for s in range(sample_count):
 			var offset: float = -half_w + (half_w * 2.0) * float(s) / float(max(sample_count - 1, 1))
 			var world_offset: Vector2 = dir * float(depth) + perp * offset
 			var target_tile := shooter_tile + Vector2i(roundi(world_offset.x), roundi(world_offset.y))
-
+			
 			# Bounds check
 			if target_tile.x < 0 or target_tile.x >= GRID_W:
 				continue

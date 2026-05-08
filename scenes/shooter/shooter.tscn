@@ -9,9 +9,11 @@ colors = PackedColorArray(0, 1, 0, 1, 0, 1, 0, 1)
 gradient = SubResource("Gradient_whfcy")
 width = 32
 height = 32
+fill_from = Vector2(1, 0)
+fill_to = Vector2(0, 0)
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_fumq1"]
-radius = 15.0
+radius = 17.0
 
 [node name="shooter" type="CharacterBody2D" unique_id=1650744308]
 script = ExtResource("1_tblkw")

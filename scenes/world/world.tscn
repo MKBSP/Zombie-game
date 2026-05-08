@@ -11,6 +11,8 @@
 [ext_resource type="PackedScene" uid="uid://bewfgngiudw3s" path="res://scenes/props/prop_fence.tscn" id="8_5qq27"]
 [ext_resource type="PackedScene" uid="uid://iwyenmim4kk8" path="res://scenes/props/prop_statue.tscn" id="9_dlabj"]
 [ext_resource type="PackedScene" uid="uid://d25x7v3pwjerr" path="res://scenes/props/prop_dumpster.tscn" id="10_srmg5"]
+[ext_resource type="Shader" uid="uid://bslv6qdsbm2d7" path="res://shader/fog_zc.gdshader" id="12_dlabj"]
+[ext_resource type="Script" uid="uid://cfqikqgle2ibo" path="res://scripts/zombie_controller.gd" id="13_srmg5"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_gb53w"]
 shader = ExtResource("2_5qq27")
@@ -19,6 +21,9 @@ shader_parameter/grid_h = 47.0
 shader_parameter/tile_size = 64.0
 shader_parameter/camera_top_left = Vector2(0, 0)
 shader_parameter/viewport_size = Vector2(1280, 720)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_srmg5"]
+shader = ExtResource("12_dlabj")
 
 [node name="World" type="Node2D" unique_id=907865207]
 script = ExtResource("1_rvrav")
@@ -38,6 +43,7 @@ navigation_enabled = false
 layer = 20
 
 [node name="ShooterFogRect" type="ColorRect" parent="HUDLayer" unique_id=1698260855]
+visible = false
 material = SubResource("ShaderMaterial_gb53w")
 anchors_preset = 15
 anchor_right = 1.0
@@ -102,3 +108,23 @@ dumpster_scene = ExtResource("10_srmg5")
 statue_scene = ExtResource("9_dlabj")
 ground_layer = NodePath("../GroundLayer")
 building_layer = NodePath("../BuildingLayer")
+
+[node name="ZCFogRect" type="TextureRect" parent="." unique_id=867529116]
+material = SubResource("ShaderMaterial_srmg5")
+offset_right = 3008.0
+offset_bottom = 3008.0
+mouse_filter = 2
+
+[node name="ZCCamera" type="Camera2D" parent="." unique_id=1554892712]
+position = Vector2(1504, 1504)
+zoom = Vector2(0.5, 0.5)
+limit_left = 0
+limit_top = 0
+limit_right = 3008
+limit_bottom = 3008
+
+[node name="ZombieControllerNode" type="Node" parent="." unique_id=757280064 node_paths=PackedStringArray("camera", "fog_rect", "ground_layer")]
+script = ExtResource("13_srmg5")
+camera = NodePath("../ZCCamera")
+fog_rect = NodePath("../ZCFogRect")
+ground_layer = NodePath("../GroundLayer")

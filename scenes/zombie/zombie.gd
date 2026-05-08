@@ -3,6 +3,8 @@ extends CharacterBody2D
 @export var speed: float = 85.0
 @export var max_hp: int = 150
 @export var contact_dps: float = 12.0  # damage per second on contact
+## Vision range in tiles for the Zombie Controller's fog of war
+@export var vision_range: int = 2
 
 var hp: int
 var is_dead: bool = false

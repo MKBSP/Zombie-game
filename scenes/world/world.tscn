@@ -13,6 +13,7 @@
 [ext_resource type="PackedScene" uid="uid://d25x7v3pwjerr" path="res://scenes/props/prop_dumpster.tscn" id="10_srmg5"]
 [ext_resource type="Shader" uid="uid://bslv6qdsbm2d7" path="res://shader/fog_zc.gdshader" id="12_dlabj"]
 [ext_resource type="Script" uid="uid://cfqikqgle2ibo" path="res://scripts/zombie_controller.gd" id="13_srmg5"]
+[ext_resource type="Script" uid="uid://c7x2ta8buayow" path="res://scenes/world/selectrion_drawer.gd" id="14_umvgx"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_gb53w"]
 shader = ExtResource("2_5qq27")
@@ -43,7 +44,6 @@ navigation_enabled = false
 layer = 20
 
 [node name="ShooterFogRect" type="ColorRect" parent="HUDLayer" unique_id=1698260855]
-visible = false
 material = SubResource("ShaderMaterial_gb53w")
 anchors_preset = 15
 anchor_right = 1.0
@@ -110,6 +110,7 @@ ground_layer = NodePath("../GroundLayer")
 building_layer = NodePath("../BuildingLayer")
 
 [node name="ZCFogRect" type="TextureRect" parent="." unique_id=867529116]
+visible = false
 material = SubResource("ShaderMaterial_srmg5")
 offset_right = 3008.0
 offset_bottom = 3008.0
@@ -117,14 +118,29 @@ mouse_filter = 2
 
 [node name="ZCCamera" type="Camera2D" parent="." unique_id=1554892712]
 position = Vector2(1504, 1504)
+enabled = false
 zoom = Vector2(0.5, 0.5)
 limit_left = 0
 limit_top = 0
 limit_right = 3008
 limit_bottom = 3008
 
-[node name="ZombieControllerNode" type="Node" parent="." unique_id=757280064 node_paths=PackedStringArray("camera", "fog_rect", "ground_layer")]
+[node name="ZombieControllerNode" type="Node" parent="." unique_id=757280064 node_paths=PackedStringArray("camera", "fog_rect", "ground_layer", "selection_drawer")]
 script = ExtResource("13_srmg5")
 camera = NodePath("../ZCCamera")
 fog_rect = NodePath("../ZCFogRect")
 ground_layer = NodePath("../GroundLayer")
+selection_drawer = NodePath("ZCOverlay/SelectrionDrawer")
+
+[node name="ZCOverlay" type="CanvasLayer" parent="ZombieControllerNode" unique_id=1251943451]
+layer = 5
+visible = false
+
+[node name="SelectrionDrawer" type="Control" parent="ZombieControllerNode/ZCOverlay" unique_id=1131729318]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("14_umvgx")

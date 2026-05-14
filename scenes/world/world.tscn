@@ -44,6 +44,7 @@ navigation_enabled = false
 layer = 20
 
 [node name="ShooterFogRect" type="ColorRect" parent="HUDLayer" unique_id=1698260855]
+visible = false
 material = SubResource("ShaderMaterial_gb53w")
 anchors_preset = 15
 anchor_right = 1.0
@@ -110,7 +111,6 @@ ground_layer = NodePath("../GroundLayer")
 building_layer = NodePath("../BuildingLayer")
 
 [node name="ZCFogRect" type="TextureRect" parent="." unique_id=867529116]
-visible = false
 material = SubResource("ShaderMaterial_srmg5")
 offset_right = 3008.0
 offset_bottom = 3008.0
@@ -118,7 +118,6 @@ mouse_filter = 2
 
 [node name="ZCCamera" type="Camera2D" parent="." unique_id=1554892712]
 position = Vector2(1504, 1504)
-enabled = false
 zoom = Vector2(0.5, 0.5)
 limit_left = 0
 limit_top = 0
@@ -134,7 +133,6 @@ selection_drawer = NodePath("ZCOverlay/SelectrionDrawer")
 
 [node name="ZCOverlay" type="CanvasLayer" parent="ZombieControllerNode" unique_id=1251943451]
 layer = 5
-visible = false
 
 [node name="SelectrionDrawer" type="Control" parent="ZombieControllerNode/ZCOverlay" unique_id=1131729318]
 layout_mode = 3

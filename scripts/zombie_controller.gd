@@ -22,7 +22,7 @@ var fog_zc: FogZombieController
 var fog_texture: ImageTexture
 
 # Whether this controller is active (receiving input)
-var is_active: bool = false
+var is_active: bool = true
 
 # Selection state
 var selected_zombies: Array[Node2D] = []
@@ -41,8 +41,8 @@ func _ready() -> void:
 		var mat: ShaderMaterial = fog_rect.material as ShaderMaterial
 		mat.set_shader_parameter("visibility_tex", fog_texture)
 
-	set_process(false)
-	set_process_input(false)
+#	set_process(false)
+#	set_process_input(false)
 
 
 ## Call this to activate/deactivate the Zombie Controller view.

@@ -1,9 +1,9 @@
-[gd_scene format=3 uid="uid://bdj7uqucnce8w"]
+[gd_scene format=3 uid="uid://bg0cosb6sd0sx"]
 
-[ext_resource type="Script" uid="uid://d1216cpy8072y" path="res://scenes/zombie/zombie.gd" id="1_v408t"]
+[ext_resource type="Script" uid="uid://d1216cpy8072y" path="res://scenes/zombie/zombie.gd" id="1_jwcyb"]
 
 [sub_resource type="Gradient" id="Gradient_i00w5"]
-colors = PackedColorArray(0.6, 0.8901961, 0, 1, 0.6, 1, 0, 1)
+colors = PackedColorArray(0.6, 0.28627452, 0, 1, 0.6, 0.28627452, 0, 1)
 
 [sub_resource type="GradientTexture2D" id="GradientTexture2D_48acg"]
 gradient = SubResource("Gradient_i00w5")
@@ -13,15 +13,19 @@ height = 28
 [sub_resource type="CircleShape2D" id="CircleShape2D_wq15x"]
 radius = 13.0
 
-[node name="Zombie" type="CharacterBody2D" unique_id=1597845788 groups=["zombies"]]
+[node name="FatZombie" type="CharacterBody2D" unique_id=1597845788 groups=["zombies"]]
 collision_layer = 2
-script = ExtResource("1_v408t")
-speed = 187.0
+script = ExtResource("1_jwcyb")
+speed = 76.5
+max_hp = 750
+contact_dps = 60.0
 
-[node name="Sprite2D" type="Sprite2D" parent="." unique_id=957261396 groups=["zombies"]]
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=957261396 groups=["fat_zombie", "zombies"]]
+scale = Vector2(1.5, 1.5)
 texture = SubResource("GradientTexture2D_48acg")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=520756258]
+scale = Vector2(1.5, 1.5)
 shape = SubResource("CircleShape2D_wq15x")
 debug_color = Color(0.643508, 0.466133, 0.636578, 0.42)
 

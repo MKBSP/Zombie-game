@@ -14,6 +14,9 @@
 [ext_resource type="Shader" uid="uid://bslv6qdsbm2d7" path="res://shader/fog_zc.gdshader" id="12_dlabj"]
 [ext_resource type="Script" uid="uid://cfqikqgle2ibo" path="res://scripts/zombie_controller.gd" id="13_srmg5"]
 [ext_resource type="Script" uid="uid://c7x2ta8buayow" path="res://scenes/world/selectrion_drawer.gd" id="14_umvgx"]
+[ext_resource type="Script" uid="uid://73kxgnr2wka6" path="res://scripts/merge_manager.gd" id="15_71ii3"]
+[ext_resource type="PackedScene" uid="uid://dt4qweg6brm4d" path="res://scenes/zombie/fast_zombie.tscn" id="16_bt7bg"]
+[ext_resource type="PackedScene" uid="uid://bg0cosb6sd0sx" path="res://scenes/zombie/fat_zombie.tscn" id="17_wbwoo"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_gb53w"]
 shader = ExtResource("2_5qq27")
@@ -124,12 +127,16 @@ limit_top = 0
 limit_right = 3008
 limit_bottom = 3008
 
-[node name="ZombieControllerNode" type="Node" parent="." unique_id=757280064 node_paths=PackedStringArray("camera", "fog_rect", "ground_layer", "selection_drawer")]
+[node name="ZombieControllerNode" type="Node" parent="." unique_id=757280064 node_paths=PackedStringArray("camera", "fog_rect", "ground_layer", "selection_drawer", "merge_manager", "fast_button", "fat_button", "cancel_button")]
 script = ExtResource("13_srmg5")
 camera = NodePath("../ZCCamera")
 fog_rect = NodePath("../ZCFogRect")
 ground_layer = NodePath("../GroundLayer")
 selection_drawer = NodePath("ZCOverlay/SelectrionDrawer")
+merge_manager = NodePath("../MergeManager")
+fast_button = NodePath("ZCOverlay/MergePanel/FastButton")
+fat_button = NodePath("ZCOverlay/MergePanel/FatButton")
+cancel_button = NodePath("ZCOverlay/MergePanel/CancelButton")
 
 [node name="ZCOverlay" type="CanvasLayer" parent="ZombieControllerNode" unique_id=1251943451]
 layer = 5
@@ -142,3 +149,33 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("14_umvgx")
+
+[node name="MergePanel" type="VBoxContainer" parent="ZombieControllerNode/ZCOverlay" unique_id=1403338953]
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -40.0
+offset_top = -40.0
+grow_horizontal = 0
+grow_vertical = 0
+
+[node name="FastButton" type="Button" parent="ZombieControllerNode/ZCOverlay/MergePanel" unique_id=681435213]
+layout_mode = 2
+text = "Fast"
+
+[node name="FatButton" type="Button" parent="ZombieControllerNode/ZCOverlay/MergePanel" unique_id=1381819340]
+layout_mode = 2
+text = "Fat"
+
+[node name="CancelButton" type="Button" parent="ZombieControllerNode/ZCOverlay/MergePanel" unique_id=1547797684]
+visible = false
+layout_mode = 2
+text = "Cancel"
+
+[node name="MergeManager" type="Node" parent="." unique_id=1900905893 node_paths=PackedStringArray("ground_layer")]
+script = ExtResource("15_71ii3")
+fast_zombie_scene = ExtResource("16_bt7bg")
+fat_zombie_scene = ExtResource("17_wbwoo")
+ground_layer = NodePath("../GroundLayer")

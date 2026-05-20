@@ -5,6 +5,7 @@ extends CharacterBody2D
 @export var contact_dps: float = 12.0
 @export var vision_range: int = 2
 
+
 var command_mode: bool = false
 var command_target: Vector2 = Vector2.ZERO
 var is_selected: bool = false

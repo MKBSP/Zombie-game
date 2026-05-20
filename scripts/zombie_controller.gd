@@ -9,6 +9,13 @@ class_name ZombieController
 @export var ground_layer: TileMapLayer
 @export var selection_drawer: Control
 
+#Merge Zombies to create new Zombies
+@export var merge_manager: MergeManager
+@export var fast_button: Button
+@export var fat_button: Button
+@export var cancel_button: Button
+
+
 # Camera settings
 const PAN_SPEED_KEYS: float = 400.0
 const PAN_SPEED_MOUSE: float = 300.0
@@ -43,7 +50,86 @@ func _ready() -> void:
 
 #	set_process(false)
 #	set_process_input(false)
+	if fast_button:
+		fast_button.pressed.connect(_on_fast_merge_pressed)
+	if fat_button:
+		fat_button.pressed.connect(_on_fat_merge_pressed)
+	if cancel_button:
+		cancel_button.pressed.connect(_on_cancel_merge_pressed)
+	if merge_manager:
+		merge_manager.merge_started.connect(func(): cancel_button.visible = true)
+		merge_manager.merge_completed.connect(func(): cancel_button.visible = false)
+		merge_manager.merge_cancelled.connect(func(): cancel_button.visible = false)
+		merge_manager.merge_locked_in.connect(func(): cancel_button.visible = false)
 
+
+func _on_fast_merge_pressed() -> void:
+	if merge_manager == null or merge_manager.state != MergeManager.MergeState.IDLE:
+		return
+	var standard_zombies := _get_standard_selected()
+	if standard_zombies.size() < 2:
+		return
+	# Pick the 2 closest to each other
+	var pair := _find_closest_pair(standard_zombies)
+	merge_manager.start_merge(pair, "fast")
+
+
+func _on_fat_merge_pressed() -> void:
+	if merge_manager == null or merge_manager.state != MergeManager.MergeState.IDLE:
+		return
+	var standard_zombies := _get_standard_selected()
+	if standard_zombies.size() < 3:
+		return
+	# Pick the 3 closest to each other
+	var trio := _find_closest_trio(standard_zombies)
+	merge_manager.start_merge(trio, "fat")
+
+
+func _on_cancel_merge_pressed() -> void:
+	if merge_manager:
+		merge_manager.cancel_merge()
+
+
+## Returns selected standard zombies (excludes master, fast, fat).
+func _get_standard_selected() -> Array[Node2D]:
+	var result: Array[Node2D] = []
+	for z in selected_zombies:
+		if is_instance_valid(z):
+			if z.is_in_group("zombies") and not z.is_in_group("master_zombie") \
+				and not z.is_in_group("fast_zombie") and not z.is_in_group("fat_zombie"):
+				result.append(z)
+	return result
+
+
+## Find the 2 zombies closest to each other.
+func _find_closest_pair(zombies: Array[Node2D]) -> Array[Node2D]:
+	var best_dist: float = INF
+	var best_pair: Array[Node2D] = []
+	for i in range(zombies.size()):
+		for j in range(i + 1, zombies.size()):
+			var dist: float = zombies[i].global_position.distance_to(zombies[j].global_position)
+			if dist < best_dist:
+				best_dist = dist
+				best_pair = [zombies[i], zombies[j]]
+	return best_pair
+
+
+## Find the 3 zombies with the smallest total pairwise distance.
+func _find_closest_trio(zombies: Array[Node2D]) -> Array[Node2D]:
+	var best_dist: float = INF
+	var best_trio: Array[Node2D] = []
+	for i in range(zombies.size()):
+		for j in range(i + 1, zombies.size()):
+			for k in range(j + 1, zombies.size()):
+				var dist: float = (
+					zombies[i].global_position.distance_to(zombies[j].global_position) +
+					zombies[j].global_position.distance_to(zombies[k].global_position) +
+					zombies[i].global_position.distance_to(zombies[k].global_position)
+				)
+				if dist < best_dist:
+					best_dist = dist
+					best_trio = [zombies[i], zombies[j], zombies[k]]
+	return best_trio
 
 ## Call this to activate/deactivate the Zombie Controller view.
 func activate() -> void:
@@ -77,6 +163,23 @@ func _process(delta: float) -> void:
 		else:
 			selection_drawer.draw_rect_active = false
 	_update_fog()
+		# Update merge button states
+	_update_merge_buttons()
+
+func _update_merge_buttons() -> void:
+	if fast_button == null or fat_button == null:
+		return
+
+	var standard_count: int = _get_standard_selected().size()
+
+	# Only show buttons when zombies are selected
+	var any_selected: bool = selected_zombies.size() > 0
+	fast_button.visible = any_selected
+	fat_button.visible = any_selected
+
+	# Enable/disable based on count
+	fast_button.disabled = standard_count < 2 or merge_manager.state != MergeManager.MergeState.IDLE
+	fat_button.disabled = standard_count < 3 or merge_manager.state != MergeManager.MergeState.IDLE
 
 
 #func _input(event: InputEvent) -> void:
@@ -274,8 +377,7 @@ func _command_move(world_pos: Vector2) -> void:
 	for z in selected_zombies:
 		if is_instance_valid(z) and z.has_method("set_command"):
 			z.set_command(world_pos)
-	# Show a brief ping at the target (we'll add this visual later)
-			_show_ping(world_pos)
+	_show_ping(world_pos)
 
 ## Try to find a zombie under the given world position.
 func _get_zombie_at_position(world_pos: Vector2) -> Node2D:

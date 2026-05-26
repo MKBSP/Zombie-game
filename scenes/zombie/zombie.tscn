@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://d1216cpy8072y" path="res://scenes/zombie/zombie.gd" id="1_v408t"]
 
 [sub_resource type="Gradient" id="Gradient_i00w5"]
-colors = PackedColorArray(0.6, 0.8901961, 0, 1, 0.6, 1, 0, 1)
+colors = PackedColorArray(0.6, 0, 0, 1, 0.6, 0, 0, 1)
 
 [sub_resource type="GradientTexture2D" id="GradientTexture2D_48acg"]
 gradient = SubResource("Gradient_i00w5")
@@ -16,7 +16,6 @@ radius = 13.0
 [node name="Zombie" type="CharacterBody2D" unique_id=1597845788 groups=["zombies"]]
 collision_layer = 2
 script = ExtResource("1_v408t")
-speed = 187.0
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=957261396 groups=["zombies"]]
 texture = SubResource("GradientTexture2D_48acg")

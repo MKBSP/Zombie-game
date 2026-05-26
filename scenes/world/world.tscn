@@ -148,6 +148,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 script = ExtResource("14_umvgx")
 
 [node name="MergePanel" type="VBoxContainer" parent="ZombieControllerNode/ZCOverlay" unique_id=1403338953]
@@ -160,6 +161,7 @@ offset_left = -40.0
 offset_top = -40.0
 grow_horizontal = 0
 grow_vertical = 0
+pivot_offset = Vector2(-150, -120)
 
 [node name="FastButton" type="Button" parent="ZombieControllerNode/ZCOverlay/MergePanel" unique_id=681435213]
 layout_mode = 2

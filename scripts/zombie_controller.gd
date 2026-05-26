@@ -191,7 +191,7 @@ func _update_merge_buttons() -> void:
 #			elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 #				_zoom_camera(-ZOOM_STEP)
 
-func _input(event: InputEvent) -> void:
+func _unhandled_input(event: InputEvent) -> void:
 	if not is_active:
 		return
 

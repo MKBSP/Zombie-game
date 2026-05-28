@@ -62,6 +62,11 @@ func _ready() -> void:
 		merge_manager.merge_cancelled.connect(func(): cancel_button.visible = false)
 		merge_manager.merge_locked_in.connect(func(): cancel_button.visible = false)
 
+	# Fix MergePanel size so buttons are clickable
+	if fast_button:
+		var panel: Control = fast_button.get_parent()
+		panel.offset_left = -150
+		panel.offset_top = -100
 
 func _on_fast_merge_pressed() -> void:
 	if merge_manager == null or merge_manager.state != MergeManager.MergeState.IDLE:
@@ -72,6 +77,10 @@ func _on_fast_merge_pressed() -> void:
 	# Pick the 2 closest to each other
 	var pair := _find_closest_pair(standard_zombies)
 	merge_manager.start_merge(pair, "fast")
+		# print to check it if fast button fired. 
+	print("FAST BUTTON PRESSED - selected: ", selected_zombies.size(), " standard: ", _get_standard_selected().size())
+	if merge_manager == null or merge_manager.state != MergeManager.MergeState.IDLE:
+		return
 
 
 func _on_fat_merge_pressed() -> void:
@@ -83,6 +92,11 @@ func _on_fat_merge_pressed() -> void:
 	# Pick the 3 closest to each other
 	var trio := _find_closest_trio(standard_zombies)
 	merge_manager.start_merge(trio, "fat")
+	
+	# print to check it if fat button fired. 
+	print("FAT BUTTON PRESSED - selected: ", selected_zombies.size(), " standard: ", _get_standard_selected().size())
+	if merge_manager == null or merge_manager.state != MergeManager.MergeState.IDLE:
+		return
 
 
 func _on_cancel_merge_pressed() -> void:
@@ -191,7 +205,7 @@ func _update_merge_buttons() -> void:
 #			elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 #				_zoom_camera(-ZOOM_STEP)
 
-func _unhandled_input(event: InputEvent) -> void:
+func _input(event: InputEvent) -> void:
 	if not is_active:
 		return
 
@@ -204,6 +218,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 				_zoom_camera(-ZOOM_STEP)
 				return
+	# Skip selection logic when clicking on UI buttons
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if get_viewport().gui_get_hovered_control() is Button:
+			return
 
 	# --- Left click: selection ---
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:

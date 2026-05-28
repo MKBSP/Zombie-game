@@ -161,7 +161,6 @@ offset_left = -40.0
 offset_top = -40.0
 grow_horizontal = 0
 grow_vertical = 0
-pivot_offset = Vector2(-150, -120)
 
 [node name="FastButton" type="Button" parent="ZombieControllerNode/ZCOverlay/MergePanel" unique_id=681435213]
 layout_mode = 2

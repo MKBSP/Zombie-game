@@ -13,7 +13,7 @@ height = 28
 [sub_resource type="CircleShape2D" id="CircleShape2D_wq15x"]
 radius = 13.0
 
-[node name="FastZombie" type="CharacterBody2D" unique_id=1597845788 groups=["fast_zombies"]]
+[node name="FastZombie" type="CharacterBody2D" unique_id=1597845788]
 collision_layer = 2
 script = ExtResource("1_foluw")
 speed = 150.0

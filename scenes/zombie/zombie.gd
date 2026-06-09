@@ -20,10 +20,10 @@ signal zombie_died(zombie: Node2D)
 func _ready() -> void:
 	hp = max_hp
 	await get_tree().physics_frame
-	_update_navigation()
+	nav_agent.target_position = global_position  # Stay put initially
 
 func _physics_process(delta: float) -> void:
-	if is_dead or target == null:
+	if is_dead:
 		return
 
 	if command_mode:
@@ -31,8 +31,12 @@ func _physics_process(delta: float) -> void:
 		if nav_agent.is_navigation_finished():
 			command_mode = false
 	else:
-		if target:
+		# Only chase target if it exists AND is within vision range
+		if target != null and _target_in_range():
 			nav_agent.target_position = target.global_position
+		else:
+			# Idle — stay put
+			return
 
 	if nav_agent.is_navigation_finished():
 		return
@@ -47,9 +51,22 @@ func _physics_process(delta: float) -> void:
 
 	_check_contact_damage(delta)
 
+
+## Returns true if the target (shooter) is within this zombie's vision range.
+func _target_in_range() -> bool:
+	if target == null or not is_instance_valid(target):
+		return false
+	var detection_px: float = vision_range * 64.0
+	return global_position.distance_to(target.global_position) <= detection_px
+
+
 func _draw() -> void:
 	if is_selected:
-		draw_arc(Vector2.ZERO, 18.0, 0.0, TAU, 32, Color.GREEN, 2.0)
+		var radius: float = 18.0
+		var col_shape: CollisionShape2D = get_node_or_null("CollisionShape2D")
+		if col_shape:
+			radius = 13.0 * col_shape.scale.x + 6.0
+		draw_arc(Vector2.ZERO, radius, 0.0, TAU, 32, Color.GREEN, 2.0)
 
 func set_command(destination: Vector2) -> void:
 	command_mode = true
@@ -61,10 +78,6 @@ func set_target(new_target: Node2D) -> void:
 func set_selected(value: bool) -> void:
 	is_selected = value
 	queue_redraw()
-
-func _update_navigation() -> void:
-	if target != null:
-		nav_agent.target_position = target.global_position
 
 func _check_contact_damage(delta: float) -> void:
 	if target == null:

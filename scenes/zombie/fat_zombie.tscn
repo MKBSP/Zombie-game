@@ -13,14 +13,14 @@ height = 28
 [sub_resource type="CircleShape2D" id="CircleShape2D_wq15x"]
 radius = 13.0
 
-[node name="FatZombie" type="CharacterBody2D" unique_id=1597845788 groups=["zombies"]]
+[node name="FatZombie" type="CharacterBody2D" unique_id=1597845788 groups=["fat_zombie", "zombies"]]
 collision_layer = 2
 script = ExtResource("1_jwcyb")
 speed = 76.5
 max_hp = 750
 contact_dps = 60.0
 
-[node name="Sprite2D" type="Sprite2D" parent="." unique_id=957261396 groups=["fat_zombie", "zombies"]]
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=957261396]
 scale = Vector2(1.5, 1.5)
 texture = SubResource("GradientTexture2D_48acg")
 

@@ -17,7 +17,7 @@ radius = 13.0
 collision_layer = 2
 script = ExtResource("1_v408t")
 
-[node name="Sprite2D" type="Sprite2D" parent="." unique_id=957261396 groups=["zombies"]]
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=957261396]
 texture = SubResource("GradientTexture2D_48acg")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=520756258]

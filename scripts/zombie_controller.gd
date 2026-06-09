@@ -69,34 +69,25 @@ func _ready() -> void:
 		panel.offset_top = -100
 
 func _on_fast_merge_pressed() -> void:
+	print("FAST BUTTON PRESSED - selected: ", selected_zombies.size(), " standard: ", _get_standard_selected().size())
 	if merge_manager == null or merge_manager.state != MergeManager.MergeState.IDLE:
 		return
 	var standard_zombies := _get_standard_selected()
 	if standard_zombies.size() < 2:
 		return
-	# Pick the 2 closest to each other
-	var pair := _find_closest_pair(standard_zombies)
-	merge_manager.start_merge(pair, "fast")
-		# print to check it if fast button fired. 
-	print("FAST BUTTON PRESSED - selected: ", selected_zombies.size(), " standard: ", _get_standard_selected().size())
-	if merge_manager == null or merge_manager.state != MergeManager.MergeState.IDLE:
-		return
+	var trio := _find_closest_trio(standard_zombies)
+	merge_manager.start_merge(trio, "fast")
 
 
 func _on_fat_merge_pressed() -> void:
+	print("FAT BUTTON PRESSED - selected: ", selected_zombies.size(), " standard: ", _get_standard_selected().size())
 	if merge_manager == null or merge_manager.state != MergeManager.MergeState.IDLE:
 		return
 	var standard_zombies := _get_standard_selected()
 	if standard_zombies.size() < 3:
 		return
-	# Pick the 3 closest to each other
 	var trio := _find_closest_trio(standard_zombies)
 	merge_manager.start_merge(trio, "fat")
-	
-	# print to check it if fat button fired. 
-	print("FAT BUTTON PRESSED - selected: ", selected_zombies.size(), " standard: ", _get_standard_selected().size())
-	if merge_manager == null or merge_manager.state != MergeManager.MergeState.IDLE:
-		return
 
 
 func _on_cancel_merge_pressed() -> void:

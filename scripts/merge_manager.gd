@@ -3,11 +3,13 @@ class_name MergeManager
 
 ## Manages the zombie merging process.
 ## Controls the walk-to-merge, lock-in timer, and spawn of the new zombie.
+## Visual: during lock phase, all zombies except one are hidden. The remaining
+## one pulses and shows a progress bar. On completion it's replaced by the new type.
 
-signal merge_started       # Emitted when zombies begin walking to merge
-signal merge_locked_in     # Emitted when timer starts (no cancel)
-signal merge_completed     # Emitted when new zombie spawns
-signal merge_cancelled     # Emitted when merge is cancelled
+signal merge_started
+signal merge_locked_in
+signal merge_completed
+signal merge_cancelled
 
 @export var fast_zombie_scene: PackedScene
 @export var fat_zombie_scene: PackedScene
@@ -25,6 +27,12 @@ var merge_type: String = ""  # "fast" or "fat"
 var lock_timer: float = 0.0
 var lock_duration: float = 0.0
 
+# The one zombie kept visible during lock phase
+var _visible_zombie: Node2D = null
+
+# Progress bar node drawn above the merging zombie
+var _progress_bar: Node2D = null
+
 # Distance threshold for "touching" (pixels)
 const TOUCH_DISTANCE: float = 30.0
 
@@ -35,6 +43,7 @@ func _process(delta: float) -> void:
 			_process_walking()
 		MergeState.LOCKED:
 			_process_locked(delta)
+
 
 ## Start a merge. zombies: the standard zombies to merge. type: "fast" or "fat".
 func start_merge(zombies: Array[Node2D], type: String) -> void:
@@ -86,7 +95,6 @@ func _process_walking() -> void:
 
 	var required: int = 2 if merge_type == "fast" else 3
 	if merge_zombies.size() < required:
-		# Not enough zombies left — cancel
 		cancel_merge()
 		return
 
@@ -104,50 +112,91 @@ func _process_walking() -> void:
 			break
 
 	if all_touching:
-		# Transition to locked state
-		state = MergeState.LOCKED
-		lock_duration = 2.0 * float(merge_zombies.size())
-		lock_timer = 0.0
+		_enter_locked_state()
 
-		# Freeze all merging zombies
-		for z in merge_zombies:
-			z.command_mode = true
-			z.command_target = z.global_position  # Stay in place
-			z.velocity = Vector2.ZERO
 
-		merge_locked_in.emit()
+func _enter_locked_state() -> void:
+	state = MergeState.LOCKED
+	lock_duration = 2.0 * float(merge_zombies.size())
+	lock_timer = 0.0
+
+	# Calculate midpoint for the visible zombie
+	var midpoint := Vector2.ZERO
+	for z in merge_zombies:
+		midpoint += z.global_position
+	midpoint /= float(merge_zombies.size())
+
+	# Keep the first zombie visible, hide and freeze the rest
+	_visible_zombie = merge_zombies[0]
+	_visible_zombie.global_position = midpoint
+	_visible_zombie.command_mode = true
+	_visible_zombie.command_target = midpoint
+	_visible_zombie.velocity = Vector2.ZERO
+
+	for i in range(1, merge_zombies.size()):
+		var z := merge_zombies[i]
+		z.command_mode = true
+		z.command_target = z.global_position
+		z.velocity = Vector2.ZERO
+		z.visible = false  # Hide — absorbed into the merge
+
+	# Create a progress bar above the visible zombie
+	_progress_bar = MergeProgressBar.new()
+	_visible_zombie.add_child(_progress_bar)
+	_progress_bar.position = Vector2(0, -30)
+
+	merge_locked_in.emit()
 
 
 func _process_locked(delta: float) -> void:
 	lock_timer += delta
+
+	# Update progress bar
+	if _progress_bar and _progress_bar is MergeProgressBar:
+		_progress_bar.progress = lock_timer / lock_duration
+
+	# Pulse the visible zombie
+	if is_instance_valid(_visible_zombie):
+		var pulse: float = 0.6 + 0.4 * abs(sin(lock_timer * 4.0))
+		_visible_zombie.modulate = Color(pulse, pulse, pulse, 1.0)
 
 	if lock_timer >= lock_duration:
 		_complete_merge()
 
 
 func _complete_merge() -> void:
-	# Calculate spawn position (midpoint)
-	var midpoint := Vector2.ZERO
-	for z in merge_zombies:
-		if is_instance_valid(z):
-			midpoint += z.global_position
-	midpoint /= float(merge_zombies.size())
-
-	# Calculate HP percentage average
+	# Calculate HP percentage average from ALL merge zombies (including hidden ones)
 	var hp_pct_sum: float = 0.0
 	var count: int = 0
 	for z in merge_zombies:
 		if is_instance_valid(z):
-			# Assumes zombie has `hp` and `max_hp` properties
 			if "hp" in z and "max_hp" in z:
 				hp_pct_sum += float(z.hp) / float(z.max_hp)
 				count += 1
 	var avg_hp_pct: float = hp_pct_sum / float(max(count, 1))
 
-	# Remove the old zombies
+	# Get spawn position from the visible zombie
+	var spawn_pos := Vector2.ZERO
+	if is_instance_valid(_visible_zombie):
+		spawn_pos = _visible_zombie.global_position
+
+	# Get the target (shooter) from any merge zombie so we can assign it to the new one
+	var existing_target: Node2D = null
+	for z in merge_zombies:
+		if is_instance_valid(z) and "target" in z and z.target != null:
+			existing_target = z.target
+			break
+
+	# Clean up progress bar
+	if _progress_bar and is_instance_valid(_progress_bar):
+		_progress_bar.queue_free()
+	_progress_bar = null
+
+	# Remove all old zombies
 	for z in merge_zombies:
 		if is_instance_valid(z):
 			z.queue_free()
+	_visible_zombie = null
 
 	# Spawn the new zombie
 	var scene: PackedScene = null
@@ -158,15 +207,37 @@ func _complete_merge() -> void:
 
 	if scene:
 		var new_zombie: Node2D = scene.instantiate()
-		new_zombie.global_position = midpoint
+		new_zombie.global_position = spawn_pos
 		get_tree().current_scene.add_child(new_zombie)
 
 		# Set HP based on average percentage
 		if "hp" in new_zombie and "max_hp" in new_zombie:
 			new_zombie.hp = roundi(float(new_zombie.max_hp) * avg_hp_pct)
 
+		# Assign the shooter target so the new zombie has something to chase
+		if existing_target and new_zombie.has_method("set_target"):
+			new_zombie.set_target(existing_target)
+
 	# Reset state
 	merge_zombies.clear()
 	merge_type = ""
 	state = MergeState.IDLE
 	merge_completed.emit()
+
+
+## Simple progress bar drawn above the merging zombie.
+class MergeProgressBar extends Node2D:
+	var progress: float = 0.0
+	const BAR_WIDTH: float = 40.0
+	const BAR_HEIGHT: float = 6.0
+
+	func _process(_delta: float) -> void:
+		queue_redraw()
+
+	func _draw() -> void:
+		var bg_rect := Rect2(-BAR_WIDTH / 2, -BAR_HEIGHT / 2, BAR_WIDTH, BAR_HEIGHT)
+		draw_rect(bg_rect, Color(0.2, 0.2, 0.2, 0.8))
+		var fill_width: float = BAR_WIDTH * clampf(progress, 0.0, 1.0)
+		var fill_rect := Rect2(-BAR_WIDTH / 2, -BAR_HEIGHT / 2, fill_width, BAR_HEIGHT)
+		draw_rect(fill_rect, Color(1.0, 0.8, 0.0, 1.0))
+		draw_rect(bg_rect, Color.WHITE, false, 1.0)

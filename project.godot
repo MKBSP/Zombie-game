@@ -30,6 +30,8 @@ window/stretch/aspect="expand"
 [global_group]
 
 zombies=""
+shooter=""
+fast_zombie=""
 
 [input]
 

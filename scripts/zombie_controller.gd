@@ -75,8 +75,8 @@ func _on_fast_merge_pressed() -> void:
 	var standard_zombies := _get_standard_selected()
 	if standard_zombies.size() < 2:
 		return
-	var trio := _find_closest_trio(standard_zombies)
-	merge_manager.start_merge(trio, "fast")
+	var pair := _find_closest_pair(standard_zombies)
+	merge_manager.start_merge(pair, "fast")
 
 
 func _on_fat_merge_pressed() -> void:

@@ -13,7 +13,7 @@ height = 28
 [sub_resource type="CircleShape2D" id="CircleShape2D_wq15x"]
 radius = 13.0
 
-[node name="MasterZombie" type="CharacterBody2D" unique_id=1045810678 groups=["master_zombie"]]
+[node name="MasterZombie" type="CharacterBody2D" unique_id=1045810678 groups=["master_zombie", "zombies"]]
 collision_layer = 2
 script = ExtResource("1_ll20s")
 

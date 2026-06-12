@@ -86,7 +86,7 @@ func _check_contact_damage(delta: float) -> void:
 	if target == null:
 		return
 	var distance := global_position.distance_to(target.global_position)
-	if distance < 36.0:
+	if distance < 48.0:
 		if target.has_method("take_damage"):
 			target.take_damage(contact_dps * delta)
 

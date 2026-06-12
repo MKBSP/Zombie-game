@@ -145,6 +145,9 @@ func activate() -> void:
 		camera.enabled = true
 	if fog_rect:
 		fog_rect.visible = true
+	var overlay := get_node_or_null("ZCOverlay")
+	if overlay:
+		overlay.visible = true
 
 
 func deactivate() -> void:
@@ -155,6 +158,9 @@ func deactivate() -> void:
 		camera.enabled = false
 	if fog_rect:
 		fog_rect.visible = false
+	var overlay := get_node_or_null("ZCOverlay")
+	if overlay:
+		overlay.visible = false
 
 
 func _process(delta: float) -> void:

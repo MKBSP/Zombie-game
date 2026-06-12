@@ -20,8 +20,16 @@ func _physics_process(delta: float) -> void:
 	position += direction * speed * delta
 
 func _on_body_entered(body: Node2D) -> void:
+	if body.is_in_group("shooter"):
+		# Never hit the shooter (bullets spawn near its body)
+		return
 	if body.is_in_group("zombies"):
 		# Deal damage to the zombie
+		if body.has_method("take_damage"):
+			body.take_damage(damage)
+		queue_free()
+	elif body.is_in_group("npcs"):
+		# Deal damage to the NPC
 		if body.has_method("take_damage"):
 			body.take_damage(damage)
 		queue_free()

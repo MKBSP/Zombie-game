@@ -13,7 +13,7 @@ fill_from = Vector2(1, 0)
 fill_to = Vector2(0, 0)
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_fumq1"]
-radius = 17.0
+radius = 24.0
 
 [node name="shooter" type="CharacterBody2D" unique_id=1650744308 groups=["shooter"]]
 script = ExtResource("1_tblkw")
@@ -37,7 +37,7 @@ drag_right_margin = 0.1
 drag_bottom_margin = 0.1
 
 [node name="GunTip" type="Marker2D" parent="." unique_id=1706090124]
-position = Vector2(20, 0)
+position = Vector2(30, 0)
 
 [node name="ShootCooldown" type="Timer" parent="." unique_id=697604511]
 wait_time = 0.28

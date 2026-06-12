@@ -6,10 +6,15 @@ extends Node2D
 @onready var building_layer: TileMapLayer = $BuildingLayer
 @onready var prop_scatter: Node = $PropScatter
 @onready var shooter_fog_rect: ColorRect = $HUDLayer/ShooterFogRect
+@onready var zc_node: ZombieController = $ZombieControllerNode
+@onready var zc_camera: Camera2D = $ZCCamera
 
 var shooter_scene := preload("res://scenes/shooter/shooter.tscn")
 var zombie_scene := preload("res://scenes/zombie/zombie.tscn")
 var master_zombie_scene := preload("res://scenes/zombie/master_zombie.tscn")
+var npc_scene := preload("res://scenes/npc/npc_human.tscn")
+
+@export var npc_count: int = 5
 
 var shooter: CharacterBody2D = null
 var master_zombie: CharacterBody2D = null
@@ -22,9 +27,28 @@ func _ready() -> void:
 	_spawn_shooter()
 	_spawn_master_zombie()
 	_spawn_standard_zombies()
+	_spawn_npcs()
 	hud.setup(shooter, master_zombie)
 	prop_scatter.scatter()
 	_setup_fog()
+	_apply_role()
+
+## Configure controls, cameras, fog and UI for the role chosen in the main menu.
+func _apply_role() -> void:
+	var shooter_cam: Camera2D = shooter.get_node("Camera2D")
+	if GameState.role == GameState.Role.HUMAN:
+		shooter.controls_enabled = true
+		shooter_cam.enabled = true
+		shooter_cam.make_current()
+		shooter_fog_rect.visible = true
+		zc_node.deactivate()
+	else:
+		shooter.controls_enabled = false
+		shooter_cam.enabled = false
+		shooter_fog_rect.visible = false
+		hud.visible = false
+		zc_node.activate()
+		zc_camera.make_current()
 
 func _setup_fog() -> void:
 	fog_shooter = FogShooter.new()
@@ -48,6 +72,8 @@ func _setup_fog() -> void:
 func _process(_delta: float) -> void:
 	if shooter == null:
 		return
+	if GameState.role != GameState.Role.HUMAN:
+		return  # Shooter fog is hidden in zombie role; skip the per-frame update
 	var shooter_tile: Vector2i = ground_layer.local_to_map(
 		ground_layer.to_local(shooter.global_position)
 	)
@@ -104,6 +130,43 @@ func _spawn_standard_zombies() -> void:
 			spawned += 1
 		attempts += 1
 
+func _spawn_npcs() -> void:
+	var walkable: Array[String] = ["road", "sidewalk", "grass", "parking"]
+	var spawned := 0
+	var attempts := 0
+	while spawned < npc_count and attempts < 200:
+		attempts += 1
+		var candidate := Vector2i(randi_range(1, 45), randi_range(1, 45))
+		var td: TileData = ground_layer.get_cell_tile_data(candidate)
+		if td == null or not td.get_custom_data("tile_type") in walkable:
+			continue
+		if building_layer.get_cell_tile_data(candidate) != null:
+			continue
+		var world_pos: Vector2 = ground_layer.map_to_local(candidate)
+		# Keep NPCs at least 5 tiles (320px) from the shooter and all zombies
+		var too_close := false
+		if shooter and world_pos.distance_to(shooter.global_position) < 320.0:
+			too_close = true
+		if not too_close:
+			for z in get_tree().get_nodes_in_group("zombies"):
+				if z is Node2D and world_pos.distance_to(z.global_position) < 320.0:
+					too_close = true
+					break
+		if too_close:
+			continue
+		var npc: Node2D = npc_scene.instantiate()
+		npc.global_position = world_pos
+		npc.ground_layer = ground_layer
+		npc.building_layer = building_layer
+		npc.shooter = shooter
+		npc.converted.connect(_on_npc_converted)
+		add_child(npc)
+		spawned += 1
+
+func _on_npc_converted(zombie: Node2D) -> void:
+	if zombie.has_signal("zombie_died"):
+		zombie.zombie_died.connect(_on_zombie_died)
+
 func _find_clear_road_tile_near(target: Vector2i) -> Vector2i:
 	for radius in range(0, 15):
 		for dx in range(-radius, radius + 1):
@@ -125,10 +188,16 @@ func _on_zombie_died(_zombie: Node2D) -> void:
 	pass
 
 func _on_master_zombie_died() -> void:
-	_show_game_over("YOU WIN!")
+	if GameState.role == GameState.Role.ZOMBIE:
+		_show_game_over("YOU LOSE")
+	else:
+		_show_game_over("YOU WIN!")
 
 func _on_player_died() -> void:
-	_show_game_over("YOU DIED")
+	if GameState.role == GameState.Role.ZOMBIE:
+		_show_game_over("YOU WIN!")
+	else:
+		_show_game_over("YOU DIED")
 
 func _show_game_over(message: String) -> void:
 	game_over_screen.show_message(message)

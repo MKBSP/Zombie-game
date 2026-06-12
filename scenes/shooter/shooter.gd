@@ -7,6 +7,8 @@ extends CharacterBody2D
 
 # --- State ---
 var hp: int
+## Set to false when the player isn't controlling the shooter (zombie role).
+var controls_enabled: bool = true
 var can_shoot: bool = true
 var is_dead: bool = false
 var _damage_accumulator: float = 0.0
@@ -32,6 +34,11 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if is_dead:
+		return
+
+	if not controls_enabled:
+		velocity = Vector2.ZERO
+		move_and_slide()
 		return
 
 	# --- Movement ---

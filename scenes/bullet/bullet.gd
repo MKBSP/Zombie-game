@@ -7,14 +7,13 @@ extends Area2D
 var direction: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
-	# Despawn after lifetime expires
-	var timer := get_tree().create_timer(lifetime)
-	timer.timeout.connect(queue_free)
-
-	# Connect to body_entered for TileMapLayer collision (buildings)
-	body_entered.connect(_on_body_entered)
-	# Connect to area_entered if zombies use Area2D (depends on your Phase 1 setup)
-	# If zombies are CharacterBody2D, they're detected by body_entered too.
+	# Simulation (movement, collisions, despawn) is server-only; clients just
+	# render the synced position. Server queue_free despawns replicas too.
+	set_physics_process(multiplayer.is_server())
+	if multiplayer.is_server():
+		var timer := get_tree().create_timer(lifetime)
+		timer.timeout.connect(queue_free)
+		body_entered.connect(_on_body_entered)
 
 func _physics_process(delta: float) -> void:
 	position += direction * speed * delta

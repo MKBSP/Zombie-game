@@ -83,6 +83,14 @@ offset_right = 270.0
 offset_bottom = 43.0
 text = "HP 100"
 
+[node name="AmmoLabel" type="Label" parent="HUDLayer/HUD"]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 52.0
+offset_right = 320.0
+offset_bottom = 75.0
+text = "Pistol  15 / 15"
+
 [node name="CompassLabel" type="Label" parent="HUDLayer/HUD" unique_id=395362161]
 custom_minimum_size = Vector2(20, 60)
 layout_mode = 0
@@ -100,6 +108,24 @@ offset_left = -40.0
 offset_bottom = 23.0
 grow_horizontal = 0
 horizontal_alignment = 2
+
+[node name="ToastLabel" type="Label" parent="HUDLayer/HUD"]
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -200.0
+offset_top = -140.0
+offset_right = 200.0
+offset_bottom = -110.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_font_sizes/font_size = 24
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="GameOverScreen" parent="HUDLayer" unique_id=474424163 instance=ExtResource("3_1b30x")]
 visible = false
@@ -181,3 +207,9 @@ script = ExtResource("15_71ii3")
 fast_zombie_scene = ExtResource("16_bt7bg")
 fat_zombie_scene = ExtResource("17_wbwoo")
 ground_layer = NodePath("../GroundLayer")
+
+[node name="Entities" type="Node2D" parent="."]
+
+[node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="."]
+_spawnable_scenes = PackedStringArray("res://scenes/shooter/shooter.tscn", "res://scenes/zombie/zombie.tscn", "res://scenes/zombie/master_zombie.tscn", "res://scenes/zombie/fast_zombie.tscn", "res://scenes/zombie/fat_zombie.tscn", "res://scenes/npc/npc_human.tscn", "res://scenes/bullet/bullet.tscn", "res://scenes/pickup/pickup.tscn")
+spawn_path = NodePath("../Entities")

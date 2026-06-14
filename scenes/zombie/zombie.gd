@@ -13,14 +13,36 @@ var hp: int
 var is_dead: bool = false
 var target: Node2D = null
 
+## Synced merge visual state: -1 = not merging, 0..1 = lock progress.
+## Set by MergeManager on the server; rendered locally on every peer.
+var merge_progress: float = -1.0
+var _merge_bar: Node2D = null
+
 @onready var nav_agent: NavigationAgent2D = $NavigationAgent2D
 
 signal zombie_died(zombie: Node2D)
 
 func _ready() -> void:
 	hp = max_hp
+	# AI/simulation runs on the server only (true in single player too)
+	set_physics_process(multiplayer.is_server())
 	await get_tree().physics_frame
 	nav_agent.target_position = global_position  # Stay put initially
+
+## Merge visuals — runs on every peer from the synced merge_progress.
+func _process(_delta: float) -> void:
+	if merge_progress >= 0.0:
+		if _merge_bar == null:
+			_merge_bar = MergeManager.MergeProgressBar.new()
+			add_child(_merge_bar)
+			_merge_bar.position = Vector2(0, -30)
+		_merge_bar.progress = merge_progress
+		var pulse: float = 0.6 + 0.4 * abs(sin(Time.get_ticks_msec() / 1000.0 * 4.0))
+		modulate = Color(pulse, pulse, pulse, 1.0)
+	elif _merge_bar != null:
+		_merge_bar.queue_free()
+		_merge_bar = null
+		modulate = Color.WHITE
 
 func _physics_process(delta: float) -> void:
 	if is_dead:
@@ -79,6 +101,7 @@ func set_selected(value: bool) -> void:
 	is_selected = value
 	queue_redraw()
 
+
 func _check_contact_damage(delta: float) -> void:
 	if target == null:
 		return
@@ -87,15 +110,18 @@ func _check_contact_damage(delta: float) -> void:
 		if target.has_method("take_damage"):
 			target.take_damage(contact_dps * delta)
 
+
 func take_damage(amount: int) -> void:
 	if is_dead:
 		return
 	hp -= amount
 	modulate = Color.WHITE
 	await get_tree().create_timer(0.05).timeout
-	modulate = Color(0.6, 0.0, 0.0)
+	if merge_progress < 0.0:
+		modulate = Color(1, 1, 1, 1)
 	if hp <= 0:
 		die()
+
 
 func die() -> void:
 	is_dead = true

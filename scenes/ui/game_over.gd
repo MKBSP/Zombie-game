@@ -16,4 +16,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and event.keycode == KEY_R:
 		get_tree().paused = false
-		get_tree().reload_current_scene()
+		if GameState.multiplayer_active:
+			# Play again = back to the lobby; host-reload resync is fragile
+			Net.leave()
+			get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
+		else:
+			get_tree().reload_current_scene()

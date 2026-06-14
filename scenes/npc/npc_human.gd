@@ -7,12 +7,15 @@ extends CharacterBody2D
 ## progress bar), then a standard zombie spawns in its place.
 ## The shooter touching it makes it follow him permanently, ~1 tile behind.
 ## Bullets can kill it at any time — death spawns no zombie.
+##
+## Multiplayer: all logic runs on the server. Clients render the synced
+## position/state/convert_progress (visuals in _process).
 
 signal converted(zombie: Node2D)
 
 const ZOMBIE_SCENE := preload("res://scenes/zombie/zombie.tscn")
 
-@export var speed: float = 50.0
+@export var speed: float = 189.0  # 10% slower than the shooter (210)
 @export var max_hp: int = 50
 @export var hide_min: float = 10.0
 @export var hide_max: float = 20.0
@@ -23,15 +26,30 @@ const FOLLOW_DISTANCE: float = 64.0  # 1 tile behind the shooter
 const FOLLOW_DEADZONE: float = 12.0
 const WALKABLE: Array[String] = ["road", "sidewalk", "grass", "parking"]
 
+## Armed-NPC tuning: random aim error (radians) and how far it spots zombies.
+const NPC_AIM_JITTER: float = 0.25  # ~14 degrees of sloppiness
+const NPC_VISION_PX: float = 384.0  # 6 tiles
+const MUZZLE_OFFSET: float = 40.0   # spawn bullets past the NPC's own body
+
 var hp: int
 
-# References injected by the spawner (world.gd)
+# Weapon handed over by the shooter (server-side). weapon_id == -1 means unarmed.
+var weapon_id: int = -1
+var weapon_mag: int = 0
+var weapon_total: int = 0
+var _npc_can_shoot: bool = true
+var _npc_reloading: bool = false
+
+# References injected by the spawner (world.gd, server only)
 var ground_layer: TileMapLayer
 var building_layer: TileMapLayer
 var shooter: Node2D
 
 enum State { HIDDEN, RELOCATING, FOLLOWING, CONVERTING }
 var state: State = State.HIDDEN
+
+## Synced conversion visual: -1 = not converting, 0..1 = progress.
+var convert_progress: float = -1.0
 
 var _hide_timer: float = 0.0
 var _waypoints: Array[Vector2] = []
@@ -41,15 +59,36 @@ var _progress_bar: Node2D = null
 
 @onready var nav_agent: NavigationAgent2D = $NavigationAgent2D
 @onready var conversion_zone: Area2D = $ConversionZone
+@onready var npc_shoot_cooldown: Timer = $NpcShootCooldown
 
 
 func _ready() -> void:
 	hp = max_hp
-	nav_agent.path_desired_distance = 8.0
-	nav_agent.target_desired_distance = 8.0
-	conversion_zone.body_entered.connect(_on_zone_body_entered)
-	# Short randomized first wait so NPCs don't all move at once
-	_start_hidden(randf_range(1.0, 4.0))
+	# Logic runs on the server only (true in single player too)
+	set_physics_process(multiplayer.is_server())
+	if multiplayer.is_server():
+		nav_agent.path_desired_distance = 8.0
+		nav_agent.target_desired_distance = 8.0
+		conversion_zone.body_entered.connect(_on_zone_body_entered)
+		npc_shoot_cooldown.timeout.connect(_on_npc_shoot_cooldown_timeout)
+		# Short randomized first wait so NPCs don't all move at once
+		_start_hidden(randf_range(1.0, 4.0))
+
+
+## Conversion visuals — every peer, driven by synced state/convert_progress.
+func _process(_delta: float) -> void:
+	if state == State.CONVERTING and convert_progress >= 0.0:
+		if _progress_bar == null:
+			_progress_bar = ConversionProgressBar.new()
+			add_child(_progress_bar)
+			_progress_bar.position = Vector2(0, -24)
+		_progress_bar.progress = convert_progress
+		var pulse: float = 0.6 + 0.4 * abs(sin(Time.get_ticks_msec() / 1000.0 * 4.0))
+		modulate = Color(pulse, pulse, pulse, 1.0)
+	elif _progress_bar != null:
+		_progress_bar.queue_free()
+		_progress_bar = null
+		modulate = Color.WHITE
 
 
 func _physics_process(delta: float) -> void:
@@ -70,6 +109,8 @@ func _physics_process(delta: float) -> void:
 				_nav_move()
 		State.FOLLOWING:
 			_process_following()
+			if weapon_id != -1:
+				_process_shooting()
 
 
 func _nav_move() -> void:
@@ -176,6 +217,67 @@ func _process_following() -> void:
 		velocity = Vector2.ZERO
 
 
+## Called by the shooter when handing over its special weapon (server-side).
+func receive_weapon(id: int, total: int) -> void:
+	weapon_id = id
+	weapon_total = total
+	var w := Weapons.get_data(id)
+	weapon_mag = min(w.mag_size, total)
+	_npc_can_shoot = true
+	_npc_reloading = false
+
+
+## Fire at the nearest zombie, but only while the shooter is also firing, and
+## with a deliberately sloppy aim. Mirrors the shooter's mag/reload timing.
+func _process_shooting() -> void:
+	if _npc_reloading or not _npc_can_shoot or weapon_mag <= 0:
+		return
+	if not is_instance_valid(shooter) or not shooter.has_method("is_firing") or not shooter.is_firing():
+		return
+	var target := _nearest_zombie(NPC_VISION_PX)
+	if target == null:
+		return
+
+	var w := Weapons.get_data(weapon_id)
+	var base_angle: float = (target.global_position - global_position).angle()
+	# Spawn past our own collider so the NPC never shoots itself.
+	var origin: Vector2 = global_position + Vector2.from_angle(base_angle) * MUZZLE_OFFSET
+	Weapons.fire(get_parent(), origin, base_angle, w, NPC_AIM_JITTER)
+
+	weapon_mag -= 1
+	weapon_total -= 1
+	_npc_can_shoot = false
+	if weapon_total <= 0:
+		weapon_id = -1  # weapon spent
+		return
+	if weapon_mag <= 0:
+		_npc_reloading = true
+		npc_shoot_cooldown.start(w.reload_time)
+	else:
+		npc_shoot_cooldown.start(maxf(w.cooldown, 0.05))
+
+
+func _on_npc_shoot_cooldown_timeout() -> void:
+	if _npc_reloading:
+		var w := Weapons.get_data(weapon_id)
+		var reserve: int = weapon_total - weapon_mag
+		weapon_mag += min(w.mag_size - weapon_mag, reserve)
+		_npc_reloading = false
+	_npc_can_shoot = true
+
+
+func _nearest_zombie(max_dist: float) -> Node2D:
+	var best: Node2D = null
+	var best_d := max_dist
+	for z in get_tree().get_nodes_in_group("zombies"):
+		if z is Node2D and is_instance_valid(z):
+			var d := global_position.distance_to(z.global_position)
+			if d < best_d:
+				best_d = d
+				best = z
+	return best
+
+
 func _on_zone_body_entered(body: Node2D) -> void:
 	if state == State.CONVERTING:
 		return  # Conversion is inevitable — ignore further contact
@@ -188,24 +290,15 @@ func _on_zone_body_entered(body: Node2D) -> void:
 func _start_conversion() -> void:
 	state = State.CONVERTING
 	_convert_timer = 0.0
+	convert_progress = 0.0
 	velocity = Vector2.ZERO
 	nav_agent.target_position = global_position
-
-	_progress_bar = ConversionProgressBar.new()
-	add_child(_progress_bar)
-	_progress_bar.position = Vector2(0, -24)
 
 
 func _process_converting(delta: float) -> void:
 	velocity = Vector2.ZERO
 	_convert_timer += delta
-
-	if _progress_bar and _progress_bar is ConversionProgressBar:
-		_progress_bar.progress = _convert_timer / CONVERT_DURATION
-
-	var pulse: float = 0.6 + 0.4 * abs(sin(_convert_timer * 4.0))
-	modulate = Color(pulse, pulse, pulse, 1.0)
-
+	convert_progress = _convert_timer / CONVERT_DURATION
 	if _convert_timer >= CONVERT_DURATION:
 		_finish_conversion()
 
@@ -213,22 +306,17 @@ func _process_converting(delta: float) -> void:
 func _finish_conversion() -> void:
 	var new_zombie: Node2D = ZOMBIE_SCENE.instantiate()
 	new_zombie.global_position = global_position
-	get_parent().add_child(new_zombie)
+	get_parent().add_child(new_zombie, true)
 	if is_instance_valid(shooter) and new_zombie.has_method("set_target"):
 		new_zombie.set_target(shooter)
 	converted.emit(new_zombie)
 	queue_free()
 
 
-## Called by bullets. Death never spawns a zombie — shooting a converting
-## NPC before the bar fills is the only way to stop a conversion.
+## Called by bullets (server-side). Death never spawns a zombie — shooting a
+## converting NPC before the bar fills is the only way to stop a conversion.
 func take_damage(amount: float) -> void:
 	hp -= int(amount)
-	modulate = Color(1.0, 0.3, 0.3, 1.0)
-	get_tree().create_timer(0.05).timeout.connect(func():
-		if is_instance_valid(self) and state != State.CONVERTING:
-			modulate = Color.WHITE
-	)
 	if hp <= 0:
 		queue_free()
 

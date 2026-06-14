@@ -8,13 +8,18 @@ extends Node2D
 @onready var shooter_fog_rect: ColorRect = $HUDLayer/ShooterFogRect
 @onready var zc_node: ZombieController = $ZombieControllerNode
 @onready var zc_camera: Camera2D = $ZCCamera
+@onready var entities: Node2D = $Entities
+@onready var merge_manager: MergeManager = $MergeManager
 
 var shooter_scene := preload("res://scenes/shooter/shooter.tscn")
 var zombie_scene := preload("res://scenes/zombie/zombie.tscn")
 var master_zombie_scene := preload("res://scenes/zombie/master_zombie.tscn")
 var npc_scene := preload("res://scenes/npc/npc_human.tscn")
+var pickup_scene := preload("res://scenes/pickup/pickup.tscn")
 
 @export var npc_count: int = 5
+## Testing switch: skip the fog-of-war overlay entirely.
+@export var fog_enabled: bool = false
 
 var shooter: CharacterBody2D = null
 var master_zombie: CharacterBody2D = null
@@ -22,25 +27,57 @@ var master_zombie: CharacterBody2D = null
 var fog_shooter: FogShooter
 var fog_texture: ImageTexture
 
-func _ready() -> void:
-	_create_grid()
-	_spawn_shooter()
-	_spawn_master_zombie()
-	_spawn_standard_zombies()
-	_spawn_npcs()
-	hud.setup(shooter, master_zombie)
-	prop_scatter.scatter()
-	_setup_fog()
-	_apply_role()
+var _client_ready: bool = false
 
-## Configure controls, cameras, fog and UI for the role chosen in the main menu.
+func _ready() -> void:
+	# Shared seed so static scenery (props) looks identical on both peers.
+	# Must run BEFORE any other RNG use so both peers consume it in step.
+	if GameState.multiplayer_active:
+		seed(GameState.world_seed)
+	_create_grid()
+	prop_scatter.scatter()
+
+	if multiplayer.is_server():
+		# Server (also single player): spawn and simulate everything.
+		_spawn_shooter()
+		_spawn_master_zombie()
+		_spawn_standard_zombies()
+		_spawn_npcs()
+		_spawn_items()
+		hud.setup(shooter, master_zombie)
+		_setup_fog()
+		_apply_role()
+	else:
+		# Client: entities arrive via the MultiplayerSpawner.
+		$MultiplayerSpawner.spawned.connect(_on_entity_spawned)
+		for child in entities.get_children():
+			_on_entity_spawned(child)
+
+
+## Client-side: wire up references as replicated entities arrive.
+func _on_entity_spawned(node: Node) -> void:
+	if node.is_in_group("shooter"):
+		shooter = node
+	elif node.is_in_group("master_zombie"):
+		master_zombie = node
+		if _client_ready:
+			hud.master_zombie = master_zombie
+	if not _client_ready and shooter != null:
+		_client_ready = true
+		hud.setup(shooter, master_zombie)
+		_setup_fog()
+		_apply_role()
+		print("[net] client ready - role=", GameState.role, " entities=", entities.get_child_count())
+
+
+## Configure controls, cameras, fog and UI for this window's role.
 func _apply_role() -> void:
 	var shooter_cam: Camera2D = shooter.get_node("Camera2D")
 	if GameState.role == GameState.Role.HUMAN:
 		shooter.controls_enabled = true
 		shooter_cam.enabled = true
 		shooter_cam.make_current()
-		shooter_fog_rect.visible = true
+		shooter_fog_rect.visible = fog_enabled
 		zc_node.deactivate()
 	else:
 		shooter.controls_enabled = false
@@ -50,7 +87,10 @@ func _apply_role() -> void:
 		zc_node.activate()
 		zc_camera.make_current()
 
+
 func _setup_fog() -> void:
+	if not fog_enabled:
+		return  # testing: fog overlay disabled
 	fog_shooter = FogShooter.new()
 	add_child(fog_shooter)
 	fog_shooter.ground_layer = ground_layer
@@ -63,14 +103,13 @@ func _setup_fog() -> void:
 		if node is Node2D:
 			prop_occluders.append(node)
 	fog_shooter.cache_prop_occluders(prop_occluders)
-	
-	
+
 	fog_texture = ImageTexture.create_from_image(fog_shooter.visibility_image)
 	var shader_material: ShaderMaterial = shooter_fog_rect.material as ShaderMaterial
 	shader_material.set_shader_parameter("visibility_tex", fog_texture)
 
 func _process(_delta: float) -> void:
-	if shooter == null:
+	if shooter == null or fog_shooter == null:
 		return
 	if GameState.role != GameState.Role.HUMAN:
 		return  # Shooter fog is hidden in zombie role; skip the per-frame update
@@ -101,7 +140,7 @@ func _spawn_shooter() -> void:
 	var spawn_pos := ground_layer.map_to_local(tile) if tile != Vector2i(-1, -1) else Vector2(300, 2700)
 	shooter = shooter_scene.instantiate()
 	shooter.global_position = spawn_pos
-	add_child(shooter)
+	entities.add_child(shooter, true)
 	shooter.player_died.connect(_on_player_died)
 
 func _spawn_master_zombie() -> void:
@@ -109,7 +148,7 @@ func _spawn_master_zombie() -> void:
 	var spawn_pos := ground_layer.map_to_local(tile) if tile != Vector2i(-1, -1) else Vector2(2700, 300)
 	master_zombie = master_zombie_scene.instantiate()
 	master_zombie.global_position = spawn_pos
-	add_child(master_zombie)
+	entities.add_child(master_zombie, true)
 	master_zombie.set_target(shooter)
 	master_zombie.master_zombie_died.connect(_on_master_zombie_died)
 
@@ -124,7 +163,7 @@ func _spawn_standard_zombies() -> void:
 		if tile != Vector2i(-1, -1):
 			var z := zombie_scene.instantiate()
 			z.global_position = ground_layer.map_to_local(tile)
-			add_child(z)
+			entities.add_child(z, true)
 			z.set_target(shooter)
 			z.zombie_died.connect(_on_zombie_died)
 			spawned += 1
@@ -160,12 +199,88 @@ func _spawn_npcs() -> void:
 		npc.building_layer = building_layer
 		npc.shooter = shooter
 		npc.converted.connect(_on_npc_converted)
-		add_child(npc)
+		entities.add_child(npc, true)
 		spawned += 1
+
+## Scatter weapon/ammo/medpack pickups on walkable tiles, away from the shooter.
+## Server-only; pickups replicate to the client via the MultiplayerSpawner.
+func _spawn_items() -> void:
+	var counts := {
+		Pickup.Kind.AMMO_MAG: 3,
+		Pickup.Kind.RIFLE: 1,
+		Pickup.Kind.SHOTGUN: 1,
+		Pickup.Kind.MEDPACK: 2,
+	}
+	for kind in counts:
+		for _i in range(counts[kind]):
+			# Keep the special guns close to the shooter so they're findable
+			# during testing; everything else scatters across the map.
+			var near_player: bool = kind == Pickup.Kind.RIFLE or kind == Pickup.Kind.SHOTGUN
+			var pos := _find_item_spawn(near_player)
+			if pos == Vector2.INF:
+				continue
+			var p: Node2D = pickup_scene.instantiate()
+			p.kind = kind
+			p.global_position = pos
+			entities.add_child(p, true)
+
+## Pick a walkable tile for an item. When `near` is true, bias toward tiles
+## within ~8 tiles of the shooter; otherwise just keep clear of the spawn.
+func _find_item_spawn(near_player: bool = false) -> Vector2:
+	var walkable: Array[String] = ["road", "sidewalk", "grass", "parking"]
+	for _attempt in range(200):
+		var candidate := Vector2i(randi_range(1, 45), randi_range(1, 45))
+		var td: TileData = ground_layer.get_cell_tile_data(candidate)
+		if td == null or not td.get_custom_data("tile_type") in walkable:
+			continue
+		if building_layer.get_cell_tile_data(candidate) != null:
+			continue
+		var world_pos: Vector2 = ground_layer.map_to_local(candidate)
+		if shooter:
+			var dist := world_pos.distance_to(shooter.global_position)
+			if dist < 200.0:
+				continue  # never right on top of the spawn
+			if near_player and dist > 512.0:
+				continue  # specials stay within ~8 tiles for testing
+		return world_pos
+	return Vector2.INF
 
 func _on_npc_converted(zombie: Node2D) -> void:
 	if zombie.has_signal("zombie_died"):
 		zombie.zombie_died.connect(_on_zombie_died)
+
+
+# --- Zombie Controller commands (sent by whichever peer plays ZOMBIE) ---
+
+@rpc("any_peer", "call_local", "reliable")
+func rpc_command_move(zombie_names: Array, world_pos: Vector2) -> void:
+	if not multiplayer.is_server():
+		return
+	for n in zombie_names:
+		var z := entities.get_node_or_null(NodePath(String(n)))
+		if z and z.has_method("set_command"):
+			z.set_command(world_pos)
+
+@rpc("any_peer", "call_local", "reliable")
+func rpc_request_merge(zombie_names: Array, type: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var zombies: Array[Node2D] = []
+	for n in zombie_names:
+		var z := entities.get_node_or_null(NodePath(String(n)))
+		if z is Node2D:
+			zombies.append(z)
+	var required: int = 2 if type == "fast" else 3
+	if zombies.size() < required:
+		return
+	merge_manager.start_merge(zombies, type)
+
+@rpc("any_peer", "call_local", "reliable")
+func rpc_cancel_merge() -> void:
+	if not multiplayer.is_server():
+		return
+	merge_manager.cancel_merge()
+
 
 func _find_clear_road_tile_near(target: Vector2i) -> Vector2i:
 	for radius in range(0, 15):
@@ -188,16 +303,22 @@ func _on_zombie_died(_zombie: Node2D) -> void:
 	pass
 
 func _on_master_zombie_died() -> void:
-	if GameState.role == GameState.Role.ZOMBIE:
-		_show_game_over("YOU LOSE")
-	else:
-		_show_game_over("YOU WIN!")
+	if multiplayer.is_server():
+		_game_over.rpc(true)
 
 func _on_player_died() -> void:
-	if GameState.role == GameState.Role.ZOMBIE:
-		_show_game_over("YOU WIN!")
+	if multiplayer.is_server():
+		_game_over.rpc(false)
+
+## Broadcast by the server; each peer renders the message for its own role.
+@rpc("authority", "call_local", "reliable")
+func _game_over(master_died: bool) -> void:
+	var msg: String
+	if master_died:
+		msg = "YOU LOSE" if GameState.role == GameState.Role.ZOMBIE else "YOU WIN!"
 	else:
-		_show_game_over("YOU DIED")
+		msg = "YOU WIN!" if GameState.role == GameState.Role.ZOMBIE else "YOU DIED"
+	_show_game_over(msg)
 
 func _show_game_over(message: String) -> void:
 	game_over_screen.show_message(message)

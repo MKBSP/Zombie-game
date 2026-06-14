@@ -69,30 +69,35 @@ func _ready() -> void:
 		panel.offset_top = -100
 
 func _on_fast_merge_pressed() -> void:
-	print("FAST BUTTON PRESSED - selected: ", selected_zombies.size(), " standard: ", _get_standard_selected().size())
-	if merge_manager == null or merge_manager.state != MergeManager.MergeState.IDLE:
-		return
 	var standard_zombies := _get_standard_selected()
 	if standard_zombies.size() < 2:
 		return
 	var pair := _find_closest_pair(standard_zombies)
-	merge_manager.start_merge(pair, "fast")
+	_send_merge_request(pair, "fast")
 
 
 func _on_fat_merge_pressed() -> void:
-	print("FAT BUTTON PRESSED - selected: ", selected_zombies.size(), " standard: ", _get_standard_selected().size())
-	if merge_manager == null or merge_manager.state != MergeManager.MergeState.IDLE:
-		return
 	var standard_zombies := _get_standard_selected()
 	if standard_zombies.size() < 3:
 		return
 	var trio := _find_closest_trio(standard_zombies)
-	merge_manager.start_merge(trio, "fat")
+	_send_merge_request(trio, "fat")
+
+
+## Merges execute on the server; we send zombie node names (identical on
+## both peers thanks to the MultiplayerSpawner).
+func _send_merge_request(zombies: Array[Node2D], type: String) -> void:
+	var names: Array = []
+	for z in zombies:
+		if is_instance_valid(z):
+			names.append(String(z.name))
+	if names.is_empty():
+		return
+	get_tree().current_scene.rpc_request_merge.rpc_id(1, names, type)
 
 
 func _on_cancel_merge_pressed() -> void:
-	if merge_manager:
-		merge_manager.cancel_merge()
+	get_tree().current_scene.rpc_cancel_merge.rpc_id(1)
 
 
 ## Returns selected standard zombies (excludes master, fast, fat).
@@ -387,11 +392,15 @@ func _select_in_rect(rect: Rect2) -> void:
 					zombie.set_selected(true)
 
 
-## Issue a move command to all selected zombies.
+## Issue a move command to all selected zombies (executed on the server).
 func _command_move(world_pos: Vector2) -> void:
+	var names: Array = []
 	for z in selected_zombies:
-		if is_instance_valid(z) and z.has_method("set_command"):
-			z.set_command(world_pos)
+		if is_instance_valid(z):
+			names.append(String(z.name))
+	if names.is_empty():
+		return
+	get_tree().current_scene.rpc_command_move.rpc_id(1, names, world_pos)
 	_show_ping(world_pos)
 
 ## Try to find a zombie under the given world position.

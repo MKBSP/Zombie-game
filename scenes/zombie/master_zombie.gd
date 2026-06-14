@@ -22,6 +22,8 @@ func _ready() -> void:
 	hp = max_hp
 	scale = Vector2(1.8, 1.8)
 	modulate = Color(1.0, 0.2, 0.2)
+	# AI/simulation runs on the server only (true in single player too)
+	set_physics_process(multiplayer.is_server())
 	await get_tree().physics_frame
 	nav_agent.target_position = global_position  # Stay put initially
 

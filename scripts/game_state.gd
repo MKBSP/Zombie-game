@@ -6,3 +6,9 @@ extends Node
 enum Role { HUMAN, ZOMBIE }
 
 var role: Role = Role.HUMAN
+
+## True while a multiplayer session (host or client) is active.
+var multiplayer_active: bool = false
+
+## RNG seed shared by both peers so scenery (props) matches visually.
+var world_seed: int = 0

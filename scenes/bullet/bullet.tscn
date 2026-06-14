@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://jbr1j8x00x17"]
+[gd_scene load_steps=5 format=3 uid="uid://jbr1j8x00x17"]
 
 [ext_resource type="Script" uid="uid://bftgcmiap400t" path="res://scenes/bullet/bullet.gd" id="1_xabg6"]
 
@@ -12,6 +12,14 @@ height = 4
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1tg08"]
 size = Vector2(32, 16)
+
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_sync"]
+properties/0/path = NodePath(".:position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath(".:rotation")
+properties/1/spawn = true
+properties/1/replication_mode = 1
 
 [node name="Bullet" type="Area2D" unique_id=375126647]
 collision_layer = 4
@@ -29,3 +37,6 @@ shape = SubResource("RectangleShape2D_1tg08")
 wait_time = 1.8
 one_shot = true
 autostart = true
+
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
+replication_config = SubResource("SceneReplicationConfig_sync")

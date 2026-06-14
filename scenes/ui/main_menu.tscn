@@ -53,6 +53,40 @@ size_flags_horizontal = 4
 theme_override_font_sizes/font_size = 32
 text = "PLAY"
 
+[node name="ModePanel" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ModePanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 8
+
+[node name="SingleButton" type="Button" parent="ModePanel/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 44
+text = "SINGLE
+PLAYER"
+
+[node name="MultiButton" type="Button" parent="ModePanel/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 44
+text = "MULTIPLAYER
+(local)"
+
 [node name="RolePanel" type="Control" parent="."]
 visible = false
 layout_mode = 1
@@ -86,3 +120,142 @@ size_flags_vertical = 3
 theme_override_font_sizes/font_size = 48
 text = "ZOMBIE
 (horde)"
+
+[node name="MultiplayerPanel" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="CenterContainer" type="CenterContainer" parent="MultiplayerPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MultiplayerPanel/CenterContainer"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="HostButton" type="Button" parent="MultiplayerPanel/CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(320, 80)
+layout_mode = 2
+theme_override_font_sizes/font_size = 36
+text = "HOST GAME"
+
+[node name="JoinButton" type="Button" parent="MultiplayerPanel/CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(320, 80)
+layout_mode = 2
+theme_override_font_sizes/font_size = 36
+text = "JOIN GAME"
+
+[node name="LobbyPanel" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="CenterContainer" type="CenterContainer" parent="LobbyPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="LobbyPanel/CenterContainer"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="LobbyTitle" type="Label" parent="LobbyPanel/CenterContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 40
+text = "HOSTING — choose your role"
+horizontal_alignment = 1
+
+[node name="RoleRow" type="HBoxContainer" parent="LobbyPanel/CenterContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="LobbyHumanButton" type="Button" parent="LobbyPanel/CenterContainer/VBoxContainer/RoleRow"]
+custom_minimum_size = Vector2(220, 70)
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "HUMAN"
+
+[node name="LobbyZombieButton" type="Button" parent="LobbyPanel/CenterContainer/VBoxContainer/RoleRow"]
+custom_minimum_size = Vector2(220, 70)
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "ZOMBIE"
+
+[node name="LobbyStatus" type="Label" parent="LobbyPanel/CenterContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Waiting for player..."
+horizontal_alignment = 1
+
+[node name="StartButton" type="Button" parent="LobbyPanel/CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(240, 64)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 32
+disabled = true
+text = "START"
+
+[node name="JoinPanel" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="CenterContainer" type="CenterContainer" parent="JoinPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="JoinPanel/CenterContainer"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="JoinTitle" type="Label" parent="JoinPanel/CenterContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 40
+text = "JOIN GAME"
+horizontal_alignment = 1
+
+[node name="IPEdit" type="LineEdit" parent="JoinPanel/CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(320, 50)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "127.0.0.1"
+placeholder_text = "Host IP address"
+alignment = 1
+
+[node name="ConnectButton" type="Button" parent="JoinPanel/CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(240, 64)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 28
+text = "CONNECT"
+
+[node name="JoinStatus" type="Label" parent="JoinPanel/CenterContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = ""
+horizontal_alignment = 1

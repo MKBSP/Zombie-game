@@ -1,10 +1,11 @@
 extends Node
 class_name MergeManager
 
-## Manages the zombie merging process.
+## Manages the zombie merging process (server-authoritative).
 ## Controls the walk-to-merge, lock-in timer, and spawn of the new zombie.
 ## Visual: during lock phase, all zombies except one are hidden. The remaining
-## one pulses and shows a progress bar. On completion it's replaced by the new type.
+## one pulses and shows a progress bar (rendered per-peer from the zombie's
+## synced merge_progress). On completion it's replaced by the new type.
 
 signal merge_started
 signal merge_locked_in
@@ -30,11 +31,13 @@ var lock_duration: float = 0.0
 # The one zombie kept visible during lock phase
 var _visible_zombie: Node2D = null
 
-# Progress bar node drawn above the merging zombie
-var _progress_bar: Node2D = null
-
 # Distance threshold for "touching" (pixels)
 const TOUCH_DISTANCE: float = 30.0
+
+
+func _ready() -> void:
+	# Merge simulation runs on the server only (true in single player too)
+	set_process(multiplayer.is_server())
 
 
 func _process(delta: float) -> void:
@@ -78,6 +81,19 @@ func cancel_merge() -> void:
 		if is_instance_valid(z):
 			z.command_mode = false
 
+	merge_zombies.clear()
+	merge_type = ""
+	state = MergeState.IDLE
+	merge_cancelled.emit()
+
+
+## Abort a merge from the LOCKED phase (e.g. the visible zombie was killed).
+func _abort_locked() -> void:
+	for z in merge_zombies:
+		if is_instance_valid(z):
+			z.command_mode = false
+			z.visible = true
+			z.merge_progress = -1.0
 	merge_zombies.clear()
 	merge_type = ""
 	state = MergeState.IDLE
@@ -132,33 +148,27 @@ func _enter_locked_state() -> void:
 	_visible_zombie.command_mode = true
 	_visible_zombie.command_target = midpoint
 	_visible_zombie.velocity = Vector2.ZERO
+	_visible_zombie.merge_progress = 0.0  # synced; peers render bar + pulse
 
 	for i in range(1, merge_zombies.size()):
 		var z := merge_zombies[i]
 		z.command_mode = true
 		z.command_target = z.global_position
 		z.velocity = Vector2.ZERO
-		z.visible = false  # Hide — absorbed into the merge
-
-	# Create a progress bar above the visible zombie
-	_progress_bar = MergeProgressBar.new()
-	_visible_zombie.add_child(_progress_bar)
-	_progress_bar.position = Vector2(0, -30)
+		z.visible = false  # Hide — absorbed into the merge (synced)
 
 	merge_locked_in.emit()
 
 
 func _process_locked(delta: float) -> void:
+	if not is_instance_valid(_visible_zombie):
+		# The merging zombie was killed mid-lock — abort instead of
+		# completing at a bogus position
+		_abort_locked()
+		return
+
 	lock_timer += delta
-
-	# Update progress bar
-	if _progress_bar and _progress_bar is MergeProgressBar:
-		_progress_bar.progress = lock_timer / lock_duration
-
-	# Pulse the visible zombie
-	if is_instance_valid(_visible_zombie):
-		var pulse: float = 0.6 + 0.4 * abs(sin(lock_timer * 4.0))
-		_visible_zombie.modulate = Color(pulse, pulse, pulse, 1.0)
+	_visible_zombie.merge_progress = lock_timer / lock_duration
 
 	if lock_timer >= lock_duration:
 		_complete_merge()
@@ -187,18 +197,13 @@ func _complete_merge() -> void:
 			existing_target = z.target
 			break
 
-	# Clean up progress bar
-	if _progress_bar and is_instance_valid(_progress_bar):
-		_progress_bar.queue_free()
-	_progress_bar = null
-
 	# Remove all old zombies
 	for z in merge_zombies:
 		if is_instance_valid(z):
 			z.queue_free()
 	_visible_zombie = null
 
-	# Spawn the new zombie
+	# Spawn the new zombie under Entities so the MultiplayerSpawner replicates it
 	var scene: PackedScene = null
 	if merge_type == "fast":
 		scene = fast_zombie_scene
@@ -208,7 +213,10 @@ func _complete_merge() -> void:
 	if scene:
 		var new_zombie: Node2D = scene.instantiate()
 		new_zombie.global_position = spawn_pos
-		get_tree().current_scene.add_child(new_zombie)
+		var parent: Node = get_tree().current_scene.get_node_or_null("Entities")
+		if parent == null:
+			parent = get_tree().current_scene
+		parent.add_child(new_zombie, true)
 
 		# Set HP based on average percentage
 		if "hp" in new_zombie and "max_hp" in new_zombie:
@@ -225,7 +233,8 @@ func _complete_merge() -> void:
 	merge_completed.emit()
 
 
-## Simple progress bar drawn above the merging zombie.
+## Simple progress bar drawn above a merging/converting zombie.
+## Instantiated per-peer by zombie.gd from the synced merge_progress.
 class MergeProgressBar extends Node2D:
 	var progress: float = 0.0
 	const BAR_WIDTH: float = 40.0

@@ -1,0 +1,36 @@
+[gd_scene load_steps=5 format=3 uid="uid://b8pk1ckup0001"]
+
+[ext_resource type="Script" path="res://scenes/pickup/pickup.gd" id="1_pickup"]
+
+[sub_resource type="Gradient" id="Gradient_pk"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_pk"]
+gradient = SubResource("Gradient_pk")
+width = 48
+height = 48
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_pk"]
+radius = 28.0
+
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_pk"]
+properties/0/path = NodePath(".:position")
+properties/0/spawn = true
+properties/0/replication_mode = 0
+properties/1/path = NodePath(".:kind")
+properties/1/spawn = true
+properties/1/replication_mode = 0
+
+[node name="Pickup" type="Area2D" groups=["pickups"]]
+collision_layer = 0
+collision_mask = 1
+script = ExtResource("1_pickup")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = SubResource("GradientTexture2D_pk")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_pk")
+
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
+replication_config = SubResource("SceneReplicationConfig_pk")

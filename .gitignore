@@ -1,3 +1,7 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+
+# Screen recordings / video captures
+*.mov
+*.mp4

@@ -14,6 +14,15 @@ const COLORS := {
 	Kind.MEDPACK: Color(0.9, 0.2, 0.3),
 }
 
+const PICKUP_SCENE := preload("res://scenes/pickup/pickup.tscn")
+
+## Maps a Weapons.* id to the matching Pickup.Kind, so a swapped-out weapon can
+## be re-dropped as the right pickup.
+const WEAPON_TO_KIND := {
+	Weapons.RIFLE: Kind.RIFLE,
+	Weapons.SHOTGUN: Kind.SHOTGUN,
+}
+
 @export var kind: int = Kind.AMMO_MAG:
 	set(value):
 		kind = value
@@ -41,9 +50,32 @@ func _on_body_entered(body: Node2D) -> void:
 		Kind.AMMO_MAG:
 			body.add_pistol_mag()
 		Kind.RIFLE:
-			body.give_special(Weapons.RIFLE)
+			_take_special(body, Weapons.RIFLE)
 		Kind.SHOTGUN:
-			body.give_special(Weapons.SHOTGUN)
+			_take_special(body, Weapons.SHOTGUN)
 		Kind.MEDPACK:
 			body.heal(50)
 	queue_free()
+
+
+## Hand `weapon_id` to the shooter. If they're already holding a *different*
+## special, drop that old one on the ground first so it isn't lost.
+func _take_special(body: Node2D, weapon_id: int) -> void:
+	var old: int = body.held_special
+	if old != -1 and old != weapon_id:
+		_drop_weapon_pickup(old, body)
+	body.give_special(weapon_id)
+
+
+## Spawn the swapped-out weapon as a world pickup, offset behind the shooter so
+## it doesn't get instantly re-collected.
+func _drop_weapon_pickup(weapon_id: int, body: Node2D) -> void:
+	if not WEAPON_TO_KIND.has(weapon_id):
+		return
+	var entities := get_tree().current_scene.get_node_or_null("Entities")
+	if entities == null:
+		return
+	var p: Node2D = PICKUP_SCENE.instantiate()
+	p.kind = WEAPON_TO_KIND[weapon_id]
+	p.global_position = body.global_position - Vector2.from_angle(body.global_rotation) * 72.0
+	entities.add_child(p, true)

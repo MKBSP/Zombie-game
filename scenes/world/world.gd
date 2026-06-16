@@ -44,9 +44,16 @@ func _ready() -> void:
 		_spawn_standard_zombies()
 		_spawn_npcs()
 		_spawn_items()
-		hud.setup(shooter, master_zombie)
-		_setup_fog()
-		_apply_role()
+		if GameState.is_dedicated_server:
+			# Authoritative server only — no local player, no view to set up.
+			# The shooter is driven by the HUMAN client; the zombie controller
+			# is driven by the ZOMBIE client.
+			shooter.controls_enabled = false
+			zc_node.deactivate()
+		else:
+			hud.setup(shooter, master_zombie)
+			_setup_fog()
+			_apply_role()
 	else:
 		# Client: entities arrive via the MultiplayerSpawner.
 		$MultiplayerSpawner.spawned.connect(_on_entity_spawned)

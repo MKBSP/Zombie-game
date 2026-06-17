@@ -30,9 +30,19 @@ extends Control
 var _auto_role: int = -1
 
 
+## All launch arguments, whether passed after `--` (terminal) or as plain args
+## (editor "Run Multiple Instances" config).
+func _all_cmdline_args() -> PackedStringArray:
+	var a := OS.get_cmdline_args()
+	a.append_array(OS.get_cmdline_user_args())
+	return a
+
+
 func _ready() -> void:
+	var cmdline := _all_cmdline_args()
+
 	# Dedicated headless server entry point: `godot --headless -- --server`.
-	if "--server" in OS.get_cmdline_user_args():
+	if "--server" in cmdline:
 		Net.start_dedicated_server()
 		return
 
@@ -60,12 +70,11 @@ func _ready() -> void:
 
 	# Dev shortcut: `godot -- --autojoin [--role=human|--role=zombie]` connects to
 	# the local server immediately (two-window testing).
-	var args := OS.get_cmdline_user_args()
-	for a in args:
+	for a in cmdline:
 		if a.begins_with("--role="):
 			var r := a.substr("--role=".length())
 			_auto_role = GameState.Role.HUMAN if r == "human" else GameState.Role.ZOMBIE
-	if "--autojoin" in args:
+	if "--autojoin" in cmdline:
 		_show_panel(join_panel)
 		_on_connect_pressed()
 

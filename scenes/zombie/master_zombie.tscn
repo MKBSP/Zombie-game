@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3 uid="uid://cyqgashuh71ml"]
+[gd_scene format=3 uid="uid://cyqgashuh71ml"]
 
 [ext_resource type="Script" uid="uid://bcv6233agetff" path="res://scenes/zombie/master_zombie.gd" id="1_ll20s"]
 
@@ -39,5 +39,5 @@ debug_color = Color(0.643508, 0.466133, 0.636578, 0.42)
 path_desired_distance = 8.0
 target_desired_distance = 8.0
 
-[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=67454561]
 replication_config = SubResource("SceneReplicationConfig_sync")

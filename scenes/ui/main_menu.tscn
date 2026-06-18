@@ -154,6 +154,14 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 36
 text = "JOIN GAME"
 
+[node name="MPStatus" type="Label" parent="MultiplayerPanel/CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Connecting to server..."
+horizontal_alignment = 1
+autowrap_mode = 2
+
 [node name="LobbyPanel" type="Control" parent="."]
 visible = false
 layout_mode = 1

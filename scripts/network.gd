@@ -1,40 +1,50 @@
 extends Node
 
 ## Autoload "Net" — online multiplayer over WebSocket with a dedicated,
-## authoritative headless server (launched with --server). Both players connect
-## as clients, pick Human/Zombie in a server-arbitrated lobby, and the server
-## starts the match. The server simulates the world but is NOT a player.
+## authoritative headless server (launched with --server). Players connect as
+## clients, then either HOST a game (server makes a room + share code) or JOIN
+## one with that code. Inside a room each player picks Human/Zombie (the server
+## arbitrates) and the server starts the match. The server is NOT a player.
 ##
-## Local dev:  godot --headless -- --server        (the server)
-##             godot -- --autojoin --role=human     (client A)
-##             godot -- --autojoin --role=zombie     (client B)
+## Single active game for now: the server hosts one room at a time. Concurrent
+## lobbies / ranked matchmaking come later.
+##
+## Local dev:  godot --headless -- --server --dev      (the server)
+##             godot -- --autojoin --host --role=human  (host client)
+##             godot -- --autojoin --join=CODE --role=zombie (joiner)
 ## Production: server on Railway (reads $PORT), clients connect to wss://...
 
 const DEFAULT_PORT := 8910
 const DEFAULT_LOCAL_URL := "ws://127.0.0.1:8910"
 ## The live server, used by every exported build (web or native download).
-## After deploying to Railway, paste your public domain here as wss://<domain>
-## (no port — Railway proxies 443 -> the container's $PORT).
-const PROD_SERVER_URL := "wss://CHANGE-ME.up.railway.app"
+const PROD_SERVER_URL := "wss://zombie-game-production-2dad.up.railway.app"
+
+## Room-code alphabet — no ambiguous chars (0/O, 1/I).
+const CODE_CHARS := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+const CODE_LENGTH := 4
+
+signal connected_to_server          # client: handshake complete
+signal connection_failed            # client: could not reach the server
+signal server_disconnected          # client: lost the server
+signal room_joined(code: String)    # client: now in a room (as host or joiner)
+signal room_error(message: String)  # client: host/join was refused
+## Lobby roster changed. Each arg is the peer id holding that role (0 = free).
+signal lobby_updated(human_peer: int, zombie_peer: int)
+
+# Server-only room state (single active room).
+var _room_code: String = ""
+var _members: Array[int] = []   # peers in the room (max 2)
+var _human_peer: int = 0
+var _zombie_peer: int = 0
+var _match_started: bool = false
 
 
-## Which server a client should connect to by default. The editor (local dev)
-## talks to localhost; any exported build talks to the live server.
+## Which server a client connects to by default: localhost in the editor,
+## the live server in any exported build.
 func default_server_url() -> String:
 	if OS.has_feature("editor"):
 		return DEFAULT_LOCAL_URL
 	return PROD_SERVER_URL
-
-signal connected_to_server          # client: handshake complete, show lobby
-signal connection_failed            # client: could not reach the server
-signal server_disconnected          # client: lost the server
-## Lobby roster changed. Each arg is the peer id holding that role (0 = free).
-signal lobby_updated(human_peer: int, zombie_peer: int)
-
-# Server-only roster: which peer claimed which role.
-var _human_peer: int = 0
-var _zombie_peer: int = 0
-var _match_started: bool = false
 
 
 # --------------------------------------------------------------- Dedicated server
@@ -56,33 +66,77 @@ func start_dedicated_server() -> Error:
 	GameState.is_dedicated_server = true
 	multiplayer.peer_connected.connect(_on_server_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_server_peer_disconnected)
-	print("[server] listening on port %d — waiting for two players" % port)
+	print("[server] listening on port %d — waiting for a host" % port)
 	return OK
 
 
-func _on_server_peer_connected(id: int) -> void:
-	# Two-player game: reject a third connection.
-	if multiplayer.get_peers().size() > 2:
-		multiplayer.multiplayer_peer.disconnect_peer(id)
-		return
-	# Send the new client the current roster so its lobby UI is correct.
-	_broadcast_lobby()
+func _on_server_peer_connected(_id: int) -> void:
+	# Connections are allowed freely; room membership is gated by host/join.
+	pass
 
 
 func _on_server_peer_disconnected(id: int) -> void:
+	_members.erase(id)
 	if id == _human_peer:
 		_human_peer = 0
 	if id == _zombie_peer:
 		_zombie_peer = 0
+	if _members.is_empty():
+		_close_room()
+	else:
+		_broadcast_lobby()
+
+
+## Client -> server: create the room. Single-room server, so refuse if busy.
+@rpc("any_peer", "reliable")
+func create_room() -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if _room_code != "":
+		_room_error.rpc_id(sender, "A game is already running. Try Join instead.")
+		return
+	_room_code = _gen_code()
+	_members = [sender]
+	_human_peer = 0
+	_zombie_peer = 0
+	_match_started = false
+	print("[server] room created: %s (host=%d)" % [_room_code, sender])
+	_room_joined.rpc_id(sender, _room_code)
 	_broadcast_lobby()
 
 
-## Client -> server: request a role. The server is the sole arbiter.
+## Client -> server: join the room matching `code`.
+@rpc("any_peer", "reliable")
+func join_room(code: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	var c := code.strip_edges().to_upper()
+	if _room_code == "":
+		_room_error.rpc_id(sender, "No game is being hosted. Click Host to start one.")
+		return
+	if c != _room_code:
+		_room_error.rpc_id(sender, "No game found with code %s." % c)
+		return
+	if sender not in _members and _members.size() >= 2:
+		_room_error.rpc_id(sender, "That game is full.")
+		return
+	if sender not in _members:
+		_members.append(sender)
+	print("[server] peer %d joined room %s (%d/2)" % [sender, _room_code, _members.size()])
+	_room_joined.rpc_id(sender, _room_code)
+	_broadcast_lobby()
+
+
+## Client -> server: request a role within the room. The server is the arbiter.
 @rpc("any_peer", "reliable")
 func claim_role(role: int) -> void:
 	if not multiplayer.is_server() or _match_started:
 		return
 	var sender := multiplayer.get_remote_sender_id()
+	if sender not in _members:
+		return
 	# Release any role the sender currently holds (lets them switch).
 	if _human_peer == sender:
 		_human_peer = 0
@@ -99,12 +153,8 @@ func claim_role(role: int) -> void:
 
 
 func _broadcast_lobby() -> void:
-	_update_lobby.rpc(_human_peer, _zombie_peer)
-
-
-@rpc("authority", "call_local", "reliable")
-func _update_lobby(human_peer: int, zombie_peer: int) -> void:
-	lobby_updated.emit(human_peer, zombie_peer)
+	for m in _members:
+		_update_lobby.rpc_id(m, _human_peer, _zombie_peer)
 
 
 func _start_match() -> void:
@@ -117,16 +167,31 @@ func _start_match() -> void:
 	get_tree().change_scene_to_file("res://scenes/world/world.tscn")
 
 
+func _close_room() -> void:
+	_room_code = ""
+	_members = []
+	_human_peer = 0
+	_zombie_peer = 0
+	_match_started = false
+	print("[server] room closed — waiting for a host")
+
+
+func _gen_code() -> String:
+	var s := ""
+	for _i in CODE_LENGTH:
+		s += CODE_CHARS[randi() % CODE_CHARS.length()]
+	return s
+
+
 # ----------------------------------------------------------------------- Client
 
-## Connect to a dedicated server. `url` is a full ws:// or wss:// address; an
-## empty string falls back to the local server for development.
+## Connect to a dedicated server. Empty `url` uses the default (localhost in the
+## editor, the live server when exported). Bare host/IP gets a ws:// prefix.
 func connect_to_server(url: String = "") -> Error:
 	url = url.strip_edges()
 	if url.is_empty():
-		url = DEFAULT_LOCAL_URL
+		url = default_server_url()
 	elif not (url.begins_with("ws://") or url.begins_with("wss://")):
-		# Bare host/IP — assume plain ws on the default port.
 		url = "ws://%s:%d" % [url, DEFAULT_PORT]
 	var peer := WebSocketMultiplayerPeer.new()
 	var err := peer.create_client(url)
@@ -141,7 +206,17 @@ func connect_to_server(url: String = "") -> Error:
 	return OK
 
 
-## Client -> server: ask to take a role (the server validates it).
+## Client -> server: host a new game.
+func request_host() -> void:
+	create_room.rpc_id(1)
+
+
+## Client -> server: join the game with `code`.
+func request_join(code: String) -> void:
+	join_room.rpc_id(1, code)
+
+
+## Client -> server: take a role inside the room.
 func request_role(role: int) -> void:
 	claim_role.rpc_id(1, role)
 
@@ -161,6 +236,22 @@ func _on_server_disconnected() -> void:
 
 
 @rpc("authority", "reliable")
+func _room_joined(code: String) -> void:
+	_room_code = code
+	room_joined.emit(code)
+
+
+@rpc("authority", "reliable")
+func _room_error(message: String) -> void:
+	room_error.emit(message)
+
+
+@rpc("authority", "reliable")
+func _update_lobby(human_peer: int, zombie_peer: int) -> void:
+	lobby_updated.emit(human_peer, zombie_peer)
+
+
+@rpc("authority", "reliable")
 func _assign_role_and_start(role: int, world_seed: int) -> void:
 	GameState.role = role
 	GameState.world_seed = world_seed
@@ -177,6 +268,8 @@ func leave() -> void:
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	GameState.multiplayer_active = false
 	GameState.is_dedicated_server = false
+	_room_code = ""
+	_members = []
 	_human_peer = 0
 	_zombie_peer = 0
 	_match_started = false

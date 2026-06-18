@@ -95,7 +95,7 @@ func _on_solo_role_chosen(role: GameState.Role) -> void:
 
 
 func _on_multi_pressed() -> void:
-	url_edit.text = Net.DEFAULT_LOCAL_URL
+	url_edit.text = Net.default_server_url()  # localhost in editor, live server when exported
 	join_status.text = ""
 	connect_button.disabled = false
 	_show_panel(join_panel)

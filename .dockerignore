@@ -1,0 +1,9 @@
+# Keep the build context small and clean.
+.git
+.godot
+build
+docs
+*.command
+*.mov
+*.mp4
+Screen Recording*

@@ -12,6 +12,18 @@ extends Node
 
 const DEFAULT_PORT := 8910
 const DEFAULT_LOCAL_URL := "ws://127.0.0.1:8910"
+## The live server, used by every exported build (web or native download).
+## After deploying to Railway, paste your public domain here as wss://<domain>
+## (no port — Railway proxies 443 -> the container's $PORT).
+const PROD_SERVER_URL := "wss://CHANGE-ME.up.railway.app"
+
+
+## Which server a client should connect to by default. The editor (local dev)
+## talks to localhost; any exported build talks to the live server.
+func default_server_url() -> String:
+	if OS.has_feature("editor"):
+		return DEFAULT_LOCAL_URL
+	return PROD_SERVER_URL
 
 signal connected_to_server          # client: handshake complete, show lobby
 signal connection_failed            # client: could not reach the server

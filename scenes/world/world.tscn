@@ -5,6 +5,7 @@
 [ext_resource type="TileSet" uid="uid://cf1misi0mm7de" path="res://resources/city_tileset.tres" id="2_6m72w"]
 [ext_resource type="Script" uid="uid://bxy2abnykiaey" path="res://scenes/ui/hud.gd" id="2_4676e"]
 [ext_resource type="PackedScene" uid="uid://ct8xtlcyubd03" path="res://scenes/ui/game_over.tscn" id="3_1b30x"]
+[ext_resource type="PackedScene" uid="uid://bcmoows3wxra3" path="res://scenes/ui/pause_menu.tscn" id="20_pausemenu"]
 [ext_resource type="Script" uid="uid://cwpmi5vl50l00" path="res://scripts/prop_scatter.gd" id="5_v5dby"]
 [ext_resource type="PackedScene" uid="uid://c6ybd5e8xxkoe" path="res://scenes/props/prop_car.tscn" id="6_t5ptc"]
 [ext_resource type="PackedScene" uid="uid://cj1kaemyobmkr" path="res://scenes/props/prop_tree.tscn" id="7_gb53w"]
@@ -128,6 +129,9 @@ horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="GameOverScreen" parent="HUDLayer" unique_id=474424163 instance=ExtResource("3_1b30x")]
+visible = false
+
+[node name="PauseMenu" parent="HUDLayer" instance=ExtResource("20_pausemenu")]
 visible = false
 
 [node name="PropScatter" type="Node" parent="." unique_id=1925195708 node_paths=PackedStringArray("ground_layer", "building_layer")]

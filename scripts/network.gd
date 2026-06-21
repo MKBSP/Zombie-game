@@ -30,13 +30,16 @@ signal room_joined(code: String)    # client: now in a room (as host or joiner)
 signal room_error(message: String)  # client: host/join was refused
 ## Lobby roster changed. Each arg is the peer id holding that role (0 = free).
 signal lobby_updated(human_peer: int, zombie_peer: int)
+## The room ended out from under this client (opponent left, etc.).
+signal room_closed(reason: String)
 
 # Server-only room state (single active room).
 var _room_code: String = ""
-var _members: Array[int] = []   # peers in the room (max 2)
+var _members: Array[int] = []   # peers in the room (max 2); _members[0] is host
 var _human_peer: int = 0
 var _zombie_peer: int = 0
 var _match_started: bool = false
+var _match_over: bool = false   # match finished; players choosing rematch/quit
 
 
 ## Which server a client connects to by default: localhost in the editor,
@@ -52,6 +55,10 @@ func default_server_url() -> String:
 ## Start the authoritative headless server. Reads the port from $PORT (Railway
 ## sets this) and falls back to DEFAULT_PORT for local testing.
 func start_dedicated_server() -> Error:
+	# Idempotent: re-entering main_menu._ready() (with --server) after a match
+	# must not recreate the peer and drop every connection.
+	if GameState.is_dedicated_server and multiplayer.has_multiplayer_peer():
+		return OK
 	var port := DEFAULT_PORT
 	var env_port := OS.get_environment("PORT")
 	if env_port.is_valid_int():
@@ -76,6 +83,17 @@ func _on_server_peer_connected(_id: int) -> void:
 
 
 func _on_server_peer_disconnected(id: int) -> void:
+	_handle_member_left(id)
+
+
+## A member left (disconnect or explicit leave). End the session sensibly:
+## an empty room closes; during or after a match any departure closes the room
+## and sends the other player home; in the lobby only the host leaving closes it
+## (a joiner leaving just frees their slot so the host can keep waiting).
+func _handle_member_left(id: int) -> void:
+	if id not in _members:
+		return
+	var was_host := _members[0] == id
 	_members.erase(id)
 	if id == _human_peer:
 		_human_peer = 0
@@ -83,6 +101,12 @@ func _on_server_peer_disconnected(id: int) -> void:
 		_zombie_peer = 0
 	if _members.is_empty():
 		_close_room()
+		return
+	if _match_started or _match_over or was_host:
+		var remaining := _members.duplicate()
+		_close_room()
+		for m in remaining:
+			_room_closed.rpc_id(m, "The other player left.")
 	else:
 		_broadcast_lobby()
 
@@ -101,6 +125,7 @@ func create_room() -> void:
 	_human_peer = 0
 	_zombie_peer = 0
 	_match_started = false
+	_match_over = false
 	print("[server] room created: %s (host=%d)" % [_room_code, sender])
 	_room_joined.rpc_id(sender, _room_code)
 	_broadcast_lobby()
@@ -132,7 +157,7 @@ func join_room(code: String) -> void:
 ## Client -> server: request a role within the room. The server is the arbiter.
 @rpc("any_peer", "reliable")
 func claim_role(role: int) -> void:
-	if not multiplayer.is_server() or _match_started:
+	if not multiplayer.is_server() or _match_started or _match_over:
 		return
 	var sender := multiplayer.get_remote_sender_id()
 	if sender not in _members:
@@ -152,6 +177,29 @@ func claim_role(role: int) -> void:
 		_start_match()
 
 
+## Client -> server: restart with the same two players and the same roles.
+@rpc("any_peer", "reliable")
+func rematch() -> void:
+	if not multiplayer.is_server():
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if sender not in _members:
+		return
+	if _match_started:
+		return  # already restarting — both players may click Play Again
+	if _human_peer == 0 or _zombie_peer == 0:
+		return  # need both roles still present
+	_start_match()
+
+
+## Client -> server: leave the room (quit to menu).
+@rpc("any_peer", "reliable")
+func leave_room() -> void:
+	if not multiplayer.is_server():
+		return
+	_handle_member_left(multiplayer.get_remote_sender_id())
+
+
 func _broadcast_lobby() -> void:
 	for m in _members:
 		_update_lobby.rpc_id(m, _human_peer, _zombie_peer)
@@ -159,12 +207,26 @@ func _broadcast_lobby() -> void:
 
 func _start_match() -> void:
 	_match_started = true
+	_match_over = false
 	GameState.world_seed = randi()
 	GameState.multiplayer_active = true
 	print("[server] both roles filled — starting match (human=%d zombie=%d seed=%d)" % [_human_peer, _zombie_peer, GameState.world_seed])
 	_assign_role_and_start.rpc_id(_human_peer, GameState.Role.HUMAN, GameState.world_seed)
 	_assign_role_and_start.rpc_id(_zombie_peer, GameState.Role.ZOMBIE, GameState.world_seed)
+	get_tree().paused = false
 	get_tree().change_scene_to_file("res://scenes/world/world.tscn")
+
+
+## Server: a match just ended. Keep the room + roles so the players can rematch,
+## but mark it finished and drop the finished world (dedicated server goes idle
+## until a rematch or a brand-new host arrives).
+func server_on_match_ended() -> void:
+	if not multiplayer.is_server():
+		return
+	_match_started = false
+	_match_over = true
+	if GameState.is_dedicated_server:
+		get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
 
 
 func _close_room() -> void:
@@ -173,6 +235,7 @@ func _close_room() -> void:
 	_human_peer = 0
 	_zombie_peer = 0
 	_match_started = false
+	_match_over = false
 	print("[server] room closed — waiting for a host")
 
 
@@ -221,6 +284,23 @@ func request_role(role: int) -> void:
 	claim_role.rpc_id(1, role)
 
 
+## Client -> server: rematch with the same players/roles.
+func request_rematch() -> void:
+	rematch.rpc_id(1)
+
+
+## Leave the current room (if any) and return to the main menu. Safe in both
+## single-player and multiplayer; the explicit leave_room RPC frees the server's
+## room immediately rather than waiting on a (possibly slow) WebSocket close.
+func leave_to_menu() -> void:
+	if GameState.multiplayer_active and not multiplayer.is_server():
+		leave_room.rpc_id(1)
+		await get_tree().process_frame  # let the RPC flush before we drop the peer
+	leave()
+	get_tree().paused = false
+	get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
+
+
 func _on_connected() -> void:
 	connected_to_server.emit()
 
@@ -256,7 +336,16 @@ func _assign_role_and_start(role: int, world_seed: int) -> void:
 	GameState.role = role
 	GameState.world_seed = world_seed
 	GameState.multiplayer_active = true
+	get_tree().paused = false
 	get_tree().change_scene_to_file("res://scenes/world/world.tscn")
+
+
+## Server -> client: the room ended (opponent left). Return to the menu.
+@rpc("authority", "reliable")
+func _room_closed(reason: String) -> void:
+	room_closed.emit(reason)
+	print("[net] room closed: ", reason)
+	_back_to_menu()
 
 
 # ----------------------------------------------------------------------- Shared
@@ -273,6 +362,7 @@ func leave() -> void:
 	_human_peer = 0
 	_zombie_peer = 0
 	_match_started = false
+	_match_over = false
 
 
 func _back_to_menu() -> void:

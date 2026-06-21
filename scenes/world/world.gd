@@ -320,6 +320,11 @@ func _on_player_died() -> void:
 ## Broadcast by the server; each peer renders the message for its own role.
 @rpc("authority", "call_local", "reliable")
 func _game_over(master_died: bool) -> void:
+	# Dedicated server: no UI and never pause the authoritative tree. Reset the
+	# room so the same players can rematch (or a new host can take over).
+	if multiplayer.is_server() and GameState.is_dedicated_server:
+		Net.server_on_match_ended()
+		return
 	var msg: String
 	if master_died:
 		msg = "YOU LOSE" if GameState.role == GameState.Role.ZOMBIE else "YOU WIN!"

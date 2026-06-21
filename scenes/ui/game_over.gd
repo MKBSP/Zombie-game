@@ -1,24 +1,38 @@
 extends Control
 
 @onready var message_label: Label = $VBoxContainer/MessageLabel
+@onready var play_again_button: Button = $VBoxContainer/PlayAgainButton
+@onready var main_menu_button: Button = $VBoxContainer/MainMenuButton
+
+
+func _ready() -> void:
+	play_again_button.pressed.connect(_on_play_again)
+	main_menu_button.pressed.connect(_on_main_menu)
 
 
 func show_message(text: String) -> void:
 	message_label.text = text
 	visible = true
-	# Pause the game tree but keep this UI processing
+	play_again_button.disabled = false
+	main_menu_button.disabled = false
+	# Pause the game tree but keep this UI processing.
 	get_tree().paused = true
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if not visible:
-		return
-	if event is InputEventKey and event.pressed and event.keycode == KEY_R:
+func _on_play_again() -> void:
+	if GameState.multiplayer_active:
+		# The server restarts the match for both players; we just ask and wait
+		# for _assign_role_and_start to reload the world.
+		play_again_button.disabled = true
+		main_menu_button.disabled = true
+		play_again_button.text = "RESTARTING..."
+		Net.request_rematch()
+	else:
 		get_tree().paused = false
-		if GameState.multiplayer_active:
-			# Play again = back to the lobby; host-reload resync is fragile
-			Net.leave()
-			get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
-		else:
-			get_tree().reload_current_scene()
+		get_tree().reload_current_scene()
+
+
+func _on_main_menu() -> void:
+	# Handles unpause, leaving the room, and the scene change for both modes.
+	Net.leave_to_menu()

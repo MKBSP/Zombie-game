@@ -46,6 +46,15 @@ var _net_aim_target: Vector2 = Vector2.ZERO
 var _net_shooting: bool = false
 var _net_focus: bool = false
 
+# --- Aim accuracy (server computes; aim_spread_coeff is synced for the cursor) ---
+var aim_spread_coeff: float = 0.10
+var _recoil: float = 0.0
+var _recoil_recover: float = 0.0   # seconds for the current kick to fully decay
+var _recoil_elapsed: float = 0.0
+var _focus_timer: float = 0.0
+const FOCUS_TIME := 5.0
+const PISTOL_DMG_REF := 35.0
+
 # --- Node references (filled in _ready) ---
 @onready var gun_tip: Marker2D = $GunTip
 @onready var shoot_cooldown: Timer = $ShootCooldown
@@ -124,7 +133,7 @@ func _action_give() -> void:
 
 
 ## Server-side simulation.
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if is_dead:
 		return
 
@@ -133,8 +142,43 @@ func _physics_process(_delta: float) -> void:
 	if _net_aim_target != global_position:
 		rotation = (_net_aim_target - global_position).angle()
 
+	_update_recoil(delta)
+	_update_focus(delta)
+	aim_spread_coeff = AimModel.spread_coeff(_active_weapon(), _debuff_total(), _focus_fraction())
+
 	if _net_shooting:
 		shoot()
+
+
+func _debuff_total() -> float:
+	var total := 0.0
+	if _net_dir.length() > 0.1:
+		total += 0.20                       # running
+	if hp < int(max_hp * 0.5):
+		total += 0.40                       # badly hurt
+	elif hp < max_hp:
+		total += 0.20                       # injured
+	total += _recoil
+	return total
+
+func _focus_fraction() -> float:
+	return clampf(_focus_timer / FOCUS_TIME, 0.0, 1.0)
+
+func _update_focus(delta: float) -> void:
+	# Focus only builds while holding Ctrl AND standing still.
+	if _net_focus and _net_dir.length() <= 0.1:
+		_focus_timer = minf(_focus_timer + delta, FOCUS_TIME)
+	else:
+		_focus_timer = 0.0
+
+func _update_recoil(delta: float) -> void:
+	if _recoil <= 0.0:
+		return
+	_recoil_elapsed += delta
+	if _recoil_recover <= 0.0:
+		_recoil = 0.0
+		return
+	_recoil = 0.5 * clampf(1.0 - _recoil_elapsed / _recoil_recover, 0.0, 1.0)
 
 
 ## True while the player is holding fire — armed NPCs only shoot when this is.
@@ -174,8 +218,14 @@ func shoot() -> void:
 		parent = get_tree().current_scene
 	var cursor := _net_aim_target
 	var dist := gun_tip.global_position.distance_to(cursor)
-	var radius := w.aim_base * dist   # debuffs/focus added in the next task
+	var radius := aim_spread_coeff * dist
 	Weapons.fire(parent, gun_tip.global_position, cursor, radius, w)
+
+	# Post-shot recoil: refresh to 50%, recover over 2 x damage-units seconds.
+	var dmg_units := (w.damage * w.pellets) / PISTOL_DMG_REF
+	_recoil = 0.5
+	_recoil_elapsed = 0.0
+	_recoil_recover = 2.0 * dmg_units
 
 	# Auto-reload the moment the mag runs dry.
 	if _current_mag() <= 0:

@@ -13,8 +13,6 @@ class_name WeaponData
 @export var mag_size: int = 15
 @export var reload_time: float = 3.0
 @export var pellets: int = 1
-## Total angular spread (radians) the pellets are fanned across.
-@export var spread_rad: float = 0.0
 @export var bullet_speed: float = 600.0
 @export var is_special: bool = false
 ## Finite rounds the weapon carries when picked up. 0 = pistol (draws from the

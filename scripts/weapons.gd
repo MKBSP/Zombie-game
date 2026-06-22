@@ -40,7 +40,6 @@ static func get_data(id: int) -> WeaponData:
 			w.mag_size = 2
 			w.reload_time = 3.0
 			w.pellets = 5
-			w.spread_rad = 0.5       # ~28 degree fan
 			w.bullet_speed = 600.0
 			w.is_special = true
 			w.total_ammo = 8

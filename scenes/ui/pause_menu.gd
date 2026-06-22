@@ -35,6 +35,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _open() -> void:
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	visible = true
 	if not GameState.multiplayer_active:
 		get_tree().paused = true
@@ -43,6 +44,9 @@ func _open() -> void:
 func _close() -> void:
 	visible = false
 	get_tree().paused = false
+	var ac := get_parent().get_node_or_null("AimCursor")
+	if ac and ac.has_method("is_active") and ac.is_active():
+		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 
 
 func _on_menu() -> void:

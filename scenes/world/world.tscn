@@ -18,6 +18,7 @@
 [ext_resource type="Script" uid="uid://73kxgnr2wka6" path="res://scripts/merge_manager.gd" id="15_71ii3"]
 [ext_resource type="PackedScene" uid="uid://dt4qweg6brm4d" path="res://scenes/zombie/fast_zombie.tscn" id="16_bt7bg"]
 [ext_resource type="PackedScene" uid="uid://bg0cosb6sd0sx" path="res://scenes/zombie/fat_zombie.tscn" id="17_wbwoo"]
+[ext_resource type="PackedScene" uid="uid://caimcursor0001" path="res://scenes/ui/aim_cursor.tscn" id="21_aimcursor"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_gb53w"]
 shader = ExtResource("2_5qq27")
@@ -132,6 +133,9 @@ vertical_alignment = 1
 visible = false
 
 [node name="PauseMenu" parent="HUDLayer" instance=ExtResource("20_pausemenu")]
+
+[node name="AimCursor" parent="HUDLayer" instance=ExtResource("21_aimcursor")]
+visible = false
 visible = false
 
 [node name="PropScatter" type="Node" parent="." unique_id=1925195708 node_paths=PackedStringArray("ground_layer", "building_layer")]

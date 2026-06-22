@@ -10,6 +10,7 @@ extends Node2D
 @onready var zc_camera: Camera2D = $ZCCamera
 @onready var entities: Node2D = $Entities
 @onready var merge_manager: MergeManager = $MergeManager
+@onready var aim_cursor: Control = $HUDLayer/AimCursor
 
 var shooter_scene := preload("res://scenes/shooter/shooter.tscn")
 var zombie_scene := preload("res://scenes/zombie/zombie.tscn")
@@ -86,6 +87,7 @@ func _apply_role() -> void:
 		shooter_cam.make_current()
 		shooter_fog_rect.visible = fog_enabled
 		zc_node.deactivate()
+		aim_cursor.setup(shooter)
 	else:
 		shooter.controls_enabled = false
 		shooter_cam.enabled = false
@@ -93,6 +95,7 @@ func _apply_role() -> void:
 		hud.visible = false
 		zc_node.activate()
 		zc_camera.make_current()
+		aim_cursor.teardown()
 
 
 func _setup_fog() -> void:

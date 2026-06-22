@@ -13,6 +13,7 @@ func _ready() -> void:
 func show_message(text: String) -> void:
 	message_label.text = text
 	visible = true
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	play_again_button.disabled = false
 	main_menu_button.disabled = false
 	# Pause the game tree but keep this UI processing.

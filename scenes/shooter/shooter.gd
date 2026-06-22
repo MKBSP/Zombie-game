@@ -42,8 +42,9 @@ var pickup_seq: int = 0:
 
 # --- Latest input from the controlling player (consumed server-side) ---
 var _net_dir: Vector2 = Vector2.ZERO
-var _net_aim: float = 0.0
+var _net_aim_target: Vector2 = Vector2.ZERO
 var _net_shooting: bool = false
+var _net_focus: bool = false
 
 # --- Node references (filled in _ready) ---
 @onready var gun_tip: Marker2D = $GunTip
@@ -77,12 +78,13 @@ func _process(_delta: float) -> void:
 	)
 	if input_dir.length() > 0:
 		input_dir = input_dir.normalized()
-	var aim: float = (get_global_mouse_position() - global_position).angle()
+	var aim_target: Vector2 = get_global_mouse_position()
 	var shooting: bool = (
 		Input.is_action_pressed("ui_accept")
 		or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	)
-	_send_input.rpc_id(1, input_dir, aim, shooting)
+	var focus: bool = Input.is_action_pressed("focus_aim")
+	_send_input.rpc_id(1, input_dir, aim_target, shooting, focus)
 
 	# Discrete one-shot weapon actions
 	if Input.is_action_just_pressed("swap_weapon"):
@@ -94,12 +96,13 @@ func _process(_delta: float) -> void:
 
 
 @rpc("any_peer", "call_local", "unreliable_ordered")
-func _send_input(dir: Vector2, aim: float, shooting: bool) -> void:
+func _send_input(dir: Vector2, aim_target: Vector2, shooting: bool, focus: bool) -> void:
 	if not multiplayer.is_server():
 		return
 	_net_dir = dir.limit_length(1.0)
-	_net_aim = aim
+	_net_aim_target = aim_target
 	_net_shooting = shooting
+	_net_focus = focus
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -127,7 +130,8 @@ func _physics_process(_delta: float) -> void:
 
 	velocity = _net_dir * speed
 	move_and_slide()
-	rotation = _net_aim
+	if _net_aim_target != global_position:
+		rotation = (_net_aim_target - global_position).angle()
 
 	if _net_shooting:
 		shoot()

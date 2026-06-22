@@ -172,7 +172,10 @@ func shoot() -> void:
 	var parent: Node = get_tree().current_scene.get_node_or_null("Entities")
 	if parent == null:
 		parent = get_tree().current_scene
-	Weapons.fire(parent, gun_tip.global_position, global_rotation, w, 0.0)
+	var cursor := _net_aim_target
+	var dist := gun_tip.global_position.distance_to(cursor)
+	var radius := w.aim_base * dist   # debuffs/focus added in the next task
+	Weapons.fire(parent, gun_tip.global_position, cursor, radius, w)
 
 	# Auto-reload the moment the mag runs dry.
 	if _current_mag() <= 0:

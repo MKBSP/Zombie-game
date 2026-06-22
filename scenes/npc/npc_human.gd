@@ -242,7 +242,9 @@ func _process_shooting() -> void:
 	var base_angle: float = (target.global_position - global_position).angle()
 	# Spawn past our own collider so the NPC never shoots itself.
 	var origin: Vector2 = global_position + Vector2.from_angle(base_angle) * MUZZLE_OFFSET
-	Weapons.fire(get_parent(), origin, base_angle, w, NPC_AIM_JITTER)
+	var cursor: Vector2 = target.global_position
+	var radius: float = NPC_AIM_JITTER * origin.distance_to(cursor)
+	Weapons.fire(get_parent(), origin, cursor, radius, w)
 
 	weapon_mag -= 1
 	weapon_total -= 1

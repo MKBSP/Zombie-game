@@ -68,23 +68,24 @@ static func get_data(id: int) -> WeaponData:
 	return w
 
 
-## Spawn this weapon's pellets from `origin` aimed at `base_angle`, parented under
-## `parent` (the Entities node) so the MultiplayerSpawner replicates them.
-## `jitter` adds a random per-pellet angle offset (NPC aim debuff; pass 0 for the
-## player's crisp aim).
-static func fire(parent: Node, origin: Vector2, base_angle: float, w: WeaponData, jitter: float) -> void:
-	for i in range(w.pellets):
-		var angle := base_angle
-		if w.pellets > 1:
-			# Fan evenly across spread_rad, centered on base_angle.
-			var t := float(i) / float(w.pellets - 1) - 0.5
-			angle += t * w.spread_rad
-		if jitter > 0.0:
-			angle += randf_range(-jitter, jitter)
+## Spawn this weapon's pellets from `origin`, each flying straight toward a
+## uniform-random point inside the aim circle of radius `radius_px` centred on
+## `cursor_pos`. Parented under `parent` (Entities) so the spawner replicates them.
+static func fire(parent: Node, origin: Vector2, cursor_pos: Vector2, radius_px: float, w: WeaponData) -> void:
+	for _i in range(w.pellets):
+		var aim_point := cursor_pos + AimModel.random_in_disk(radius_px)
+		var dir := aim_point - origin
+		if dir.length() < 0.001:
+			dir = Vector2.RIGHT
+		dir = dir.normalized()
 		var bullet := BULLET_SCENE.instantiate()
 		bullet.global_position = origin
-		bullet.rotation = angle
-		bullet.direction = Vector2.from_angle(angle)
+		bullet.rotation = dir.angle()
+		bullet.direction = dir
 		bullet.damage = w.damage
 		bullet.speed = w.bullet_speed
+		bullet.origin = origin
+		bullet.optimal_range_px = w.optimal_range_px
+		bullet.zero_range_px = w.zero_range_px
+		bullet.weapon = w
 		parent.add_child(bullet, true)

@@ -6,10 +6,12 @@ extends Control
 ## Hides the OS cursor while active.
 
 var _shooter: Node2D = null
+var _gun_tip: Node2D = null
 
 
 func setup(shooter: Node2D) -> void:
 	_shooter = shooter
+	_gun_tip = shooter.get_node_or_null("GunTip")
 	visible = true
 	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 	set_process(true)
@@ -17,6 +19,7 @@ func setup(shooter: Node2D) -> void:
 
 func teardown() -> void:
 	_shooter = null
+	_gun_tip = null
 	visible = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	set_process(false)
@@ -38,10 +41,7 @@ func _process(_delta: float) -> void:
 func _draw() -> void:
 	if not is_active():
 		return
-	var gun: Vector2 = _shooter.global_position
-	var tip := _shooter.get_node_or_null("GunTip")
-	if tip:
-		gun = tip.global_position
+	var gun: Vector2 = _gun_tip.global_position if (_gun_tip and is_instance_valid(_gun_tip)) else _shooter.global_position
 	var mouse := get_global_mouse_position()
 	var dist := gun.distance_to(mouse)
 	var coeff: float = _shooter.aim_spread_coeff

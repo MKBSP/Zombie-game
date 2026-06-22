@@ -136,7 +136,6 @@ visible = false
 
 [node name="AimCursor" parent="HUDLayer" instance=ExtResource("21_aimcursor")]
 visible = false
-visible = false
 
 [node name="PropScatter" type="Node" parent="." unique_id=1925195708 node_paths=PackedStringArray("ground_layer", "building_layer")]
 script = ExtResource("5_v5dby")

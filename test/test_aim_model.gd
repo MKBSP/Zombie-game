@@ -26,6 +26,18 @@ func _init() -> void:
 			break
 	_check("random_in_disk within radius", ok)
 
+	# --- Headshot ray-distance (Phase 2) ---
+	_check("dead-center is a headshot",
+		AimModel.is_headshot(Vector2.ZERO, Vector2(1, 0), Vector2(100, 0), 5.0))
+	_check("just inside the radius is a headshot",
+		AimModel.is_headshot(Vector2.ZERO, Vector2(1, 0), Vector2(100, 4.9), 5.0))
+	_check("just outside the radius is not",
+		not AimModel.is_headshot(Vector2.ZERO, Vector2(1, 0), Vector2(100, 5.1), 5.0))
+	_check("a parallel near-miss is not",
+		not AimModel.is_headshot(Vector2.ZERO, Vector2(1, 0), Vector2(100, 50), 5.0))
+	_check("works with an un-normalised direction",
+		AimModel.is_headshot(Vector2.ZERO, Vector2(10, 0), Vector2(100, 3), 5.0))
+
 	if _failures == 0:
 		print("ALL TESTS PASSED")
 	else:

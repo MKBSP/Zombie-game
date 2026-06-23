@@ -31,3 +31,14 @@ static func random_in_disk(radius: float) -> Vector2:
 	var r := radius * sqrt(randf())
 	var a := randf() * TAU
 	return Vector2(cos(a), sin(a)) * r
+
+
+## True when a shot fired from `origin` along `dir` passes within `radius` of
+## `target` — i.e. its straight path threads the target's center crit zone.
+## `dir` need not be normalised.
+static func is_headshot(origin: Vector2, dir: Vector2, target: Vector2, radius: float) -> bool:
+	var d := dir.normalized()
+	if d == Vector2.ZERO:
+		return false
+	# Perpendicular distance from `target` to the ray = |(target - origin) x d|.
+	return absf((target - origin).cross(d)) <= radius

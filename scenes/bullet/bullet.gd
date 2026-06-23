@@ -16,6 +16,7 @@ func _ready() -> void:
 	# Simulation (movement, collisions, despawn) is server-only; clients just
 	# render the synced position. Server queue_free despawns replicas too.
 	set_physics_process(multiplayer.is_server())
+	lifetime = Balance.BULLET.lifetime  # damage/speed are set per-weapon by Weapons.fire()
 	if origin == Vector2.ZERO:
 		origin = global_position
 	if multiplayer.is_server():
@@ -40,9 +41,12 @@ func _on_body_entered(body: Node2D) -> void:
 		# Never hit the shooter (bullets spawn near its body)
 		return
 	if body.is_in_group("zombies"):
-		# Deal damage to the zombie
+		# Center-mass crit: 4x when the shot's path threads the zombie's core.
+		var dmg := _damage_for_hit()
+		if AimModel.is_headshot(origin, direction, body.global_position, Balance.HEADSHOT.radius_px):
+			dmg *= Balance.HEADSHOT.mult
 		if body.has_method("take_damage"):
-			body.take_damage(_damage_for_hit())
+			body.take_damage(dmg)
 		queue_free()
 	elif body.is_in_group("npcs"):
 		# Deal damage to the NPC

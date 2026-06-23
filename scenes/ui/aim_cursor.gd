@@ -7,7 +7,7 @@ extends Control
 
 ## Faintest the ring ever gets, when the cursor is at/over the weapon's
 ## zero-range. It never fully disappears so the player can still aim far.
-const MIN_OPACITY := 0.22
+# Faintest the ring ever gets lives in Balance.AIM.min_opacity.
 
 var _shooter: Node2D = null
 var _gun_tip: Node2D = null
@@ -64,7 +64,7 @@ func _draw() -> void:
 	# as the cursor passes the weapon's zero-range. The ring never vanishes — past
 	# optimal range it turns dashed and faint so the player can still aim far.
 	var range_factor: float = clampf(AimModel.damage_mult(w, dist), 0.0, 1.0)
-	var opacity: float = lerpf(MIN_OPACITY, 1.0, range_factor)
+	var opacity: float = lerpf(Balance.AIM.min_opacity, 1.0, range_factor)
 	var in_range: bool = dist <= w.optimal_range_px
 
 	# White normally; green when focus has shrunk the circle below aim_base.

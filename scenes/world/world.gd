@@ -18,9 +18,10 @@ var master_zombie_scene := preload("res://scenes/zombie/master_zombie.tscn")
 var npc_scene := preload("res://scenes/npc/npc_human.tscn")
 var pickup_scene := preload("res://scenes/pickup/pickup.tscn")
 
-@export var npc_count: int = 5
+# From Balance.WORLD (assigned in _ready).
+var npc_count: int
 ## Testing switch: skip the fog-of-war overlay entirely.
-@export var fog_enabled: bool = false
+var fog_enabled: bool
 
 var shooter: CharacterBody2D = null
 var master_zombie: CharacterBody2D = null
@@ -31,6 +32,8 @@ var fog_texture: ImageTexture
 var _client_ready: bool = false
 
 func _ready() -> void:
+	npc_count = Balance.WORLD.npc_count
+	fog_enabled = Balance.WORLD.fog_enabled
 	# Shared seed so static scenery (props) looks identical on both peers.
 	# Must run BEFORE any other RNG use so both peers consume it in step.
 	if GameState.multiplayer_active:

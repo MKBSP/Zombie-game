@@ -33,8 +33,6 @@ properties/4/replication_mode = 2
 [node name="FastZombie" type="CharacterBody2D" unique_id=1597845788 groups=["fast_zombie", "zombies"]]
 collision_layer = 2
 script = ExtResource("1_foluw")
-speed = 150.0
-contact_dps = 18.0
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=957261396]
 texture = SubResource("GradientTexture2D_48acg")

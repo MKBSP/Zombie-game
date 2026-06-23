@@ -5,19 +5,15 @@ class_name FogShooter
 ## Call update_visibility() every frame with the shooter's tile position and facing angle.
 ## Read the result from the `visibility_image` property.
 
-# Tile grid dimensions (must match your map)
-const GRID_W: int = 47
-const GRID_H: int = 47
-
-# Flashlight settings
-const CONE_DEPTH: int = 5        # tiles forward
-const CONE_HALF_WIDTH: float = 1.5  # tiles at far end (3 wide / 2)
-const DIM_RADIUS: int = 1        # tiles around shooter
-
-# Visibility values written into the image (red channel)
-const VIS_FOG: float = 0.0       # fully hidden
-const VIS_DIM: float = 0.5       # dim radius — 50% visible
-const VIS_FULL: float = 1.0      # flashlight — fully visible
+# Tuning comes from Balance.FOG_SHOOTER (assigned in _ready).
+var GRID_W: int
+var GRID_H: int
+var CONE_DEPTH: int          # tiles forward
+var CONE_HALF_WIDTH: float   # tiles at far end (3 wide / 2)
+var DIM_RADIUS: int          # tiles around shooter
+var VIS_FOG: float           # fully hidden
+var VIS_DIM: float           # dim radius — 50% visible
+var VIS_FULL: float          # flashlight — fully visible
 
 # The output image: 47x47, one pixel per tile. Red channel = visibility.
 var visibility_image: Image
@@ -34,6 +30,15 @@ var _occluder_prop_tiles: Dictionary = {}  # Vector2i -> bool
 
 
 func _ready() -> void:
+	var b: Dictionary = Balance.FOG_SHOOTER
+	GRID_W = b.grid_w
+	GRID_H = b.grid_h
+	CONE_DEPTH = b.cone_depth
+	CONE_HALF_WIDTH = b.cone_half_width
+	DIM_RADIUS = b.dim_radius
+	VIS_FOG = b.vis_fog
+	VIS_DIM = b.vis_dim
+	VIS_FULL = b.vis_full
 	visibility_image = Image.create(GRID_W, GRID_H, false, Image.FORMAT_RGBA8)
 
 

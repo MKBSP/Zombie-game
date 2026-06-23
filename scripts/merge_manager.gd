@@ -31,8 +31,7 @@ var lock_duration: float = 0.0
 # The one zombie kept visible during lock phase
 var _visible_zombie: Node2D = null
 
-# Distance threshold for "touching" (pixels)
-const TOUCH_DISTANCE: float = 30.0
+# Touch distance + lock timing live in Balance.MERGE.
 
 
 func _ready() -> void:
@@ -121,7 +120,7 @@ func _process_walking() -> void:
 			var dist: float = merge_zombies[i].global_position.distance_to(
 				merge_zombies[j].global_position
 			)
-			if dist > TOUCH_DISTANCE:
+			if dist > Balance.MERGE.touch_distance:
 				all_touching = false
 				break
 		if not all_touching:
@@ -133,7 +132,7 @@ func _process_walking() -> void:
 
 func _enter_locked_state() -> void:
 	state = MergeState.LOCKED
-	lock_duration = 2.0 * float(merge_zombies.size())
+	lock_duration = Balance.MERGE.lock_seconds_per_zombie * float(merge_zombies.size())
 	lock_timer = 0.0
 
 	# Calculate midpoint for the visible zombie

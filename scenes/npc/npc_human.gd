@@ -15,21 +15,20 @@ signal converted(zombie: Node2D)
 
 const ZOMBIE_SCENE := preload("res://scenes/zombie/zombie.tscn")
 
-@export var speed: float = 189.0  # 10% slower than the shooter (210)
-@export var max_hp: int = 50
-@export var hide_min: float = 10.0
-@export var hide_max: float = 20.0
-@export var hide_radius: int = 12  # tiles to search for the next hiding spot
+# All tuning comes from Balance.NPC (assigned in _ready).
+var speed: float
+var max_hp: int
+var hide_min: float
+var hide_max: float
+var hide_radius: int
+var CONVERT_DURATION: float
+var FOLLOW_DISTANCE: float
+var FOLLOW_DEADZONE: float
+var NPC_AIM_JITTER: float   # armed-NPC aim error (radians)
+var NPC_VISION_PX: float    # how far it spots zombies
+var MUZZLE_OFFSET: float    # spawn bullets past the NPC's own body
 
-const CONVERT_DURATION: float = 5.0
-const FOLLOW_DISTANCE: float = 64.0  # 1 tile behind the shooter
-const FOLLOW_DEADZONE: float = 12.0
 const WALKABLE: Array[String] = ["road", "sidewalk", "grass", "parking"]
-
-## Armed-NPC tuning: random aim error (radians) and how far it spots zombies.
-const NPC_AIM_JITTER: float = 0.25  # ~14 degrees of sloppiness
-const NPC_VISION_PX: float = 384.0  # 6 tiles
-const MUZZLE_OFFSET: float = 40.0   # spawn bullets past the NPC's own body
 
 var hp: int
 
@@ -63,6 +62,18 @@ var _progress_bar: Node2D = null
 
 
 func _ready() -> void:
+	var b: Dictionary = Balance.NPC
+	speed = b.speed
+	max_hp = b.max_hp
+	hide_min = b.hide_min
+	hide_max = b.hide_max
+	hide_radius = b.hide_radius
+	CONVERT_DURATION = b.convert_duration
+	FOLLOW_DISTANCE = b.follow_distance
+	FOLLOW_DEADZONE = b.follow_deadzone
+	NPC_AIM_JITTER = b.aim_jitter
+	NPC_VISION_PX = b.vision_px
+	MUZZLE_OFFSET = b.muzzle_offset
 	hp = max_hp
 	# Logic runs on the server only (true in single player too)
 	set_physics_process(multiplayer.is_server())

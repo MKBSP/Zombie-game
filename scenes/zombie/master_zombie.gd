@@ -1,9 +1,11 @@
 extends CharacterBody2D
 
-@export var speed: float = 60.0
-@export var max_hp: int = 450
-@export var contact_dps: float = 12.0
-@export var vision_range: int = 3
+# Stats come from Balance.MASTER (assigned in _ready).
+var speed: float
+var max_hp: int
+var contact_dps: float
+var vision_range: int
+var _contact_px: float
 
 var hp: int
 var is_dead: bool = false
@@ -19,8 +21,13 @@ signal master_zombie_died
 
 
 func _ready() -> void:
+	speed = Balance.MASTER.speed
+	max_hp = Balance.MASTER.max_hp
+	contact_dps = Balance.MASTER.contact_dps
+	vision_range = Balance.MASTER.vision
+	_contact_px = Balance.MASTER.contact_px
 	hp = max_hp
-	scale = Vector2(1.8, 1.8)
+	scale = Vector2(Balance.MASTER.scale, Balance.MASTER.scale)
 	modulate = Color(1.0, 0.2, 0.2)
 	# AI/simulation runs on the server only (true in single player too)
 	set_physics_process(multiplayer.is_server())
@@ -88,7 +95,7 @@ func _check_contact_damage(delta: float) -> void:
 	if target == null:
 		return
 	var distance := global_position.distance_to(target.global_position)
-	if distance < 48.0:
+	if distance < _contact_px:
 		if target.has_method("take_damage"):
 			target.take_damage(contact_dps * delta)
 

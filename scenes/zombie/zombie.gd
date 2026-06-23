@@ -1,9 +1,11 @@
 extends CharacterBody2D
 
-@export var speed: float = 85.0
-@export var max_hp: int = 150
-@export var contact_dps: float = 12.0
-@export var vision_range: int = 2
+# Stats come from Balance, chosen by group (standard / fast / fat). See _ready().
+var speed: float
+var max_hp: int
+var contact_dps: float
+var vision_range: int
+var _contact_px: float
 
 
 var command_mode: bool = false
@@ -23,6 +25,18 @@ var _merge_bar: Node2D = null
 signal zombie_died(zombie: Node2D)
 
 func _ready() -> void:
+	# Pick the stat block by group: standard / fast / fat all use this script.
+	var stats: Dictionary = Balance.ZOMBIE
+	if is_in_group("fast_zombie"):
+		stats = Balance.FAST
+	elif is_in_group("fat_zombie"):
+		stats = Balance.FAT
+	speed = stats.speed
+	max_hp = stats.max_hp
+	contact_dps = stats.contact_dps
+	vision_range = stats.vision
+	_contact_px = stats.contact_px
+	scale = Vector2(stats.scale, stats.scale)
 	hp = max_hp
 	# AI/simulation runs on the server only (true in single player too)
 	set_physics_process(multiplayer.is_server())
@@ -106,7 +120,7 @@ func _check_contact_damage(delta: float) -> void:
 	if target == null:
 		return
 	var distance := global_position.distance_to(target.global_position)
-	if distance < 38.0:
+	if distance < _contact_px:
 		if target.has_method("take_damage"):
 			target.take_damage(contact_dps * delta)
 

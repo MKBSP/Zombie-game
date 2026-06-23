@@ -10,10 +10,11 @@ class_name FogZombieController
 ## Call update_visibility() every frame with the list of all zombie positions and their vision ranges.
 ## Read the result from the `visibility_image` property.
 
-const GRID_W: int = 47
-const GRID_H: int = 47
+# Grid dims + visibility levels come from Balance.FOG_ZC (assigned in _ready).
+var GRID_W: int
+var GRID_H: int
 
-# Tile states
+# Tile states (structural)
 const STATE_UNEXPLORED: int = 0
 const STATE_EXPLORED: int = 1
 const STATE_VISIBLE: int = 2
@@ -24,13 +25,19 @@ var tile_states: Array[int] = []
 # The output image: 47x47, red channel encodes visibility for the shader
 var visibility_image: Image
 
-# Visibility values for the shader
-const VIS_UNEXPLORED: float = 0.0   # fully black
-const VIS_EXPLORED: float = 0.35    # dimmed — terrain visible, no moving entities
-const VIS_VISIBLE: float = 1.0      # fully visible
+# Visibility values for the shader (from Balance.FOG_ZC)
+var VIS_UNEXPLORED: float   # fully black
+var VIS_EXPLORED: float     # dimmed — terrain visible, no moving entities
+var VIS_VISIBLE: float      # fully visible
 
 
 func _ready() -> void:
+	var b: Dictionary = Balance.FOG_ZC
+	GRID_W = b.grid_w
+	GRID_H = b.grid_h
+	VIS_UNEXPLORED = b.vis_unexplored
+	VIS_EXPLORED = b.vis_explored
+	VIS_VISIBLE = b.vis_visible
 	visibility_image = Image.create(GRID_W, GRID_H, false, Image.FORMAT_RGBA8)
 	# Initialize all tiles as unexplored
 	tile_states.resize(GRID_W * GRID_H)

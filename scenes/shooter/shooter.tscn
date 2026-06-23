@@ -1,16 +1,7 @@
-[gd_scene load_steps=5 format=3 uid="uid://bjuicwad48jii"]
+[gd_scene format=3 uid="uid://bjuicwad48jii"]
 
 [ext_resource type="Script" uid="uid://c66xv2nn0ldow" path="res://scenes/shooter/shooter.gd" id="1_tblkw"]
-
-[sub_resource type="Gradient" id="Gradient_whfcy"]
-colors = PackedColorArray(0, 1, 0, 1, 0, 1, 0, 1)
-
-[sub_resource type="GradientTexture2D" id="GradientTexture2D_50tyo"]
-gradient = SubResource("Gradient_whfcy")
-width = 32
-height = 32
-fill_from = Vector2(1, 0)
-fill_to = Vector2(0, 0)
+[ext_resource type="Texture2D" uid="uid://c4bv6e4jhjsbk" path="res://sprites/Shooter.png" id="2_5fpcm"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_fumq1"]
 radius = 24.0
@@ -60,7 +51,8 @@ properties/12/replication_mode = 1
 script = ExtResource("1_tblkw")
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=1678443454]
-texture = SubResource("GradientTexture2D_50tyo")
+rotation = 1.5707964
+texture = ExtResource("2_5fpcm")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=565866944]
 shape = SubResource("CircleShape2D_fumq1")
@@ -84,8 +76,8 @@ position = Vector2(30, 0)
 wait_time = 0.28
 one_shot = true
 
-[node name="ReloadTimer" type="Timer" parent="."]
+[node name="ReloadTimer" type="Timer" parent="." unique_id=931078336]
 one_shot = true
 
-[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=1779359038]
 replication_config = SubResource("SceneReplicationConfig_sync")

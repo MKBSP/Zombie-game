@@ -28,8 +28,8 @@ static func get_data(id: int) -> WeaponData:
 			w.bullet_speed = 750.0
 			w.is_special = true
 			w.total_ammo = 10
-			w.aim_base = 0.03
-			w.aim_max = 0.25
+			w.aim_base = 0.006        # 80% smaller circle
+			w.aim_max = 0.05
 			w.focus_min_scale = 0.50
 			w.optimal_range_px = 1024.0   # 16 tiles
 			w.zero_range_px = 1184.0      # +2.5 tiles
@@ -43,8 +43,8 @@ static func get_data(id: int) -> WeaponData:
 			w.bullet_speed = 600.0
 			w.is_special = true
 			w.total_ammo = 8
-			w.aim_base = 0.22
-			w.aim_max = 0.45
+			w.aim_base = 0.11         # 50% smaller circle
+			w.aim_max = 0.225
 			w.focus_min_scale = 1.0       # no focus benefit
 			w.optimal_range_px = 320.0    # 5 tiles
 			w.zero_range_px = 480.0       # +2.5 tiles
@@ -58,8 +58,8 @@ static func get_data(id: int) -> WeaponData:
 			w.bullet_speed = 600.0
 			w.is_special = false
 			w.total_ammo = 0
-			w.aim_base = 0.10
-			w.aim_max = 0.30
+			w.aim_base = 0.05         # 50% smaller circle
+			w.aim_max = 0.15
 			w.focus_min_scale = 0.75
 			w.optimal_range_px = 640.0    # 10 tiles
 			w.zero_range_px = 800.0       # +2.5 tiles

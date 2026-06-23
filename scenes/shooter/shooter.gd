@@ -47,12 +47,15 @@ var _net_shooting: bool = false
 var _net_focus: bool = false
 
 # --- Aim accuracy (server computes; aim_spread_coeff is synced for the cursor) ---
-var aim_spread_coeff: float = 0.10
+var aim_spread_coeff: float = 0.05
 var _recoil: float = 0.0
 var _recoil_recover: float = 0.0   # seconds for the current kick to fully decay
 var _recoil_elapsed: float = 0.0
 var _focus_timer: float = 0.0
 const FOCUS_TIME := 5.0
+## Time-constant for the circle shrinking back down. Growing is instant; shrinking
+## eases toward the target so the jump from big to small is gradual (~1s settle).
+const AIM_SHRINK_TAU := 0.3
 const PISTOL_DMG_REF := 35.0
 
 # --- Node references (filled in _ready) ---
@@ -144,7 +147,12 @@ func _physics_process(delta: float) -> void:
 
 	_update_recoil(delta)
 	_update_focus(delta)
-	aim_spread_coeff = AimModel.spread_coeff(_active_weapon(), _debuff_total(), _focus_fraction())
+	var target_coeff := AimModel.spread_coeff(_active_weapon(), _debuff_total(), _focus_fraction())
+	if target_coeff >= aim_spread_coeff:
+		aim_spread_coeff = target_coeff                 # grow instantly
+	else:
+		# Shrink gradually: exponential ease, ~96% closed within 1s.
+		aim_spread_coeff = target_coeff + (aim_spread_coeff - target_coeff) * exp(-delta / AIM_SHRINK_TAU)
 
 	if _net_shooting:
 		shoot()

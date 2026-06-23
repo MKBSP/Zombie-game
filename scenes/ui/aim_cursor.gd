@@ -48,7 +48,10 @@ func _draw() -> void:
 	var radius: float = maxf(coeff * dist, 2.0)
 
 	var w := Weapons.get_data(_shooter.equipped)
-	var opacity: float = clampf(AimModel.damage_mult(w, dist), 0.15, 1.0)
+	# Solid within range, fading to fully transparent at zero-range (out of range).
+	var opacity: float = clampf(AimModel.damage_mult(w, dist), 0.0, 1.0)
+	if opacity <= 0.001:
+		return  # past max range — circle is invisible
 
 	# White normally; green when focus has shrunk the circle below aim_base.
 	var col := Color(1, 1, 1, opacity)

@@ -35,6 +35,8 @@ func setup(p_shooter: Node2D, p_master_zombie: Node2D) -> void:
 		shooter.hp_changed.connect(_on_hp_changed)
 	if shooter.has_signal("pickup_collected"):
 		shooter.pickup_collected.connect(_on_pickup_collected)
+	if shooter.has_signal("headshot"):
+		shooter.headshot.connect(_on_headshot)
 
 
 func _process(_delta: float) -> void:
@@ -62,10 +64,22 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## Pop a fading toast when the shooter collects a pickup.
 func _on_pickup_collected(kind: int) -> void:
-	if toast_label == null or not PICKUP_MESSAGES.has(kind):
+	if not PICKUP_MESSAGES.has(kind):
 		return
-	toast_label.text = PICKUP_MESSAGES[kind]
-	toast_label.modulate = PICKUP_COLORS.get(kind, Color.WHITE)
+	_pop_toast(PICKUP_MESSAGES[kind], PICKUP_COLORS.get(kind, Color.WHITE))
+
+
+## Pop the crit toast for the player's own headshots.
+func _on_headshot() -> void:
+	_pop_toast("HEADSHOT!", Color(1.0, 0.85, 0.2))
+
+
+## Show `text` on the toast label and fade it out.
+func _pop_toast(text: String, color: Color) -> void:
+	if toast_label == null:
+		return
+	toast_label.text = text
+	toast_label.modulate = color
 	if _toast_tween != null and _toast_tween.is_valid():
 		_toast_tween.kill()
 	_toast_tween = create_tween()

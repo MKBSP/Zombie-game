@@ -1,9 +1,9 @@
 extends CharacterBody2D
 
-# --- Tunable values ---
-@export var speed: float = 210.0
-@export var max_hp: int = 100
-@export var contact_damage_per_second: float = 12.0
+# --- Tunable values (from Balance.SHOOTER, assigned in _ready) ---
+var speed: float
+var max_hp: int
+var contact_damage_per_second: float
 
 # --- State ---
 ## Setter keeps the HUD updated on clients, where the value arrives via
@@ -40,6 +40,13 @@ var pickup_seq: int = 0:
 		pickup_seq = value
 		pickup_collected.emit(last_pickup_kind)
 
+## Bumped server-side on each player headshot; the controlling client's HUD
+## reads the change and pops a "HEADSHOT!" toast (mirrors pickup_seq).
+var headshot_seq: int = 0:
+	set(value):
+		headshot_seq = value
+		headshot.emit()
+
 # --- Latest input from the controlling player (consumed server-side) ---
 var _net_dir: Vector2 = Vector2.ZERO
 var _net_aim_target: Vector2 = Vector2.ZERO
@@ -52,11 +59,11 @@ var _recoil: float = 0.0
 var _recoil_recover: float = 0.0   # seconds for the current kick to fully decay
 var _recoil_elapsed: float = 0.0
 var _focus_timer: float = 0.0
-const FOCUS_TIME := 5.0
-## Time-constant for the circle shrinking back down. Growing is instant; shrinking
-## eases toward the target so the jump from big to small is gradual (~1s settle).
-const AIM_SHRINK_TAU := 0.3
-const PISTOL_DMG_REF := 35.0
+# From Balance.SHOOTER (assigned in _ready). Growing the aim circle is instant;
+# shrinking eases toward the target over AIM_SHRINK_TAU (~1s settle).
+var FOCUS_TIME: float
+var AIM_SHRINK_TAU: float
+var PISTOL_DMG_REF: float
 
 # --- Node references (filled in _ready) ---
 @onready var gun_tip: Marker2D = $GunTip
@@ -68,9 +75,17 @@ signal hp_changed(new_hp: int)
 signal player_died
 ## Fired on the controlling client when a pickup is collected (kind = Pickup.Kind).
 signal pickup_collected(kind: int)
+## Fired on the controlling client when one of the player's shots lands a headshot.
+signal headshot
 
 
 func _ready() -> void:
+	speed = Balance.SHOOTER.speed
+	max_hp = Balance.SHOOTER.max_hp
+	contact_damage_per_second = Balance.SHOOTER.contact_dps
+	FOCUS_TIME = Balance.SHOOTER.focus_time
+	AIM_SHRINK_TAU = Balance.SHOOTER.aim_shrink_tau
+	PISTOL_DMG_REF = Balance.SHOOTER.pistol_dmg_ref
 	hp = max_hp
 	# Simulation runs on the server only (true in single player too)
 	set_physics_process(multiplayer.is_server())
@@ -161,11 +176,11 @@ func _physics_process(delta: float) -> void:
 func _debuff_total() -> float:
 	var total := 0.0
 	if _net_dir.length() > 0.1:
-		total += 0.20                       # running
-	if hp < int(max_hp * 0.5):
-		total += 0.40                       # badly hurt
+		total += Balance.SHOOTER.debuff_running
+	if hp < int(max_hp * Balance.SHOOTER.injured_hp_frac):
+		total += Balance.SHOOTER.debuff_hurt
 	elif hp < max_hp:
-		total += 0.20                       # injured
+		total += Balance.SHOOTER.debuff_injured
 	total += _recoil
 	return total
 
@@ -186,7 +201,7 @@ func _update_recoil(delta: float) -> void:
 	if _recoil_recover <= 0.0:
 		_recoil = 0.0
 		return
-	_recoil = 0.5 * clampf(1.0 - _recoil_elapsed / _recoil_recover, 0.0, 1.0)
+	_recoil = Balance.SHOOTER.recoil_initial * clampf(1.0 - _recoil_elapsed / _recoil_recover, 0.0, 1.0)
 
 
 ## True while the player is holding fire — armed NPCs only shoot when this is.
@@ -227,13 +242,14 @@ func shoot() -> void:
 	var cursor := _net_aim_target
 	var dist := gun_tip.global_position.distance_to(cursor)
 	var radius := aim_spread_coeff * dist
-	Weapons.fire(parent, gun_tip.global_position, cursor, radius, w)
+	Weapons.fire(parent, gun_tip.global_position, cursor, radius, w, self)
 
-	# Post-shot recoil: refresh to 50%, recover over 2 x damage-units seconds.
+	# Post-shot recoil: refresh to the initial kick, recover over
+	# recoil_recover_factor x damage-units seconds.
 	var dmg_units := (w.damage * w.pellets) / PISTOL_DMG_REF
-	_recoil = 0.5
+	_recoil = Balance.SHOOTER.recoil_initial
 	_recoil_elapsed = 0.0
-	_recoil_recover = 2.0 * dmg_units
+	_recoil_recover = Balance.SHOOTER.recoil_recover_factor * dmg_units
 
 	# Auto-reload the moment the mag runs dry.
 	if _current_mag() <= 0:
@@ -339,6 +355,11 @@ func heal(amount: int) -> void:
 func _notify_pickup(kind: int) -> void:
 	last_pickup_kind = kind
 	pickup_seq += 1
+
+
+## Server-side: record a headshot so the controlling client toasts it.
+func register_headshot() -> void:
+	headshot_seq += 1
 
 
 func take_damage(amount: float) -> void:

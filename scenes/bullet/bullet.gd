@@ -11,6 +11,9 @@ var optimal_range_px: float = 0.0
 var zero_range_px: float = 0.0
 ## Weapon backing the falloff curve. null = no falloff (full damage).
 var weapon: WeaponData = null
+## Set by Weapons.fire when the player fires; gates the HEADSHOT toast (not damage).
+var from_player: bool = false
+var shooter_ref: Node = null
 
 func _ready() -> void:
 	# Simulation (movement, collisions, despawn) is server-only; clients just
@@ -45,6 +48,8 @@ func _on_body_entered(body: Node2D) -> void:
 		var dmg := _damage_for_hit()
 		if AimModel.is_headshot(origin, direction, body.global_position, Balance.HEADSHOT.radius_px):
 			dmg *= Balance.HEADSHOT.mult
+			if from_player and is_instance_valid(shooter_ref):
+				shooter_ref.register_headshot()
 		if body.has_method("take_damage"):
 			body.take_damage(dmg)
 		queue_free()

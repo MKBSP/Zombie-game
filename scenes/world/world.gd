@@ -222,13 +222,14 @@ func _spawn_items() -> void:
 		Pickup.Kind.AMMO_MAG: 3,
 		Pickup.Kind.RIFLE: 1,
 		Pickup.Kind.SHOTGUN: 1,
+		Pickup.Kind.MACHINEGUN: 1,
 		Pickup.Kind.MEDPACK: 2,
 	}
 	for kind in counts:
 		for _i in range(counts[kind]):
 			# Keep the special guns close to the shooter so they're findable
 			# during testing; everything else scatters across the map.
-			var near_player: bool = kind == Pickup.Kind.RIFLE or kind == Pickup.Kind.SHOTGUN
+			var near_player: bool = kind == Pickup.Kind.RIFLE or kind == Pickup.Kind.SHOTGUN or kind == Pickup.Kind.MACHINEGUN
 			var pos := _find_item_spawn(near_player)
 			if pos == Vector2.INF:
 				continue

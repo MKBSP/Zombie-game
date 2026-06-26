@@ -5,13 +5,14 @@ class_name Pickup
 ## (replicated on spawn) drives both the tint and the effect. Effects run
 ## server-side and mutate the shooter directly.
 
-enum Kind { AMMO_MAG, RIFLE, SHOTGUN, MEDPACK }
+enum Kind { AMMO_MAG, RIFLE, SHOTGUN, MEDPACK, MACHINEGUN }
 
 const COLORS := {
 	Kind.AMMO_MAG: Color(0.95, 0.85, 0.2),
 	Kind.RIFLE: Color(0.4, 0.6, 1.0),
 	Kind.SHOTGUN: Color(1.0, 0.5, 0.2),
 	Kind.MEDPACK: Color(0.9, 0.2, 0.3),
+	Kind.MACHINEGUN: Color(0.6, 0.6, 0.65),
 }
 
 const PICKUP_SCENE := preload("res://scenes/pickup/pickup.tscn")
@@ -21,6 +22,7 @@ const PICKUP_SCENE := preload("res://scenes/pickup/pickup.tscn")
 const WEAPON_TO_KIND := {
 	Weapons.RIFLE: Kind.RIFLE,
 	Weapons.SHOTGUN: Kind.SHOTGUN,
+	Weapons.MACHINEGUN: Kind.MACHINEGUN,
 }
 
 @export var kind: int = Kind.AMMO_MAG:
@@ -53,6 +55,8 @@ func _on_body_entered(body: Node2D) -> void:
 			_take_special(body, Weapons.RIFLE)
 		Kind.SHOTGUN:
 			_take_special(body, Weapons.SHOTGUN)
+		Kind.MACHINEGUN:
+			_take_special(body, Weapons.MACHINEGUN)
 		Kind.MEDPACK:
 			body.heal(50)
 	queue_free()

@@ -354,7 +354,12 @@ func give_special(weapon_id: int) -> void:
 	special_mag = min(w.mag_size, special_total)
 	equipped = weapon_id
 	_cancel_reload()
-	_notify_pickup(Pickup.Kind.RIFLE if weapon_id == Weapons.RIFLE else Pickup.Kind.SHOTGUN)
+	var kind := Pickup.Kind.RIFLE
+	if weapon_id == Weapons.SHOTGUN:
+		kind = Pickup.Kind.SHOTGUN
+	elif weapon_id == Weapons.MACHINEGUN:
+		kind = Pickup.Kind.MACHINEGUN
+	_notify_pickup(kind)
 
 
 func heal(amount: int) -> void:

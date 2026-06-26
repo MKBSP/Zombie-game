@@ -41,7 +41,6 @@ const NPC := {
 	convert_duration = 5.0,
 	follow_distance = 64.0,   # 1 tile behind the shooter
 	follow_deadzone = 12.0,
-	aim_jitter = 0.25,        # DEPRECATED (Phase 3 removes the last reader)
 	vision_px = 384.0,        # 6 tiles
 	muzzle_offset = 40.0,     # spawn bullets past the NPC's own body
 	# --- Armed-NPC accuracy (Phase 3), separate from the player ---

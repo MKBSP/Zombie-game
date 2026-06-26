@@ -24,7 +24,6 @@ var hide_radius: int
 var CONVERT_DURATION: float
 var FOLLOW_DISTANCE: float
 var FOLLOW_DEADZONE: float
-var NPC_AIM_JITTER: float   # armed-NPC aim error (radians)
 var NPC_VISION_PX: float    # how far it spots zombies
 var MUZZLE_OFFSET: float    # spawn bullets past the NPC's own body
 
@@ -38,6 +37,13 @@ var weapon_mag: int = 0
 var weapon_total: int = 0
 var _npc_can_shoot: bool = true
 var _npc_reloading: bool = false
+
+# Armed-combat state (server-side). _engaged latches on the player's spark and
+# holds while a zombie is visible; recoil mirrors the player's shape with NPC knobs.
+var _engaged: bool = false
+var _recoil: float = 0.0
+var _recoil_elapsed: float = 0.0
+var _recoil_recover: float = 0.0
 
 # References injected by the spawner (world.gd, server only)
 var ground_layer: TileMapLayer
@@ -71,7 +77,6 @@ func _ready() -> void:
 	CONVERT_DURATION = b.convert_duration
 	FOLLOW_DISTANCE = b.follow_distance
 	FOLLOW_DEADZONE = b.follow_deadzone
-	NPC_AIM_JITTER = b.aim_jitter
 	NPC_VISION_PX = b.vision_px
 	MUZZLE_OFFSET = b.muzzle_offset
 	hp = max_hp
@@ -121,7 +126,7 @@ func _physics_process(delta: float) -> void:
 		State.FOLLOWING:
 			_process_following()
 			if weapon_id != -1:
-				_process_shooting()
+				_process_shooting(delta)
 
 
 func _nav_move() -> void:
@@ -240,13 +245,26 @@ func receive_weapon(id: int, total: int) -> void:
 
 ## Fire at the nearest zombie, but only while the shooter is also firing, and
 ## with a deliberately sloppy aim. Mirrors the shooter's mag/reload timing.
-func _process_shooting() -> void:
-	if _npc_reloading or not _npc_can_shoot or weapon_mag <= 0:
-		return
-	if not is_instance_valid(shooter) or not shooter.has_method("is_firing") or not shooter.is_firing():
-		return
+func _process_shooting(delta: float) -> void:
+	# Recoil decays every armed frame.
+	_recoil_elapsed += delta
+	_recoil = NpcAim.recoil_after(Balance.NPC.recoil_initial, _recoil_elapsed, _recoil_recover)
+
+	# --- Engagement latch: a visible zombie is required to stay engaged. ---
 	var target := _nearest_zombie(NPC_VISION_PX)
 	if target == null:
+		_engaged = false
+		return
+	if not _engaged:
+		# Spark: the player firing near a visible zombie engages us; after that we
+		# fight on our own until no zombie is visible.
+		if is_instance_valid(shooter) and shooter.has_method("is_firing") and shooter.is_firing():
+			_engaged = true
+		else:
+			return
+
+	# --- Fire (gated by ammo / reload / fire-rate cap). ---
+	if _npc_reloading or not _npc_can_shoot or weapon_mag <= 0:
 		return
 
 	var w := Weapons.get_data(weapon_id)
@@ -254,8 +272,16 @@ func _process_shooting() -> void:
 	# Spawn past our own collider so the NPC never shoots itself.
 	var origin: Vector2 = global_position + Vector2.from_angle(base_angle) * MUZZLE_OFFSET
 	var cursor: Vector2 = target.global_position
-	var radius: float = NPC_AIM_JITTER * origin.distance_to(cursor)
+	var moving: bool = velocity.length() > 5.0
+	var debuff: float = NpcAim.aim_debuff(Balance.NPC, moving, hp, max_hp, _recoil)
+	var coeff: float = AimModel.spread_coeff(w, debuff, 0.0)
+	var radius: float = coeff * origin.distance_to(cursor)
 	Weapons.fire(get_parent(), origin, cursor, radius, w)
+
+	# Per-shot recoil kick (decays over recover-factor x damage-units seconds).
+	var dmg_units: float = (w.damage * w.pellets) / Balance.NPC.dmg_ref
+	_recoil_elapsed = 0.0
+	_recoil_recover = Balance.NPC.recoil_recover_factor * dmg_units
 
 	weapon_mag -= 1
 	weapon_total -= 1
@@ -267,7 +293,7 @@ func _process_shooting() -> void:
 		_npc_reloading = true
 		npc_shoot_cooldown.start(w.reload_time)
 	else:
-		npc_shoot_cooldown.start(maxf(w.cooldown, 0.05))
+		npc_shoot_cooldown.start(maxf(w.cooldown, Balance.NPC.min_shot_interval))
 
 
 func _on_npc_shoot_cooldown_timeout() -> void:

@@ -11,7 +11,7 @@ width = 8
 height = 4
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1tg08"]
-size = Vector2(32, 16)
+size = Vector2(3, 3)
 
 [sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_sync"]
 properties/0/path = NodePath(".:position")
@@ -27,7 +27,7 @@ collision_mask = 11
 script = ExtResource("1_xabg6")
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=2101823865]
-scale = Vector2(4, 4)
+scale = Vector2(0.25, 0.25)
 texture = SubResource("GradientTexture2D_7ghje")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=686060145]

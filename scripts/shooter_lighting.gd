@@ -50,3 +50,43 @@ static func make_square_occluder_polygon(size: float) -> OccluderPolygon2D:
 		Vector2(-half, half),
 	])
 	return poly
+
+
+## World-space centers of every tile that blocks the flashlight (buildings and
+## map-edge tiles on either layer) plus every prop. Mirrors the old FogShooter
+## occluder detection.
+static func collect_static_occluder_positions(
+	ground_layer: TileMapLayer,
+	building_layer: TileMapLayer,
+	props: Array[Node2D]
+) -> Array[Vector2]:
+	var out: Array[Vector2] = []
+	if ground_layer == null:
+		return out
+	for layer in [ground_layer, building_layer]:
+		if layer == null:
+			continue
+		var used_rect: Rect2i = layer.get_used_rect()
+		for x in range(used_rect.position.x, used_rect.position.x + used_rect.size.x):
+			for y in range(used_rect.position.y, used_rect.position.y + used_rect.size.y):
+				var coords := Vector2i(x, y)
+				var td: TileData = layer.get_cell_tile_data(coords)
+				if td == null:
+					continue
+				var tile_type: String = td.get_custom_data("tile_type")
+				if tile_type == "building" or tile_type == "edge":
+					out.append(layer.to_global(layer.map_to_local(coords)))
+	for prop in props:
+		out.append(prop.global_position)
+	return out
+
+
+## Spawn one square LightOccluder2D per position under `parent`. Returns count.
+static func build_static_occluders(parent: Node, positions: Array[Vector2], tile_size: float) -> int:
+	var poly := make_square_occluder_polygon(tile_size)
+	for pos in positions:
+		var occ := LightOccluder2D.new()
+		occ.occluder = poly
+		occ.global_position = pos
+		parent.add_child(occ)
+	return positions.size()

@@ -7,6 +7,7 @@ func _init() -> void:
 	_test_cone()
 	_test_radial()
 	_test_square()
+	_test_build_occluders()
 	if _failures == 0:
 		print("ALL TESTS PASSED")
 	else:
@@ -43,6 +44,18 @@ func _test_square() -> void:
 	_check("square has 4 points", pts.size() == 4)
 	_check("square corner correct", pts[0].is_equal_approx(Vector2(-14, -14)))
 	_check("square closed", poly.closed)
+
+func _test_build_occluders() -> void:
+	var parent := Node2D.new()
+	var positions: Array[Vector2] = [Vector2(64, 64), Vector2(128, 64), Vector2(64, 128)]
+	var count: int = ShooterLighting.build_static_occluders(parent, positions, 64.0)
+	_check("build returns count", count == 3)
+	_check("occluder nodes added", parent.get_child_count() == 3)
+	var first := parent.get_child(0)
+	_check("child is LightOccluder2D", first is LightOccluder2D)
+	_check("occluder positioned", (first as LightOccluder2D).global_position.is_equal_approx(Vector2(64, 64)))
+	_check("occluder has polygon", (first as LightOccluder2D).occluder != null)
+	parent.free()
 
 func _check(label: String, cond: bool) -> void:
 	if cond:

@@ -21,8 +21,10 @@ var _damage_accumulator: float = 0.0
 # --- Weapon / ammo state (server-authoritative, synced for the HUD) ---
 ## Currently drawn weapon: Weapons.PISTOL, or held_special when it's out.
 var equipped: int = Weapons.PISTOL
-## The one special slot: Weapons.RIFLE / SHOTGUN, or -1 when empty.
+## The heavy slot: Weapons.RIFLE / SHOTGUN / MACHINEGUN, or -1 when empty.
 var held_special: int = -1
+## The melee slot: Weapons.MELEE when held, or -1 (empty). Populated in Plan 2.
+var held_melee: int = -1
 var pistol_mag: int = 15
 var pistol_reserve: int = 15      # one spare mag at start (15 + 15 = 2 mags)
 ## For the held special: special_mag is chambered, special_total is all rounds
@@ -114,8 +116,12 @@ func _process(_delta: float) -> void:
 	_send_input.rpc_id(1, input_dir, aim_target, shooting, focus)
 
 	# Discrete one-shot weapon actions
-	if Input.is_action_just_pressed("swap_weapon"):
-		_action_swap.rpc_id(1)
+	if Input.is_action_just_pressed("select_pistol"):
+		_action_select.rpc_id(1, 0)
+	if Input.is_action_just_pressed("select_heavy"):
+		_action_select.rpc_id(1, 1)
+	if Input.is_action_just_pressed("select_melee"):
+		_action_select.rpc_id(1, 2)
 	if Input.is_action_just_pressed("drop_weapon"):
 		_action_drop.rpc_id(1)
 	if Input.is_action_just_pressed("give_weapon_to_npc"):
@@ -133,9 +139,9 @@ func _send_input(dir: Vector2, aim_target: Vector2, shooting: bool, focus: bool)
 
 
 @rpc("any_peer", "call_local", "reliable")
-func _action_swap() -> void:
+func _action_select(slot: int) -> void:
 	if multiplayer.is_server():
-		_swap_weapon()
+		_select_slot(slot)
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -287,11 +293,17 @@ func _on_shoot_cooldown_timeout() -> void:
 
 # --- Weapon switching / handoff (server-side) ---
 
-func _swap_weapon() -> void:
-	if held_special == -1:
+## Equip slot 0=pistol, 1=heavy, 2=melee. Empty slots are a no-op.
+func _select_slot(slot: int) -> void:
+	var target := -1
+	match slot:
+		0: target = Weapons.PISTOL
+		1: target = held_special
+		2: target = held_melee
+	if target == -1 or target == equipped:
 		return
 	_cancel_reload()
-	equipped = held_special if equipped == Weapons.PISTOL else Weapons.PISTOL
+	equipped = target
 
 
 func _drop_special() -> void:

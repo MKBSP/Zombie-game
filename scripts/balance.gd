@@ -120,13 +120,23 @@ const AIM := {
 	tile = 64.0,
 }
 
-# --- Fog: shooter flashlight cone ------------------------------------------
+# --- Fog: shooter flashlight lighting (2D lights) --------------------------
+# ambient_darkness is the CanvasModulate tint over the whole world — the
+# "opacity dial": lower = near-black, higher = faint grey where the street
+# layout stays readable. Everything else tunes the two lights / occluders.
 const FOG_SHOOTER := {
-	grid_w = 47, grid_h = 47,
-	cone_depth = 5,           # tiles forward
-	cone_half_width = 1.5,    # tiles at the far end
-	dim_radius = 1,           # tiles dimly lit around the shooter
-	vis_fog = 0.0, vis_dim = 0.5, vis_full = 1.0,
+	ambient_darkness = Color(0.16, 0.16, 0.19, 1.0),
+	flashlight_range = 540.0,          # px, cone reach from the shooter
+	flashlight_energy = 1.5,
+	flashlight_half_angle_deg = 22.0,  # half the cone's opening angle
+	flashlight_color = Color(1.0, 0.97, 0.85, 1.0),
+	halo_radius = 140.0,               # px, ~2 tiles around the shooter
+	halo_energy = 0.9,
+	halo_color = Color(0.82, 0.86, 1.0, 1.0),
+	shadows_enabled = true,
+	dynamic_occluder_radius = 14.0,    # px, body-sized occluder for entities
+	cone_tex_size = 512,               # generated cone texture resolution
+	halo_tex_size = 256,               # generated halo texture resolution
 }
 
 # --- Fog: zombie-controller explored map -----------------------------------

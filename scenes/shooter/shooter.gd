@@ -418,6 +418,13 @@ func give_special(weapon_id: int) -> void:
 	_notify_pickup(kind)
 
 
+func give_melee(weapon_id: int) -> void:
+	held_melee = weapon_id
+	equipped = weapon_id
+	_cancel_reload()
+	_notify_pickup(Pickup.Kind.MELEE)
+
+
 func heal(amount: int) -> void:
 	hp = min(hp + amount, max_hp)  # setter emits hp_changed
 	_notify_pickup(Pickup.Kind.MEDPACK)

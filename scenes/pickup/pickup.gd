@@ -5,7 +5,7 @@ class_name Pickup
 ## (replicated on spawn) drives both the tint and the effect. Effects run
 ## server-side and mutate the shooter directly.
 
-enum Kind { AMMO_MAG, RIFLE, SHOTGUN, MEDPACK, MACHINEGUN }
+enum Kind { AMMO_MAG, RIFLE, SHOTGUN, MEDPACK, MACHINEGUN, MELEE }
 
 const COLORS := {
 	Kind.AMMO_MAG: Color(0.95, 0.85, 0.2),
@@ -13,6 +13,7 @@ const COLORS := {
 	Kind.SHOTGUN: Color(1.0, 0.5, 0.2),
 	Kind.MEDPACK: Color(0.9, 0.2, 0.3),
 	Kind.MACHINEGUN: Color(0.6, 0.6, 0.65),
+	Kind.MELEE: Color(0.7, 0.7, 0.75),
 }
 
 const PICKUP_SCENE := preload("res://scenes/pickup/pickup.tscn")
@@ -23,6 +24,7 @@ const WEAPON_TO_KIND := {
 	Weapons.RIFLE: Kind.RIFLE,
 	Weapons.SHOTGUN: Kind.SHOTGUN,
 	Weapons.MACHINEGUN: Kind.MACHINEGUN,
+	Weapons.MELEE: Kind.MELEE,
 }
 
 @export var kind: int = Kind.AMMO_MAG:
@@ -57,6 +59,8 @@ func _on_body_entered(body: Node2D) -> void:
 			_take_special(body, Weapons.SHOTGUN)
 		Kind.MACHINEGUN:
 			_take_special(body, Weapons.MACHINEGUN)
+		Kind.MELEE:
+			_take_melee(body, Weapons.MELEE)
 		Kind.MEDPACK:
 			body.heal(50)
 	queue_free()
@@ -69,6 +73,14 @@ func _take_special(body: Node2D, weapon_id: int) -> void:
 	if old != -1 and old != weapon_id:
 		_drop_weapon_pickup(old, body)
 	body.give_special(weapon_id)
+
+
+## Hand a melee to the shooter, dropping any different melee they hold.
+func _take_melee(body: Node2D, weapon_id: int) -> void:
+	var old: int = body.held_melee
+	if old != -1 and old != weapon_id:
+		_drop_weapon_pickup(old, body)
+	body.give_melee(weapon_id)
 
 
 ## Spawn the swapped-out weapon as a world pickup, offset behind the shooter so

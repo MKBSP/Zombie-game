@@ -5,7 +5,7 @@ class_name Weapons
 ## and armed NPCs. Keeping fire() here means the spread/jitter math lives in one
 ## place. All callers run server-side (bullets replicate via the spawner).
 
-enum { PISTOL, RIFLE, SHOTGUN }
+enum { PISTOL, RIFLE, SHOTGUN, MACHINEGUN }
 
 const BULLET_SCENE: PackedScene = preload("res://scenes/bullet/bullet.tscn")
 
@@ -18,9 +18,10 @@ static func get_data(id: int) -> WeaponData:
 	# All stats live in Balance (single source of truth for tuning).
 	var src: Dictionary
 	match id:
-		RIFLE:   src = Balance.RIFLE
-		SHOTGUN: src = Balance.SHOTGUN
-		_:       src = Balance.PISTOL
+		RIFLE:      src = Balance.RIFLE
+		SHOTGUN:    src = Balance.SHOTGUN
+		MACHINEGUN: src = Balance.MACHINEGUN
+		_:          src = Balance.PISTOL
 	var w := WeaponData.new()
 	w.id = id
 	w.display_name = src.display_name

@@ -56,28 +56,34 @@ const NPC := {
 }
 
 # --- Bullet (per-weapon values below override damage/speed on spawn) --------
-const BULLET := { speed = 600.0, damage = 35.0, lifetime = 1.8 }
+const BULLET := { speed = 1200.0, damage = 35.0, lifetime = 1.8 }
 
 # --- Weapons ---------------------------------------------------------------
 # aim_base / aim_max = ring radius as a fraction of gun->cursor distance
 # (no debuff / full debuff). optimal_range_px..zero_range_px = damage falloff.
 const PISTOL := {
 	display_name = "Pistol", damage = 35.0, cooldown = 0.28, mag_size = 15,
-	reload_time = 3.0, pellets = 1, bullet_speed = 600.0, is_special = false, total_ammo = 0,
+	reload_time = 3.0, pellets = 1, bullet_speed = 1200.0, is_special = false, total_ammo = 0,
 	aim_base = 0.1, aim_max = 0.30, focus_min_scale = 0.7,
 	optimal_range_px = 640.0, zero_range_px = 800.0,
 }
 const RIFLE := {
 	display_name = "Rifle", damage = 87.5, cooldown = 0.0, mag_size = 1,
-	reload_time = 3.0, pellets = 1, bullet_speed = 750.0, is_special = true, total_ammo = 10,
+	reload_time = 3.0, pellets = 1, bullet_speed = 1500.0, is_special = true, total_ammo = 10,
 	aim_base = 0.02, aim_max = 0.15, focus_min_scale = 0.50,
 	optimal_range_px = 1024.0, zero_range_px = 1184.0,
 }
 const SHOTGUN := {
 	display_name = "Shotgun", damage = 28.0, cooldown = 0.0, mag_size = 2,
-	reload_time = 3.0, pellets = 5, bullet_speed = 600.0, is_special = true, total_ammo = 8,
+	reload_time = 3.0, pellets = 5, bullet_speed = 1200.0, is_special = true, total_ammo = 8,
 	aim_base = 0.2, aim_max = 0.3, focus_min_scale = 0.9,
 	optimal_range_px = 320.0, zero_range_px = 480.0,
+}
+const MACHINEGUN := {
+	display_name = "Machine Gun", damage = 22.0, cooldown = 0.08, mag_size = 40,
+	reload_time = 4.0, pellets = 1, bullet_speed = 1300.0, is_special = true, total_ammo = 120,
+	aim_base = 0.14, aim_max = 0.40, focus_min_scale = 0.8,
+	optimal_range_px = 512.0, zero_range_px = 700.0,
 }
 
 # --- Headshots (Phase 2) ---------------------------------------------------

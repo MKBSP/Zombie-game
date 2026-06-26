@@ -24,6 +24,9 @@ properties/2/path = NodePath(".:hp")
 properties/2/spawn = true
 properties/2/replication_mode = 2
 
+[sub_resource type="OccluderPolygon2D" id="OccPoly_dyn"]
+polygon = PackedVector2Array(-14, -14, 14, -14, 14, 14, -14, 14)
+
 [node name="MasterZombie" type="CharacterBody2D" unique_id=1045810678 groups=["master_zombie", "zombies"]]
 collision_layer = 2
 script = ExtResource("1_ll20s")
@@ -41,3 +44,6 @@ target_desired_distance = 8.0
 
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=67454561]
 replication_config = SubResource("SceneReplicationConfig_sync")
+
+[node name="Occluder" type="LightOccluder2D" parent="."]
+occluder = SubResource("OccPoly_dyn")

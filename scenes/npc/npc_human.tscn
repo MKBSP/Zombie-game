@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scenes/npc/npc_human.gd" id="1_npchm"]
 
@@ -24,6 +24,9 @@ properties/3/replication_mode = 2
 properties/4/path = NodePath(".:weapon_id")
 properties/4/spawn = true
 properties/4/replication_mode = 2
+
+[sub_resource type="OccluderPolygon2D" id="OccPoly_dyn"]
+polygon = PackedVector2Array(-14, -14, 14, -14, 14, 14, -14, 14)
 
 [node name="NPCHuman" type="CharacterBody2D" groups=["npcs"]]
 collision_layer = 8
@@ -61,3 +64,6 @@ one_shot = true
 
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
 replication_config = SubResource("SceneReplicationConfig_sync")
+
+[node name="Occluder" type="LightOccluder2D" parent="."]
+occluder = SubResource("OccPoly_dyn")

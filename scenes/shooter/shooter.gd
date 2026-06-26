@@ -19,8 +19,12 @@ var is_dead: bool = false
 var _damage_accumulator: float = 0.0
 
 # --- Weapon / ammo state (server-authoritative, synced for the HUD) ---
-## Currently drawn weapon: Weapons.PISTOL, or held_special when it's out.
-var equipped: int = Weapons.PISTOL
+## Currently drawn weapon: Weapons.PISTOL, or held_special/held_melee when out.
+var equipped: int = Weapons.PISTOL:
+	set(value):
+		equipped = value
+		if _weapon_sprite:
+			_weapon_sprite.texture = WeaponVisuals.texture(equipped)
 ## The heavy slot: Weapons.RIFLE / SHOTGUN / MACHINEGUN, or -1 when empty.
 var held_special: int = -1
 ## The melee slot: Weapons.MELEE when held, or -1 (empty).
@@ -72,6 +76,7 @@ var PISTOL_DMG_REF: float
 
 # --- Node references (filled in _ready) ---
 @onready var gun_tip: Marker2D = $GunTip
+@onready var _weapon_sprite: Sprite2D = $WeaponSprite
 @onready var shoot_cooldown: Timer = $ShootCooldown
 @onready var reload_timer: Timer = $ReloadTimer
 
@@ -96,6 +101,7 @@ func _ready() -> void:
 	set_physics_process(multiplayer.is_server())
 	shoot_cooldown.timeout.connect(_on_shoot_cooldown_timeout)
 	reload_timer.timeout.connect(_on_reload_timeout)
+	_weapon_sprite.texture = WeaponVisuals.texture(equipped)
 
 
 ## Input capture — runs on whichever peer controls the shooter and forwards

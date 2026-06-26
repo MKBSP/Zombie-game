@@ -23,8 +23,11 @@ var _damage_accumulator: float = 0.0
 var equipped: int = Weapons.PISTOL
 ## The heavy slot: Weapons.RIFLE / SHOTGUN / MACHINEGUN, or -1 when empty.
 var held_special: int = -1
-## The melee slot: Weapons.MELEE when held, or -1 (empty). Populated in Plan 2.
+## The melee slot: Weapons.MELEE when held, or -1 (empty).
 var held_melee: int = -1
+var _melee_next_swing: float = 0.0
+var _melee_hits: Array[float] = []
+var _melee_fatigued: bool = false
 var pistol_mag: int = 15
 var pistol_reserve: int = 15      # one spare mag at start (15 + 15 = 2 mags)
 ## For the held special: special_mag is chambered, special_total is all rounds
@@ -147,7 +150,7 @@ func _action_select(slot: int) -> void:
 @rpc("any_peer", "call_local", "reliable")
 func _action_drop() -> void:
 	if multiplayer.is_server():
-		_drop_special()
+		_drop_equipped()
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -176,7 +179,10 @@ func _physics_process(delta: float) -> void:
 		aim_spread_coeff = target_coeff + (aim_spread_coeff - target_coeff) * exp(-delta / AIM_SHRINK_TAU)
 
 	if _net_shooting:
-		shoot()
+		if _active_weapon().is_melee:
+			_swing()
+		else:
+			shoot()
 
 
 func _debuff_total() -> float:
@@ -289,6 +295,56 @@ func _on_reload_timeout() -> void:
 
 func _on_shoot_cooldown_timeout() -> void:
 	can_shoot = true
+
+
+func _swing() -> void:
+	var now: float = Time.get_ticks_msec() / 1000.0
+	# Clear fatigue after a long enough idle (no landed hit for fatigue_recover s).
+	if not _melee_hits.is_empty() and now - _melee_hits.back() > Balance.MELEE.fatigue_recover:
+		_melee_hits.clear()
+		_melee_fatigued = false
+	if now < _melee_next_swing:
+		return
+	_melee_next_swing = now + Balance.MELEE.cooldown
+	_swing_fx.rpc()
+
+	var facing := Vector2.from_angle(global_rotation)
+	var dmg: float = Balance.MELEE.damage * (Balance.MELEE.fatigue_mult if _melee_fatigued else 1.0)
+	var hit := false
+	for z in get_tree().get_nodes_in_group("zombies"):
+		if z is Node2D and is_instance_valid(z) and z.has_method("take_damage"):
+			if Melee.forward_strike(global_position, facing, Balance.MELEE.range_px, Balance.MELEE.half_width_px, z.global_position):
+				z.take_damage(dmg)
+				hit = true
+	if hit:
+		_melee_hits.append(now)
+		while not _melee_hits.is_empty() and now - _melee_hits[0] > Balance.MELEE.fatigue_recover:
+			_melee_hits.pop_front()
+		if Melee.recent_hit_count(_melee_hits, now, Balance.MELEE.fatigue_window) >= Balance.MELEE.fatigue_hits:
+			_melee_fatigued = true
+
+
+## Brief swing flash on every peer (placeholder until weapon visuals, Phase 5).
+@rpc("authority", "call_local", "unreliable")
+func _swing_fx() -> void:
+	var spr := get_node_or_null("Sprite2D")
+	if spr == null:
+		return
+	spr.modulate = Color(1.5, 1.5, 1.5)
+	get_tree().create_timer(0.1).timeout.connect(func():
+		if is_instance_valid(spr):
+			spr.modulate = Color.WHITE)
+
+
+func _drop_equipped() -> void:
+	if _active_weapon().is_melee:
+		if held_melee == -1:
+			return
+		held_melee = -1
+		equipped = Weapons.PISTOL
+		_cancel_reload()
+	else:
+		_drop_special()
 
 
 # --- Weapon switching / handoff (server-side) ---

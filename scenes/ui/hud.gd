@@ -98,6 +98,9 @@ func _update_ammo() -> void:
 	if ammo_label == null:
 		return
 	var w := Weapons.get_data(shooter.equipped)
+	if w.is_melee:
+		ammo_label.text = "Melee"
+		return
 	var mag: int
 	var reserve: int
 	if shooter.equipped == Weapons.PISTOL:

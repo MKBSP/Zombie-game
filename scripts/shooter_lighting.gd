@@ -87,6 +87,6 @@ static func build_static_occluders(parent: Node, positions: Array[Vector2], tile
 	for pos in positions:
 		var occ := LightOccluder2D.new()
 		occ.occluder = poly
-		occ.global_position = pos
 		parent.add_child(occ)
+		occ.global_position = pos
 	return positions.size()

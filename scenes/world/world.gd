@@ -5,7 +5,6 @@ extends Node2D
 @onready var ground_layer: TileMapLayer = $GroundLayer
 @onready var building_layer: TileMapLayer = $BuildingLayer
 @onready var prop_scatter: Node = $PropScatter
-@onready var shooter_fog_rect: ColorRect = $HUDLayer/ShooterFogRect
 @onready var zc_node: ZombieController = $ZombieControllerNode
 @onready var zc_camera: Camera2D = $ZCCamera
 @onready var entities: Node2D = $Entities
@@ -25,9 +24,6 @@ var fog_enabled: bool
 
 var shooter: CharacterBody2D = null
 var master_zombie: CharacterBody2D = null
-
-var fog_shooter: FogShooter
-var fog_texture: ImageTexture
 
 var _client_ready: bool = false
 
@@ -88,13 +84,11 @@ func _apply_role() -> void:
 		shooter.controls_enabled = true
 		shooter_cam.enabled = true
 		shooter_cam.make_current()
-		shooter_fog_rect.visible = fog_enabled
 		zc_node.deactivate()
 		aim_cursor.setup(shooter)
 	else:
 		shooter.controls_enabled = false
 		shooter_cam.enabled = false
-		shooter_fog_rect.visible = false
 		hud.visible = false
 		zc_node.activate()
 		zc_camera.make_current()
@@ -103,45 +97,14 @@ func _apply_role() -> void:
 
 func _setup_fog() -> void:
 	if not fog_enabled:
-		return  # testing: fog overlay disabled
-	fog_shooter = FogShooter.new()
-	add_child(fog_shooter)
-	fog_shooter.ground_layer = ground_layer
-	fog_shooter.building_layer = building_layer
-	fog_shooter.cache_occluders()
-
-	# Cache prop occluders — anything in the "occluders" group
-	var prop_occluders: Array[Node2D] = []
+		return  # testing: fog disabled
+	if GameState.role != GameState.Role.HUMAN:
+		return  # only the shooter view gets the flashlight fog
+	var props: Array[Node2D] = []
 	for node in get_tree().get_nodes_in_group("occluders"):
 		if node is Node2D:
-			prop_occluders.append(node)
-	fog_shooter.cache_prop_occluders(prop_occluders)
-
-	fog_texture = ImageTexture.create_from_image(fog_shooter.visibility_image)
-	var shader_material: ShaderMaterial = shooter_fog_rect.material as ShaderMaterial
-	shader_material.set_shader_parameter("visibility_tex", fog_texture)
-
-func _process(_delta: float) -> void:
-	if shooter == null or fog_shooter == null:
-		return
-	if GameState.role != GameState.Role.HUMAN:
-		return  # Shooter fog is hidden in zombie role; skip the per-frame update
-	var shooter_tile: Vector2i = ground_layer.local_to_map(
-		ground_layer.to_local(shooter.global_position)
-	)
-	var facing_angle: float = shooter.global_rotation
-	fog_shooter.update_visibility(shooter_tile, facing_angle)
-	fog_texture.update(fog_shooter.visibility_image)
-
-	# Update camera position in the shader
-	var camera: Camera2D = shooter.get_node("Camera2D")
-	var vp_size: Vector2 = get_viewport().get_visible_rect().size
-	var cam_center: Vector2 = camera.get_screen_center_position()
-	var cam_top_left: Vector2 = cam_center - vp_size / 2.0
-
-	var shader_material: ShaderMaterial = shooter_fog_rect.material as ShaderMaterial
-	shader_material.set_shader_parameter("camera_top_left", cam_top_left)
-	shader_material.set_shader_parameter("viewport_size", vp_size)
+			props.append(node)
+	ShooterLighting.setup(self, shooter, ground_layer, building_layer, props)
 
 func _create_grid() -> void:
 	var grid := GridDrawer.new()

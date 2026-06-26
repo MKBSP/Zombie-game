@@ -90,3 +90,44 @@ static func build_static_occluders(parent: Node, positions: Array[Vector2], tile
 		parent.add_child(occ)
 		occ.global_position = pos
 	return positions.size()
+
+
+## Build the full shooter fog: dark CanvasModulate over the world, a cone
+## flashlight + radial halo parented to the shooter, and static occluders.
+## Call once, on the HUMAN-role instance only.
+static func setup(
+	world: Node2D,
+	shooter: Node2D,
+	ground_layer: TileMapLayer,
+	building_layer: TileMapLayer,
+	props: Array[Node2D]
+) -> void:
+	var b: Dictionary = Balance.FOG_SHOOTER
+
+	# 1. Darken the world (the "fog"). HUD is on its own CanvasLayer -> stays bright.
+	var modulate := CanvasModulate.new()
+	modulate.color = b.ambient_darkness
+	world.add_child(modulate)
+
+	# 2. Flashlight cone — child of the shooter so it tracks position + aim.
+	var cone := PointLight2D.new()
+	cone.texture = make_cone_texture(b.cone_tex_size, deg_to_rad(b.flashlight_half_angle_deg))
+	cone.texture_scale = b.flashlight_range / (float(b.cone_tex_size) / 2.0)
+	cone.energy = b.flashlight_energy
+	cone.color = b.flashlight_color
+	cone.shadow_enabled = b.shadows_enabled
+	shooter.add_child(cone)
+
+	# 3. Personal halo — small soft radial light, no aim dependence.
+	var halo := PointLight2D.new()
+	halo.texture = make_radial_texture(b.halo_tex_size)
+	halo.texture_scale = b.halo_radius / (float(b.halo_tex_size) / 2.0)
+	halo.energy = b.halo_energy
+	halo.color = b.halo_color
+	halo.shadow_enabled = b.shadows_enabled
+	shooter.add_child(halo)
+
+	# 4. Static occluders (buildings, edges, props).
+	var tile_size: float = ground_layer.tile_set.tile_size.x
+	var positions := collect_static_occluder_positions(ground_layer, building_layer, props)
+	build_static_occluders(world, positions, tile_size)

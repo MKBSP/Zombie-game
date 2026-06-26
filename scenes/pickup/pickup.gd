@@ -27,6 +27,14 @@ const WEAPON_TO_KIND := {
 	Weapons.MELEE: Kind.MELEE,
 }
 
+## Inverse of WEAPON_TO_KIND, for showing the weapon PNG on the floor.
+const KIND_TO_WEAPON := {
+	Kind.RIFLE: Weapons.RIFLE,
+	Kind.SHOTGUN: Weapons.SHOTGUN,
+	Kind.MACHINEGUN: Weapons.MACHINEGUN,
+	Kind.MELEE: Weapons.MELEE,
+}
+
 @export var kind: int = Kind.AMMO_MAG:
 	set(value):
 		kind = value
@@ -41,7 +49,12 @@ func _ready() -> void:
 
 func _refresh_color() -> void:
 	var s := get_node_or_null("Sprite2D")
-	if s:
+	if s == null:
+		return
+	if KIND_TO_WEAPON.has(kind):
+		s.texture = WeaponVisuals.texture(KIND_TO_WEAPON[kind])
+		s.modulate = Color.WHITE
+	else:
 		s.modulate = COLORS.get(kind, Color.WHITE)
 
 

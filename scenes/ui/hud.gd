@@ -5,6 +5,7 @@ extends Control
 @onready var compass_label: Label = $CompassLabel
 @onready var debug_coords: Label = $DebugCoords
 @onready var ammo_label: Label = $AmmoLabel
+@onready var weapon_icon: TextureRect = $WeaponIcon
 @onready var toast_label: Label = $ToastLabel
 
 var shooter: Node2D = null
@@ -98,6 +99,8 @@ func _update_ammo() -> void:
 	if ammo_label == null:
 		return
 	var w := Weapons.get_data(shooter.equipped)
+	if weapon_icon:
+		weapon_icon.texture = WeaponVisuals.texture(shooter.equipped)
 	if w.is_melee:
 		ammo_label.text = "Melee"
 		return

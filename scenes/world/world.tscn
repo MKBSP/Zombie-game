@@ -93,6 +93,15 @@ offset_right = 320.0
 offset_bottom = 75.0
 text = "Pistol  15 / 15"
 
+[node name="WeaponIcon" type="TextureRect" parent="HUDLayer/HUD"]
+layout_mode = 0
+offset_left = 330.0
+offset_top = 46.0
+offset_right = 378.0
+offset_bottom = 78.0
+expand_mode = 1
+stretch_mode = 5
+
 [node name="CompassLabel" type="Label" parent="HUDLayer/HUD" unique_id=395362161]
 custom_minimum_size = Vector2(20, 60)
 layout_mode = 0

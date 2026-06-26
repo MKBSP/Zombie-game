@@ -31,8 +31,12 @@ const WALKABLE: Array[String] = ["road", "sidewalk", "grass", "parking"]
 
 var hp: int
 
-# Weapon handed over by the shooter (server-side). weapon_id == -1 means unarmed.
-var weapon_id: int = -1
+# Weapon handed over by the shooter. weapon_id == -1 means unarmed. Synced so the
+# gun sprite shows on both peers.
+var weapon_id: int = -1:
+	set(value):
+		weapon_id = value
+		_refresh_weapon_sprite()
 var weapon_mag: int = 0
 var weapon_total: int = 0
 var _npc_can_shoot: bool = true
@@ -63,6 +67,7 @@ var _last_shooter_dir: Vector2 = Vector2.RIGHT
 var _progress_bar: Node2D = null
 
 @onready var nav_agent: NavigationAgent2D = $NavigationAgent2D
+@onready var _weapon_sprite: Sprite2D = $WeaponSprite
 @onready var conversion_zone: Area2D = $ConversionZone
 @onready var npc_shoot_cooldown: Timer = $NpcShootCooldown
 
@@ -80,6 +85,7 @@ func _ready() -> void:
 	NPC_VISION_PX = b.vision_px
 	MUZZLE_OFFSET = b.muzzle_offset
 	hp = max_hp
+	_refresh_weapon_sprite()
 	# Logic runs on the server only (true in single player too)
 	set_physics_process(multiplayer.is_server())
 	if multiplayer.is_server():
@@ -234,6 +240,15 @@ func _process_following() -> void:
 
 
 ## Called by the shooter when handing over its special weapon (server-side).
+## Show/hide + texture the NPC's gun sprite from weapon_id (runs on every peer).
+func _refresh_weapon_sprite() -> void:
+	if _weapon_sprite == null:
+		return
+	_weapon_sprite.visible = weapon_id != -1
+	if weapon_id != -1:
+		_weapon_sprite.texture = WeaponVisuals.texture(weapon_id)
+
+
 func receive_weapon(id: int, total: int) -> void:
 	weapon_id = id
 	weapon_total = total

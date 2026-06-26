@@ -60,6 +60,10 @@ func _draw() -> void:
 	var radius: float = maxf(coeff * dist * zoom, 2.0)
 
 	var w := Weapons.get_data(_shooter.equipped)
+	if w.is_melee:
+		# Melee has no spread — just a small aim dot, no ring.
+		draw_circle(get_local_mouse_position(), 2.0, Color(1, 1, 1, 0.8))
+		return
 	# Range falloff: full strength within optimal range, dimming toward MIN_OPACITY
 	# as the cursor passes the weapon's zero-range. The ring never vanishes — past
 	# optimal range it turns dashed and faint so the player can still aim far.

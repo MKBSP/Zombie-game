@@ -27,7 +27,7 @@ const SHOOTER := {
 
 # --- Zombies (variant chosen by group in zombie.gd) ------------------------
 const ZOMBIE := { speed = 85.0,  max_hp = 150, contact_dps = 12.0, vision = 2, contact_px = 38.0, scale = 1.0 }
-const FAST   := { speed = 150.0, max_hp = 150, contact_dps = 18.0, vision = 2, contact_px = 38.0, scale = 1.0 }
+const FAST   := { speed = 220.0, max_hp = 150, contact_dps = 18.0, vision = 2, contact_px = 38.0, scale = 1.0 }
 const FAT    := { speed = 76.5,  max_hp = 750, contact_dps = 60.0, vision = 2, contact_px = 38.0, scale = 1.5 }
 const MASTER := { speed = 60.0,  max_hp = 450, contact_dps = 12.0, vision = 3, contact_px = 48.0, scale = 1.8 }
 
@@ -41,9 +41,19 @@ const NPC := {
 	convert_duration = 5.0,
 	follow_distance = 64.0,   # 1 tile behind the shooter
 	follow_deadzone = 12.0,
-	aim_jitter = 0.25,        # ~14 degrees of armed-NPC sloppiness
+	aim_jitter = 0.25,        # DEPRECATED (Phase 3 removes the last reader)
 	vision_px = 384.0,        # 6 tiles
 	muzzle_offset = 40.0,     # spawn bullets past the NPC's own body
+	# --- Armed-NPC accuracy (Phase 3), separate from the player ---
+	panic = 0.35,                  # base inaccuracy floor (always applied)
+	debuff_running = 0.20,         # added while moving
+	debuff_injured = 0.20,         # added when hp < max_hp
+	debuff_hurt = 0.40,            # added when hp < max_hp * injured_hp_frac (replaces injured)
+	injured_hp_frac = 0.5,
+	recoil_initial = 0.50,         # per-shot kick
+	recoil_recover_factor = 2.0,   # seconds-per-damage-unit to recover
+	dmg_ref = 35.0,                # damage unit for recoil scaling (pistol = 1)
+	min_shot_interval = 0.667,     # 1.5 shots/sec cap
 }
 
 # --- Bullet (per-weapon values below override damage/speed on spawn) --------

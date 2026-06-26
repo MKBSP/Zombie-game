@@ -86,6 +86,19 @@ const MACHINEGUN := {
 	optimal_range_px = 512.0, zero_range_px = 700.0,
 }
 
+# --- Melee (Phase 4) -------------------------------------------------------
+const MELEE := {
+	display_name = "Melee",
+	damage = 10.0,
+	cooldown = 0.6,            # seconds between swings
+	range_px = 50.0,           # reach just past the body
+	half_width_px = 19.0,      # ~80% of the 48px player hitbox
+	fatigue_hits = 3,          # landed hits inside fatigue_window that trigger fatigue
+	fatigue_window = 3.0,
+	fatigue_mult = 0.5,        # damage multiplier while fatigued
+	fatigue_recover = 10.0,    # seconds with no landed hit to clear fatigue
+}
+
 # --- Headshots (Phase 2) ---------------------------------------------------
 const HEADSHOT := {
 	radius_px = 5.0,   # center crit zone radius, same on every zombie

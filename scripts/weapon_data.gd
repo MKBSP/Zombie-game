@@ -15,6 +15,8 @@ class_name WeaponData
 @export var pellets: int = 1
 @export var bullet_speed: float = 600.0
 @export var is_special: bool = false
+## Melee weapon (no bullets/ammo). When true the shooter swings instead of firing.
+@export var is_melee: bool = false
 ## Finite rounds the weapon carries when picked up. 0 = pistol (draws from the
 ## shooter's separate reserve pool instead).
 @export var total_ammo: int = 0

@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3 uid="uid://jbr1j8x00x17"]
+[gd_scene format=3 uid="uid://jbr1j8x00x17"]
 
 [ext_resource type="Script" uid="uid://bftgcmiap400t" path="res://scenes/bullet/bullet.gd" id="1_xabg6"]
 
@@ -38,5 +38,5 @@ wait_time = 1.8
 one_shot = true
 autostart = true
 
-[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=469796379]
 replication_config = SubResource("SceneReplicationConfig_sync")

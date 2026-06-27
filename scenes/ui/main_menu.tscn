@@ -1,8 +1,8 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://ix41w28go2ak"]
 
-[ext_resource type="Script" path="res://scenes/ui/main_menu.gd" id="1_mainmenu"]
+[ext_resource type="Script" uid="uid://dl8yr8fxr13re" path="res://scenes/ui/main_menu.gd" id="1_mainmenu"]
 
-[node name="MainMenu" type="Control"]
+[node name="MainMenu" type="Control" unique_id=1908518653]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -11,7 +11,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_mainmenu")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="ColorRect" parent="." unique_id=1969288558]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -20,7 +20,7 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.07, 0.09, 0.08, 1)
 
-[node name="TitlePanel" type="Control" parent="."]
+[node name="TitlePanel" type="Control" parent="." unique_id=1066215883]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -28,7 +28,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="CenterContainer" type="CenterContainer" parent="TitlePanel"]
+[node name="CenterContainer" type="CenterContainer" parent="TitlePanel" unique_id=672013521]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -36,24 +36,24 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="TitlePanel/CenterContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="TitlePanel/CenterContainer" unique_id=751027132]
 layout_mode = 2
 theme_override_constants/separation = 40
 
-[node name="TitleLabel" type="Label" parent="TitlePanel/CenterContainer/VBoxContainer"]
+[node name="TitleLabel" type="Label" parent="TitlePanel/CenterContainer/VBoxContainer" unique_id=1445513973]
 layout_mode = 2
 theme_override_font_sizes/font_size = 72
 text = "ZOMBIE GAME"
 horizontal_alignment = 1
 
-[node name="PlayButton" type="Button" parent="TitlePanel/CenterContainer/VBoxContainer"]
+[node name="PlayButton" type="Button" parent="TitlePanel/CenterContainer/VBoxContainer" unique_id=1251726757]
 custom_minimum_size = Vector2(240, 64)
 layout_mode = 2
 size_flags_horizontal = 4
 theme_override_font_sizes/font_size = 32
 text = "PLAY"
 
-[node name="ModePanel" type="Control" parent="."]
+[node name="ModePanel" type="Control" parent="." unique_id=1572698657]
 visible = false
 layout_mode = 1
 anchors_preset = 15
@@ -62,7 +62,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ModePanel"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ModePanel" unique_id=427475949]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -71,7 +71,7 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 8
 
-[node name="SingleButton" type="Button" parent="ModePanel/HBoxContainer"]
+[node name="SingleButton" type="Button" parent="ModePanel/HBoxContainer" unique_id=512273719]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
@@ -79,7 +79,7 @@ theme_override_font_sizes/font_size = 44
 text = "SINGLE
 PLAYER"
 
-[node name="MultiButton" type="Button" parent="ModePanel/HBoxContainer"]
+[node name="MultiButton" type="Button" parent="ModePanel/HBoxContainer" unique_id=1791655599]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
@@ -87,7 +87,7 @@ theme_override_font_sizes/font_size = 44
 text = "MULTIPLAYER
 (local)"
 
-[node name="RolePanel" type="Control" parent="."]
+[node name="RolePanel" type="Control" parent="." unique_id=919229294]
 visible = false
 layout_mode = 1
 anchors_preset = 15
@@ -96,7 +96,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="RolePanel"]
+[node name="HBoxContainer" type="HBoxContainer" parent="RolePanel" unique_id=2131925642]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -105,7 +105,7 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 8
 
-[node name="HumanButton" type="Button" parent="RolePanel/HBoxContainer"]
+[node name="HumanButton" type="Button" parent="RolePanel/HBoxContainer" unique_id=127123049]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
@@ -113,7 +113,7 @@ theme_override_font_sizes/font_size = 48
 text = "HUMAN
 (shooter)"
 
-[node name="ZombieButton" type="Button" parent="RolePanel/HBoxContainer"]
+[node name="ZombieButton" type="Button" parent="RolePanel/HBoxContainer" unique_id=793983803]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
@@ -121,7 +121,7 @@ theme_override_font_sizes/font_size = 48
 text = "ZOMBIE
 (horde)"
 
-[node name="MultiplayerPanel" type="Control" parent="."]
+[node name="MultiplayerPanel" type="Control" parent="." unique_id=259471879]
 visible = false
 layout_mode = 1
 anchors_preset = 15
@@ -130,7 +130,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="CenterContainer" type="CenterContainer" parent="MultiplayerPanel"]
+[node name="CenterContainer" type="CenterContainer" parent="MultiplayerPanel" unique_id=1871949367]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -138,23 +138,23 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="MultiplayerPanel/CenterContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="MultiplayerPanel/CenterContainer" unique_id=233510323]
 layout_mode = 2
 theme_override_constants/separation = 24
 
-[node name="HostButton" type="Button" parent="MultiplayerPanel/CenterContainer/VBoxContainer"]
+[node name="HostButton" type="Button" parent="MultiplayerPanel/CenterContainer/VBoxContainer" unique_id=285312525]
 custom_minimum_size = Vector2(320, 80)
 layout_mode = 2
 theme_override_font_sizes/font_size = 36
 text = "HOST GAME"
 
-[node name="JoinButton" type="Button" parent="MultiplayerPanel/CenterContainer/VBoxContainer"]
+[node name="JoinButton" type="Button" parent="MultiplayerPanel/CenterContainer/VBoxContainer" unique_id=1456817578]
 custom_minimum_size = Vector2(320, 80)
 layout_mode = 2
 theme_override_font_sizes/font_size = 36
 text = "JOIN GAME"
 
-[node name="MPStatus" type="Label" parent="MultiplayerPanel/CenterContainer/VBoxContainer"]
+[node name="MPStatus" type="Label" parent="MultiplayerPanel/CenterContainer/VBoxContainer" unique_id=1807339586]
 custom_minimum_size = Vector2(320, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
@@ -162,7 +162,7 @@ text = "Connecting to server..."
 horizontal_alignment = 1
 autowrap_mode = 2
 
-[node name="LobbyPanel" type="Control" parent="."]
+[node name="LobbyPanel" type="Control" parent="." unique_id=1754814148]
 visible = false
 layout_mode = 1
 anchors_preset = 15
@@ -171,7 +171,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="CenterContainer" type="CenterContainer" parent="LobbyPanel"]
+[node name="CenterContainer" type="CenterContainer" parent="LobbyPanel" unique_id=2019943088]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -179,40 +179,40 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="LobbyPanel/CenterContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="LobbyPanel/CenterContainer" unique_id=857480903]
 layout_mode = 2
 theme_override_constants/separation = 24
 
-[node name="LobbyTitle" type="Label" parent="LobbyPanel/CenterContainer/VBoxContainer"]
+[node name="LobbyTitle" type="Label" parent="LobbyPanel/CenterContainer/VBoxContainer" unique_id=492271514]
 layout_mode = 2
 theme_override_font_sizes/font_size = 40
 text = "HOSTING — choose your role"
 horizontal_alignment = 1
 
-[node name="RoleRow" type="HBoxContainer" parent="LobbyPanel/CenterContainer/VBoxContainer"]
+[node name="RoleRow" type="HBoxContainer" parent="LobbyPanel/CenterContainer/VBoxContainer" unique_id=484343073]
 layout_mode = 2
 theme_override_constants/separation = 16
 alignment = 1
 
-[node name="LobbyHumanButton" type="Button" parent="LobbyPanel/CenterContainer/VBoxContainer/RoleRow"]
+[node name="LobbyHumanButton" type="Button" parent="LobbyPanel/CenterContainer/VBoxContainer/RoleRow" unique_id=1363070805]
 custom_minimum_size = Vector2(220, 70)
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
 text = "HUMAN"
 
-[node name="LobbyZombieButton" type="Button" parent="LobbyPanel/CenterContainer/VBoxContainer/RoleRow"]
+[node name="LobbyZombieButton" type="Button" parent="LobbyPanel/CenterContainer/VBoxContainer/RoleRow" unique_id=2058473717]
 custom_minimum_size = Vector2(220, 70)
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
 text = "ZOMBIE"
 
-[node name="LobbyStatus" type="Label" parent="LobbyPanel/CenterContainer/VBoxContainer"]
+[node name="LobbyStatus" type="Label" parent="LobbyPanel/CenterContainer/VBoxContainer" unique_id=1643296216]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Waiting for player..."
 horizontal_alignment = 1
 
-[node name="StartButton" type="Button" parent="LobbyPanel/CenterContainer/VBoxContainer"]
+[node name="StartButton" type="Button" parent="LobbyPanel/CenterContainer/VBoxContainer" unique_id=1239678622]
 custom_minimum_size = Vector2(240, 64)
 layout_mode = 2
 size_flags_horizontal = 4
@@ -220,7 +220,7 @@ theme_override_font_sizes/font_size = 32
 disabled = true
 text = "START"
 
-[node name="JoinPanel" type="Control" parent="."]
+[node name="JoinPanel" type="Control" parent="." unique_id=1356979738]
 visible = false
 layout_mode = 1
 anchors_preset = 15
@@ -229,7 +229,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="CenterContainer" type="CenterContainer" parent="JoinPanel"]
+[node name="CenterContainer" type="CenterContainer" parent="JoinPanel" unique_id=861452590]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -237,17 +237,17 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="JoinPanel/CenterContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="JoinPanel/CenterContainer" unique_id=1731315100]
 layout_mode = 2
 theme_override_constants/separation = 24
 
-[node name="JoinTitle" type="Label" parent="JoinPanel/CenterContainer/VBoxContainer"]
+[node name="JoinTitle" type="Label" parent="JoinPanel/CenterContainer/VBoxContainer" unique_id=1747575106]
 layout_mode = 2
 theme_override_font_sizes/font_size = 40
 text = "JOIN GAME"
 horizontal_alignment = 1
 
-[node name="IPEdit" type="LineEdit" parent="JoinPanel/CenterContainer/VBoxContainer"]
+[node name="IPEdit" type="LineEdit" parent="JoinPanel/CenterContainer/VBoxContainer" unique_id=800329386]
 custom_minimum_size = Vector2(320, 50)
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
@@ -255,15 +255,14 @@ text = "127.0.0.1"
 placeholder_text = "Host IP address"
 alignment = 1
 
-[node name="ConnectButton" type="Button" parent="JoinPanel/CenterContainer/VBoxContainer"]
+[node name="ConnectButton" type="Button" parent="JoinPanel/CenterContainer/VBoxContainer" unique_id=1979438764]
 custom_minimum_size = Vector2(240, 64)
 layout_mode = 2
 size_flags_horizontal = 4
 theme_override_font_sizes/font_size = 28
 text = "CONNECT"
 
-[node name="JoinStatus" type="Label" parent="JoinPanel/CenterContainer/VBoxContainer"]
+[node name="JoinStatus" type="Label" parent="JoinPanel/CenterContainer/VBoxContainer" unique_id=336105337]
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
-text = ""
 horizontal_alignment = 1

@@ -112,7 +112,7 @@ const MERGE := {
 }
 
 # --- World -----------------------------------------------------------------
-const WORLD := { npc_count = 5, fog_enabled = false }
+const WORLD := { npc_count = 5, fog_enabled = true }
 
 # --- Aim cursor / shared aim math ------------------------------------------
 const AIM := {

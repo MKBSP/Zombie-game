@@ -114,6 +114,37 @@ const MERGE := {
 # --- World -----------------------------------------------------------------
 const WORLD := { npc_count = 5, fog_enabled = true }
 
+# --- Loot boxes ------------------------------------------------------------
+# box_count crates scatter on walkable tiles. Each box rolls an item count
+# (chance_three -> 3, else chance_two -> 2, else 1), then each item rolls a
+# kind by relative weight. Heal amounts and interaction radii live here too.
+const LOOT := {
+	box_count = 8,
+	chance_two = 0.20,
+	chance_three = 0.01,
+	# Relative spawn weights per item kind (tune freely; need not sum to 100).
+	weight_ammo_mag = 25,
+	weight_bandage = 30,
+	weight_medipack = 10,
+	weight_melee = 10,
+	weight_shotgun = 10,
+	weight_machinegun = 10,
+	weight_rifle = 5,
+	# Heal amounts.
+	heal_bandage = 10,
+	heal_medipack = 50,
+	# Burst: items land within burst_radius_px of the box, kept burst_min_sep_px
+	# apart, animating over burst_tween_time seconds.
+	burst_radius_px = 64.0,
+	burst_min_sep_px = 28.0,
+	burst_tween_time = 0.3,
+	# Contextual-interact reach per target type (px).
+	interact_pickup_px = 56.0,
+	interact_box_px = 64.0,
+	interact_give_px = 22.0,   # tight: must be on top of the NPC to give
+	interact_take_px = 56.0,   # take-back is non-destructive -> normal reach
+}
+
 # --- Aim cursor / shared aim math ------------------------------------------
 const AIM := {
 	min_opacity = 0.22,   # faintest the ring ever gets (never fully vanishes)

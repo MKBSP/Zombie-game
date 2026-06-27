@@ -5,7 +5,7 @@ class_name Pickup
 ## (replicated on spawn) drives both the tint and the effect. Effects run
 ## server-side and mutate the shooter directly.
 
-enum Kind { AMMO_MAG, RIFLE, SHOTGUN, MEDPACK, MACHINEGUN, MELEE }
+enum Kind { AMMO_MAG, RIFLE, SHOTGUN, MEDPACK, MACHINEGUN, MELEE, BANDAGE }
 
 const COLORS := {
 	Kind.AMMO_MAG: Color(0.95, 0.85, 0.2),

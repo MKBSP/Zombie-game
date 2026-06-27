@@ -16,7 +16,6 @@ const TEX_OPENED := preload("res://sprites/Crate_opened.png")
 
 
 func _ready() -> void:
-	add_to_group("loot_boxes")
 	_refresh_sprite()
 
 
@@ -42,7 +41,7 @@ func _kind_weights() -> Dictionary:
 	}
 
 
-## Server-only: roll and spawn loot, then mark opened (replicates the swap).
+## Server-only: mark opened (replicates the sprite swap), then roll and spawn the loot.
 func open() -> void:
 	if opened or not multiplayer.is_server():
 		return
@@ -58,5 +57,5 @@ func open() -> void:
 		var p: Pickup = PICKUP_SCENE.instantiate()
 		p.kind = k
 		p.spawn_origin = global_position
-		p.position = target
+		p.position = world.entities.to_local(target)
 		world.entities.add_child(p, true)

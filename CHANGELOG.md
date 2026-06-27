@@ -3,13 +3,24 @@
 Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
-## Phase 5 — Weapon visuals
+## Phase 5 — Weapon visuals + flashlight fog
 - Gun sprite on armed NPCs, synced across the network.
 - Weapon icon in the HUD.
 - Weapon PNGs shown on floor pickups.
 - Equipped gun sprite on the player.
 - `WeaponVisuals` texture map (id → PNG) + imported weapon PNGs.
 - In progress: sprite fixes (`8877b33`).
+- Shooter fog-of-war rebuilt on Godot 2D lighting: dark `CanvasModulate` fog,
+  hard-edged flashlight cone + personal halo (each a `PointLight2D` parented to
+  the shooter), real straight-line shadows from buildings, props, zombies, and
+  NPCs (`LightOccluder2D` on all moving entities). New file:
+  `scripts/shooter_lighting.gd` (`ShooterLighting`), assembled from
+  `world.gd::_setup_fog()` for the HUMAN role only. Tunables in
+  `Balance.FOG_SHOOTER` (ambient darkness, beam range/angle/energy/color, halo
+  radius/energy/color, shadow toggles). Removed: `FogShooter`
+  (`scripts/fog_shooter.gd`), `shader/fog_of_war.gdshader`, the `ShooterFogRect`
+  overlay node, and the per-frame fog-texture update in `world.gd`. The
+  zombie-controller fog (`FogZombieController` / `fog_zc.gdshader`) is unchanged.
 
 ## Phase 4 — Inventory, machine gun & melee
 **4a — inventory + machine gun**

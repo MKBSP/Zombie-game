@@ -39,7 +39,7 @@ scenes/            # Game scenes, each .tscn paired with its .gd
   props/           # static scatter props (car, dumpster, fence, statue, tree)
   ui/              # main_menu, pause_menu, game_over, hud, aim_cursor
 scripts/           # Shared logic, autoloads, RefCounted helpers (see below)
-shader/            # fog_of_war.gdshader, fog_zc.gdshader
+shader/            # fog_zc.gdshader (zombie-controller fog; fog_of_war.gdshader removed)
 resources/         # city_tileset.tres
 sprites/           # weapon + entity PNG art
 textures/          # generated tiles
@@ -65,8 +65,15 @@ addons/godot_ai/   # MCP plugin — IGNORE
   fatigue math. Unit-tested.
 - **weapon_visuals.gd** — weapon id → PNG texture map (Phase 5 visuals).
 - **merge_manager.gd / zombie_controller.gd** — zombie-side control & merging.
-- **fog_shooter.gd / fog_zombie_controller.gd** — the two fog-of-war systems
-  (shooter flashlight cone vs. zombie explored-map), driving the shaders.
+- **shooter_lighting.gd** (`ShooterLighting`) — HUMAN-role fog of war built on
+  Godot 2D lighting: generates a hard-edged cone flashlight texture and a soft
+  radial halo texture, builds `LightOccluder2D`s from building/edge tiles and
+  props, and exposes `setup(shooter, world, ...)` which assembles a dark
+  `CanvasModulate` + a cone `PointLight2D` + a halo `PointLight2D` (both
+  parented to the shooter so the beam tracks aim with no per-frame code) +
+  static occluders. Called from `world.gd::_setup_fog()` on the HUMAN role only.
+- **fog_zombie_controller.gd** (`FogZombieController`) — zombie-side explored-map
+  fog, driving `fog_zc.gdshader`. Unchanged.
 - **prop_scatter.gd** — seeded scenery placement (seed from GameState so both
   peers match). **ping_visual.gd** — command ping marker.
 
@@ -83,8 +90,17 @@ addons/godot_ai/   # MCP plugin — IGNORE
   range-scaled damage, "HEADSHOT!" toast.
 - **NPCs:** survivors hide, can follow the shooter, shoot zombies when armed, and
   get converted to zombies on contact over `convert_duration`.
-- **Fog of war:** two independent grids (shooter cone, zombie explored map),
-  rendered via shaders. Toggleable; `Balance.WORLD.fog_enabled` default off.
+- **Fog of war:** two independent systems. **Shooter (HUMAN role):** a dark
+  `CanvasModulate` fog is pierced by a hard-edged flashlight cone and a soft
+  personal halo, both `PointLight2D`s parented to the shooter and casting
+  real straight-line shadows through Godot's 2D shadow system; static
+  `LightOccluder2D`s are built from building/edge tiles and props, dynamic ones
+  sit on zombies/NPCs/master. Lives in `scripts/shooter_lighting.gd`
+  (`ShooterLighting`), assembled by `world.gd::_setup_fog()`. Tunables:
+  `Balance.FOG_SHOOTER` (ambient darkness, beam range/angle/energy, halo
+  radius/energy, shadow toggles). **Zombie-controller fog:** explored-map AoE2
+  style, `FogZombieController` / `fog_zc.gdshader` — unchanged. Both systems
+  toggleable; `Balance.WORLD.fog_enabled` default off.
 
 ## Conventions
 - **All tuning goes in `balance.gd`.** Never hardcode gameplay numbers in scenes.

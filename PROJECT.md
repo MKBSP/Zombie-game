@@ -21,6 +21,10 @@ headless and deployed (see `DEPLOY.md` / Railway). Implemented:
 - ✅ Inventory: 3-slot selection (1/2/3), full-auto machine gun.
 - ✅ Melee weapon: swing, fatigue, drop, HUD readout.
 - ✅ Weapon visuals: PNG sprites on player, NPCs, floor pickups, and HUD icon.
+- ✅ Shooter fog-of-war: 2D-lighting flashlight cone + personal halo with real
+  straight-line shadows from buildings, props, and moving entities
+  (`ShooterLighting`). Zombie-controller fog unchanged. Tunables in
+  `Balance.FOG_SHOOTER`.
 
 See [CHANGELOG.md](CHANGELOG.md) for the full phase history.
 

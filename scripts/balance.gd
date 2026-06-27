@@ -134,7 +134,7 @@ const FOG_SHOOTER := {
 	halo_energy = 0.9,
 	halo_color = Color(0.82, 0.86, 1.0, 1.0),
 	shadows_enabled = true,
-	dynamic_occluder_radius = 14.0,    # px, body-sized occluder for entities
+	dynamic_occluder_radius = 14.0,    # px, body-sized occluder for entities; NOTE: also hand-set in entity .tscn Occluder polygons (±this); keep in sync
 	cone_tex_size = 512,               # generated cone texture resolution
 	halo_tex_size = 256,               # generated halo texture resolution
 }

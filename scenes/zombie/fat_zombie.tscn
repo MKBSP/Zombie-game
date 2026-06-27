@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3 uid="uid://bg0cosb6sd0sx"]
+[gd_scene load_steps=7 format=3 uid="uid://bg0cosb6sd0sx"]
 
 [ext_resource type="Script" uid="uid://d1216cpy8072y" path="res://scenes/zombie/zombie.gd" id="1_jwcyb"]
 
@@ -30,6 +30,9 @@ properties/4/path = NodePath(".:merge_progress")
 properties/4/spawn = true
 properties/4/replication_mode = 2
 
+[sub_resource type="OccluderPolygon2D" id="OccPoly_dyn"]
+polygon = PackedVector2Array(-14, -14, 14, -14, 14, 14, -14, 14)
+
 [node name="FatZombie" type="CharacterBody2D" unique_id=1597845788 groups=["fat_zombie", "zombies"]]
 collision_layer = 2
 script = ExtResource("1_jwcyb")
@@ -47,3 +50,6 @@ target_desired_distance = 8.0
 
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
 replication_config = SubResource("SceneReplicationConfig_sync")
+
+[node name="Occluder" type="LightOccluder2D" parent="."]
+occluder = SubResource("OccPoly_dyn")

@@ -1,0 +1,21 @@
+[gd_scene load_steps=4 format=3 uid="uid://b8lootbox0001"]
+
+[ext_resource type="Script" path="res://scenes/loot_box/loot_box.gd" id="1_lootbox"]
+[ext_resource type="Texture2D" path="res://sprites/Crate_closed.png" id="2_crate"]
+
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_lb"]
+properties/0/path = NodePath(".:position")
+properties/0/spawn = true
+properties/0/replication_mode = 0
+properties/1/path = NodePath(".:opened")
+properties/1/spawn = true
+properties/1/replication_mode = 2
+
+[node name="LootBox" type="Node2D" groups=["loot_boxes"]]
+script = ExtResource("1_lootbox")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("2_crate")
+
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
+replication_config = SubResource("SceneReplicationConfig_lb")

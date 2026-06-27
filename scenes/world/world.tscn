@@ -208,5 +208,5 @@ ground_layer = NodePath("../GroundLayer")
 [node name="Entities" type="Node2D" parent="."]
 
 [node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="."]
-_spawnable_scenes = PackedStringArray("res://scenes/shooter/shooter.tscn", "res://scenes/zombie/zombie.tscn", "res://scenes/zombie/master_zombie.tscn", "res://scenes/zombie/fast_zombie.tscn", "res://scenes/zombie/fat_zombie.tscn", "res://scenes/npc/npc_human.tscn", "res://scenes/bullet/bullet.tscn", "res://scenes/pickup/pickup.tscn")
+_spawnable_scenes = PackedStringArray("res://scenes/shooter/shooter.tscn", "res://scenes/zombie/zombie.tscn", "res://scenes/zombie/master_zombie.tscn", "res://scenes/zombie/fast_zombie.tscn", "res://scenes/zombie/fat_zombie.tscn", "res://scenes/npc/npc_human.tscn", "res://scenes/bullet/bullet.tscn", "res://scenes/pickup/pickup.tscn", "res://scenes/loot_box/loot_box.tscn")
 spawn_path = NodePath("../Entities")

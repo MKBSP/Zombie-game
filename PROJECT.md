@@ -25,6 +25,8 @@ headless and deployed (see `DEPLOY.md` / Railway). Implemented:
   straight-line shadows from buildings, props, and moving entities
   (`ShooterLighting`). Zombie-controller fog unchanged. Tunables in
   `Balance.FOG_SHOOTER`.
+- ✅ Loot boxes: 8 closed crates scatter on walkable ground; `E` to open; 1–3
+  items burst out onto validated tiles; sprite swaps to opened; fully replicated.
 
 See [CHANGELOG.md](CHANGELOG.md) for the full phase history.
 
@@ -48,5 +50,6 @@ weapon-visual logic.
 - `.claude/settings.local.json` holds local Claude Code settings.
 
 ## Next / backlog
-(Keep this list current.) Phase 5 weapon visuals just landed, with sprite
-polish in progress (`8877b33 trying to fix some of the sprites`).
+(Keep this list current.) Phase 6 loot boxes just landed: crate spawning, item
+burst, landing validation, sprite replication. In-engine visual verification
+(crate placement, burst rendering, collect toasts) pending MCP run by controller.

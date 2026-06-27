@@ -16,6 +16,7 @@ var zombie_scene := preload("res://scenes/zombie/zombie.tscn")
 var master_zombie_scene := preload("res://scenes/zombie/master_zombie.tscn")
 var npc_scene := preload("res://scenes/npc/npc_human.tscn")
 var pickup_scene := preload("res://scenes/pickup/pickup.tscn")
+var loot_box_scene := preload("res://scenes/loot_box/loot_box.tscn")
 
 # From Balance.WORLD (assigned in _ready).
 var npc_count: int
@@ -43,7 +44,7 @@ func _ready() -> void:
 		_spawn_master_zombie()
 		_spawn_standard_zombies()
 		_spawn_npcs()
-		_spawn_items()
+		_spawn_loot_boxes()
 		if GameState.is_dedicated_server:
 			# Authoritative server only — no local player, no view to set up.
 			# The shooter is driven by the HUMAN client; the zombie controller
@@ -178,29 +179,75 @@ func _spawn_npcs() -> void:
 		entities.add_child(npc, true)
 		spawned += 1
 
-## Scatter weapon/ammo/medpack pickups on walkable tiles, away from the shooter.
-## Server-only; pickups replicate to the client via the MultiplayerSpawner.
-func _spawn_items() -> void:
-	var counts := {
-		Pickup.Kind.AMMO_MAG: 3,
-		Pickup.Kind.RIFLE: 1,
-		Pickup.Kind.SHOTGUN: 1,
-		Pickup.Kind.MACHINEGUN: 1,
-		Pickup.Kind.MELEE: 1,
-		Pickup.Kind.MEDPACK: 2,
-	}
-	for kind in counts:
-		for _i in range(counts[kind]):
-			# Keep the special guns close to the shooter so they're findable
-			# during testing; everything else scatters across the map.
-			var near_player: bool = kind == Pickup.Kind.RIFLE or kind == Pickup.Kind.SHOTGUN or kind == Pickup.Kind.MACHINEGUN or kind == Pickup.Kind.MELEE
-			var pos := _find_item_spawn(near_player)
-			if pos == Vector2.INF:
-				continue
-			var p: Node2D = pickup_scene.instantiate()
-			p.kind = kind
-			p.global_position = pos
-			entities.add_child(p, true)
+## Scatter closed loot boxes on walkable tiles, clear of buildings, props, the
+## shooter spawn, and each other. Server-only; boxes replicate via the spawner.
+func _spawn_loot_boxes() -> void:
+	for _i in range(Balance.LOOT.box_count):
+		var pos := _find_box_spawn()
+		if pos == Vector2.INF:
+			continue
+		var b: Node2D = loot_box_scene.instantiate()
+		b.position = pos
+		entities.add_child(b, true)
+
+
+## A walkable tile clear of the shooter spawn and of already-placed boxes.
+func _find_box_spawn() -> Vector2:
+	for _attempt in range(200):
+		var pos := _find_item_spawn(false)
+		if pos == Vector2.INF:
+			return Vector2.INF
+		var clear := true
+		for b in get_tree().get_nodes_in_group("loot_boxes"):
+			if b.global_position.distance_to(pos) < 96.0:
+				clear = false
+				break
+		if clear:
+			return pos
+	return Vector2.INF
+
+
+## Pick a valid landing point for a bursting item near `center`: walkable, not
+## in a building, not on a prop/body, and burst_min_sep_px clear of `placed`.
+## Falls back to the box center if no clear spot is found.
+func loot_landing_spot(center: Vector2, placed: Array) -> Vector2:
+	var radius: float = Balance.LOOT.burst_radius_px
+	var min_sep: float = Balance.LOOT.burst_min_sep_px
+	var space := get_world_2d().direct_space_state
+	for _attempt in range(24):
+		var ang := randf() * TAU
+		var dist: float = max(sqrt(randf()) * radius, min_sep)
+		var cand := center + Vector2.from_angle(ang) * dist
+		if not _is_loot_tile(cand):
+			continue
+		var too_near := false
+		for q in placed:
+			if cand.distance_to(q) < min_sep:
+				too_near = true
+				break
+		if too_near:
+			continue
+		# Reject if a physical body (prop/shooter/npc/zombie) sits on the point.
+		var q := PhysicsPointQueryParameters2D.new()
+		q.position = cand
+		q.collision_mask = 1
+		if not space.intersect_point(q, 1).is_empty():
+			continue
+		return cand
+	return center
+
+
+## True if `world_pos` is a walkable ground tile with no building over it.
+func _is_loot_tile(world_pos: Vector2) -> bool:
+	var walkable: Array[String] = ["road", "sidewalk", "grass", "parking"]
+	var tile := ground_layer.local_to_map(ground_layer.to_local(world_pos))
+	var td: TileData = ground_layer.get_cell_tile_data(tile)
+	if td == null or not td.get_custom_data("tile_type") in walkable:
+		return false
+	if building_layer.get_cell_tile_data(tile) != null:
+		return false
+	return true
+
 
 ## Pick a walkable tile for an item. When `near` is true, bias toward tiles
 ## within ~8 tiles of the shooter; otherwise just keep clear of the spawn.

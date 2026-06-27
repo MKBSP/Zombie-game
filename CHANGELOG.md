@@ -3,6 +3,17 @@
 Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
+## Phase 6 — Loot boxes
+- `scenes/loot_box/loot_box.gd` + `loot_box.tscn`: closed crate scene replicated
+  via `MultiplayerSynchronizer`; server rolls 1–3 items on `open()` and bursts
+  them as `Pickup` nodes within `burst_radius_px` of the box on validated walkable
+  ground, keeping items `burst_min_sep_px` apart and clear of props/bodies.
+- `world.gd`: replaced `_spawn_items()` with `_spawn_loot_boxes()` (8 crates on
+  walkable tiles, ≥96 px apart); added `loot_landing_spot(center, placed)` and
+  `_is_loot_tile(world_pos)` helpers; `_find_item_spawn` kept for internal reuse.
+- `world.tscn`: `loot_box.tscn` registered in `MultiplayerSpawner._spawnable_scenes`.
+- All tuning (box count, item counts, weights, burst dimensions) in `Balance.LOOT`.
+
 ## Phase 5 — Weapon visuals + flashlight fog
 - Gun sprite on armed NPCs, synced across the network.
 - Weapon icon in the HUD.

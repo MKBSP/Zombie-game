@@ -36,21 +36,32 @@ scenes/            # Game scenes, each .tscn paired with its .gd
   npc/             # npc_human.gd — AI survivors: hide, follow, shoot, convert
   bullet/          # bullet.gd — projectile w/ range→damage falloff, headshot crit
   pickup/          # pickup.gd — floor weapon/ammo/heal pickups (show weapon PNGs)
+  loot_box/        # loot_box.gd — crate that bursts 1-3 items on interact; replicated
   props/           # static scatter props (car, dumpster, fence, statue, tree)
   ui/              # main_menu, pause_menu, game_over, hud, aim_cursor
 scripts/           # Shared logic, autoloads, RefCounted helpers (see below)
+  loot_table.gd    # LootTable — pure roll helpers (roll_item_count, roll_kind); headless-safe
+  interact_pick.gd # Interact — choose_nearest() contextual interact resolver
 shader/            # fog_zc.gdshader (zombie-controller fog; fog_of_war.gdshader removed)
 resources/         # city_tileset.tres
 sprites/           # weapon + entity PNG art
 textures/          # generated tiles
 test/              # headless unit tests (test_aim_model, test_melee, test_npc_aim,
-                   #   test_weapon_visuals)
+                   #   test_weapon_visuals, test_loot_table, test_interact_pick)
 docs/              # per-phase design specs + implementation plans
 addons/godot_ai/   # MCP plugin — IGNORE
 ```
 
 ## scripts/ — shared logic
-- **balance.gd** — all tuning constants (see Autoloads).
+- **balance.gd** — all tuning constants (see Autoloads). Includes `LOOT` block
+  for loot box tuning (box count, item-count chances, per-kind weights, heal
+  amounts, burst geometry, interact radii).
+- **loot_table.gd** (`class_name LootTable`, RefCounted) — pure, headless-safe
+  loot math: `roll_item_count(r, chance_two, chance_three) -> int`,
+  `roll_kind(r, weights: Dictionary) -> Variant`. No Pickup or Balance references.
+- **interact_pick.gd** (`class_name Interact`, RefCounted) — `choose_nearest(
+  origin, candidates) -> int` contextual interact resolver (nearest-wins, per-type
+  radius). Pure; unit-tested in `test/test_interact_pick.gd`.
 - **weapons.gd** (`class_name Weapons`, RefCounted) — weapon catalogue
   (`get_data(id)`) + the shared `fire()` that spawns pellets with spread.
   Used by both shooter and armed NPCs so spread math lives in one place. Runs
@@ -78,6 +89,12 @@ addons/godot_ai/   # MCP plugin — IGNORE
   peers match). **ping_visual.gd** — command ping marker.
 
 ## Core systems
+- **Loot boxes:** 8 closed crates (`LootBox`, `scenes/loot_box/`) scatter on
+  walkable tiles at match start. Pressing `E` near a crate calls `b.open()` on the
+  server, which rolls 1–3 items (via `LootTable`) and bursts them as `Pickup`
+  nodes within `burst_radius_px` of the box — each landing on a validated walkable,
+  prop-free tile. The crate sprite swaps to opened and replicates via
+  `MultiplayerSynchronizer` (`ON_CHANGE`). All tuning in `Balance.LOOT`.
 - **Inventory (3 slots):** `1`=pistol, `2`=heavy/special, `3`=melee
   (`select_pistol/heavy/melee` actions). `Q` swaps, `X` drops, `E` gives the
   special to a following NPC. Weapons: Pistol, Rifle, Shotgun, Machine Gun

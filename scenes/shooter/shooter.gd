@@ -133,8 +133,8 @@ func _process(_delta: float) -> void:
 		_action_select.rpc_id(1, 2)
 	if Input.is_action_just_pressed("drop_weapon"):
 		_action_drop.rpc_id(1)
-	if Input.is_action_just_pressed("give_weapon_to_npc"):
-		_action_give.rpc_id(1)
+	if Input.is_action_just_pressed("interact"):
+		_action_interact.rpc_id(1)
 
 
 @rpc("any_peer", "call_local", "unreliable_ordered")
@@ -160,9 +160,9 @@ func _action_drop() -> void:
 
 
 @rpc("any_peer", "call_local", "reliable")
-func _action_give() -> void:
+func _action_interact() -> void:
 	if multiplayer.is_server():
-		_give_weapon_to_npc()
+		_interact()
 
 
 ## Server-side simulation.
@@ -378,28 +378,70 @@ func _drop_special() -> void:
 	_cancel_reload()
 
 
-func _give_weapon_to_npc() -> void:
-	if held_special == -1:
-		return
-	var npc := _find_following_npc()
-	if npc == null:
-		return
-	npc.receive_weapon(held_special, special_total)
-	_drop_special()
-
-
 func _cancel_reload() -> void:
 	is_reloading = false
 	reload_timer.stop()
 	can_shoot = true
 
 
-## Find the NPC currently following the shooter (State.FOLLOWING == 2).
-func _find_following_npc() -> Node:
+## Contextual interact (server-side). Gathers every reachable interactable —
+## dropped items, closed loot boxes, an adjacent following NPC to arm, or an
+## armed NPC to disarm — then acts on the single nearest one (each type carries
+## its own reach via Balance.LOOT, so a tight-radius give only wins point-blank).
+func _interact() -> void:
+	var origin := global_position
+	var cands: Array = []
+	var acts: Array = []  # parallel: ["pickup"|"box"|"give"|"take", node]
+
+	for p in get_tree().get_nodes_in_group("pickups"):
+		if not p.is_collectable():
+			continue
+		cands.append({ "pos": p.global_position, "radius": Balance.LOOT.interact_pickup_px })
+		acts.append(["pickup", p])
+
+	for b in get_tree().get_nodes_in_group("loot_boxes"):
+		if b.opened:
+			continue
+		cands.append({ "pos": b.global_position, "radius": Balance.LOOT.interact_box_px })
+		acts.append(["box", b])
+
 	for n in get_tree().get_nodes_in_group("npcs"):
-		if "state" in n and n.state == 2:
-			return n
-	return null
+		if not (n is Node2D):
+			continue
+		if n.weapon_id != -1:
+			cands.append({ "pos": n.global_position, "radius": Balance.LOOT.interact_take_px })
+			acts.append(["take", n])
+		elif held_special != -1 and "state" in n and n.state == 2:  # FOLLOWING
+			cands.append({ "pos": n.global_position, "radius": Balance.LOOT.interact_give_px })
+			acts.append(["give", n])
+
+	var idx := Interact.choose_nearest(origin, cands)
+	if idx == -1:
+		return
+	var act: Array = acts[idx]
+	match act[0]:
+		"pickup":
+			act[1].collect(self)
+		"box":
+			act[1].open()
+		"give":
+			act[1].receive_weapon(held_special, special_total)
+			_drop_special()
+		"take":
+			_take_weapon_from(act[1])
+
+
+## Re-equip the weapon an NPC hands back, preserving its remaining ammo and
+## dropping the player's current special first if it's a different gun.
+func _take_weapon_from(npc: Node) -> void:
+	var data: Dictionary = npc.surrender_weapon()
+	if data["id"] == -1:
+		return
+	if held_special != -1 and held_special != data["id"]:
+		_drop_special()
+	give_special(data["id"])
+	special_total = data["total"]
+	special_mag = min(Weapons.get_data(data["id"]).mag_size, special_total)
 
 
 # --- Pickup effects (called server-side by pickup.gd) ---

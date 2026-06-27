@@ -258,6 +258,16 @@ func receive_weapon(id: int, total: int) -> void:
 	_npc_reloading = false
 
 
+## Hand the carried weapon back to the shooter. Returns {id, total} (id == -1
+## if the NPC was unarmed) and leaves the NPC unarmed.
+func surrender_weapon() -> Dictionary:
+	var data := { "id": weapon_id, "total": weapon_total }
+	weapon_id = -1
+	weapon_mag = 0
+	weapon_total = 0
+	return data
+
+
 ## Fire at the nearest zombie, but only while the shooter is also firing, and
 ## with a deliberately sloppy aim. Mirrors the shooter's mag/reload timing.
 func _process_shooting(delta: float) -> void:

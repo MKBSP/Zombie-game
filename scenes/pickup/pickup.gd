@@ -57,8 +57,6 @@ var _collectable: bool = true
 
 func _ready() -> void:
 	_refresh_color()
-	if multiplayer.is_server():
-		body_entered.connect(_on_body_entered)
 	if spawn_origin != Vector2.ZERO:
 		_play_burst()
 
@@ -93,16 +91,6 @@ func _refresh_color() -> void:
 	else:
 		s.texture = null
 		s.modulate = COLORS.get(kind, Color.WHITE)
-
-
-func _on_body_entered(body: Node2D) -> void:
-	if not multiplayer.is_server():
-		return
-	if not body.is_in_group("shooter"):
-		return
-	if not _collectable:
-		return
-	collect(body)
 
 
 ## Apply this pickup's effect to `body` (the shooter) and despawn. Server-only.

@@ -439,7 +439,7 @@ func _take_weapon_from(npc: Node) -> void:
 		return
 	if held_special != -1 and held_special != data["id"]:
 		_drop_special()
-	give_special(data["id"])
+	give_special(data["id"], false)
 	special_total = data["total"]
 	special_mag = min(Weapons.get_data(data["id"]).mag_size, special_total)
 
@@ -451,7 +451,7 @@ func add_pistol_mag() -> void:
 	_notify_pickup(Pickup.Kind.AMMO_MAG)
 
 
-func give_special(weapon_id: int) -> void:
+func give_special(weapon_id: int, notify: bool = true) -> void:
 	var w := Weapons.get_data(weapon_id)
 	held_special = weapon_id
 	special_total = w.total_ammo
@@ -463,7 +463,8 @@ func give_special(weapon_id: int) -> void:
 		kind = Pickup.Kind.SHOTGUN
 	elif weapon_id == Weapons.MACHINEGUN:
 		kind = Pickup.Kind.MACHINEGUN
-	_notify_pickup(kind)
+	if notify:
+		_notify_pickup(kind)
 
 
 func give_melee(weapon_id: int) -> void:

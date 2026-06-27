@@ -94,8 +94,7 @@ func _refresh_color() -> void:
 
 
 ## Apply this pickup's effect to `body` (the shooter) and despawn. Server-only.
-## Called by _on_body_entered today; routed through the interact resolver in
-## Task 3.
+## Called exclusively by the shooter's interact resolver (server-side).
 func collect(body: Node2D) -> void:
 	if not multiplayer.is_server() or not _collectable:
 		return

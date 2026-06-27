@@ -25,6 +25,8 @@ const KIND_TO_SPRITE := {
 
 const PICKUP_SCENE := preload("res://scenes/pickup/pickup.tscn")
 
+## Maps a Weapons.* id to the matching Pickup.Kind, so a swapped-out weapon can
+## be re-dropped as the right pickup.
 const WEAPON_TO_KIND := {
 	Weapons.RIFLE: Kind.RIFLE,
 	Weapons.SHOTGUN: Kind.SHOTGUN,
@@ -32,6 +34,7 @@ const WEAPON_TO_KIND := {
 	Weapons.MELEE: Kind.MELEE,
 }
 
+## Inverse of WEAPON_TO_KIND, for showing the weapon PNG on the floor.
 const KIND_TO_WEAPON := {
 	Kind.RIFLE: Weapons.RIFLE,
 	Kind.SHOTGUN: Weapons.SHOTGUN,
@@ -88,6 +91,7 @@ func _refresh_color() -> void:
 		s.texture = KIND_TO_SPRITE[kind]
 		s.modulate = Color.WHITE
 	else:
+		s.texture = null
 		s.modulate = COLORS.get(kind, Color.WHITE)
 
 
@@ -107,6 +111,7 @@ func _on_body_entered(body: Node2D) -> void:
 func collect(body: Node2D) -> void:
 	if not multiplayer.is_server() or not _collectable:
 		return
+	_collectable = false  # prevent re-entry before the deferred queue_free() takes effect
 	match kind:
 		Kind.AMMO_MAG:
 			body.add_pistol_mag()

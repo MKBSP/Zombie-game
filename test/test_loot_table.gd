@@ -30,13 +30,6 @@ func _init() -> void:
 	_check("20-weighted kind ~3x as common as 10-weighted (got %f)" % ratio,
 		absf(ratio - 3.0) < 0.2)
 
-	# --- kind_weights pulls every kind from Balance ---
-	var kw: Dictionary = _LootTable.kind_weights()
-	# Pickup.Kind: AMMO_MAG=0, RIFLE=1, SHOTGUN=2, MEDPACK=3, MACHINEGUN=4, MELEE=5, BANDAGE=6
-	_eq_i("bandage weight from balance", kw[6], Balance.LOOT.weight_bandage)
-	_eq_i("rifle weight from balance", kw[1], Balance.LOOT.weight_rifle)
-	_check("kind_weights has all 7 kinds", kw.size() == 7)
-
 	if _failures == 0:
 		print("ALL TESTS PASSED")
 	else:

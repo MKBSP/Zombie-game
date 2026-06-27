@@ -31,18 +31,3 @@ static func roll_kind(r: float, weights: Dictionary) -> int:
 		if threshold < acc:
 			return k
 	return keys[keys.size() - 1]
-
-
-## Assemble the {Pickup.Kind: weight} table from Balance.LOOT.
-static func kind_weights() -> Dictionary:
-	var l: Dictionary = Balance.LOOT
-	# Pickup.Kind enum: AMMO_MAG=0, RIFLE=1, SHOTGUN=2, MEDPACK=3, MACHINEGUN=4, MELEE=5, BANDAGE=6
-	return {
-		0: l.weight_ammo_mag,       # AMMO_MAG
-		6: l.weight_bandage,         # BANDAGE
-		3: l.weight_medipack,        # MEDPACK
-		5: l.weight_melee,           # MELEE
-		2: l.weight_shotgun,         # SHOTGUN
-		4: l.weight_machinegun,      # MACHINEGUN
-		1: l.weight_rifle,           # RIFLE
-	}

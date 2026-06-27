@@ -19,12 +19,14 @@ const PICKUP_MESSAGES := {
 	Pickup.Kind.RIFLE: "PICKED UP RIFLE",
 	Pickup.Kind.SHOTGUN: "PICKED UP SHOTGUN",
 	Pickup.Kind.MEDPACK: "+50 HP",
+	Pickup.Kind.BANDAGE: "+10 HP",
 }
 const PICKUP_COLORS := {
 	Pickup.Kind.AMMO_MAG: Color(0.95, 0.85, 0.2),
 	Pickup.Kind.RIFLE: Color(0.4, 0.6, 1.0),
 	Pickup.Kind.SHOTGUN: Color(1.0, 0.5, 0.2),
 	Pickup.Kind.MEDPACK: Color(0.9, 0.3, 0.4),
+	Pickup.Kind.BANDAGE: Color(0.95, 0.95, 0.9),
 }
 
 

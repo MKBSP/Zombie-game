@@ -431,9 +431,9 @@ func give_melee(weapon_id: int) -> void:
 	_notify_pickup(Pickup.Kind.MELEE)
 
 
-func heal(amount: int) -> void:
+func heal(amount: int, kind: int = Pickup.Kind.MEDPACK) -> void:
 	hp = min(hp + amount, max_hp)  # setter emits hp_changed
-	_notify_pickup(Pickup.Kind.MEDPACK)
+	_notify_pickup(kind)
 
 
 ## Server-side: record the pickup and bump the synced sequence so the

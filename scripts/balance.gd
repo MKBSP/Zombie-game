@@ -58,6 +58,15 @@ const MINIMAP := {
 	ripple_seconds = 1.2,
 }
 
+# --- Sound aggro + world feedback ------------------------------------------
+const AGGRO := {
+	world_ripple_px = 700.0,   # show a world ripple only if camera within this of the shot
+	ripple_seconds = 0.7,
+	ripple_radius = 120.0,
+	alert_radius_px = 600.0,   # Aggressive zombies within this get pulled toward the shot
+	alert_seconds = 3.0,
+}
+
 # --- NPC -------------------------------------------------------------------
 const NPC := {
 	speed = 189.0,            # 10% slower than the shooter

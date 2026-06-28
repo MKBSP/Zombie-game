@@ -4,6 +4,11 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 7 — RTS zombie experience (in progress)
+- Phase G: world-view feedback + sound aggro. A subtle world-space ripple
+  (`scripts/noise_ripple.gd`) spawns near a gunshot only when the zombie camera is
+  close; Aggressive zombies within `AGGRO.alert_radius_px` get pulled toward the
+  shot for `AGGRO.alert_seconds` (Hold/flee/patrol stances ignore it). Tunables in
+  `Balance.AGGRO`.
 - Phase F: minimap (`scripts/minimap.gd`, runtime child of `ZCOverlay`) — explored
   terrain from the existing fog `tile_states`, own-zombie blips always, enemy blips
   only on currently-visible tiles, fading last-known ghost blips, AoE-style red

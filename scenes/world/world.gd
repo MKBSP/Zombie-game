@@ -292,6 +292,10 @@ signal noise_event(world_pos: Vector2, strength: float)
 func emit_noise(world_pos: Vector2, strength: float) -> void:
 	if not multiplayer.is_server():
 		return
+	for z in get_tree().get_nodes_in_group("zombies"):
+		if z is Node2D and z.has_method("alert_to") \
+			and z.global_position.distance_to(world_pos) <= Balance.AGGRO.alert_radius_px:
+			z.alert_to(world_pos)
 	rpc_noise_event.rpc(world_pos, strength)
 
 @rpc("authority", "call_local", "reliable")

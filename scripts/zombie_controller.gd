@@ -50,6 +50,7 @@ var _pending_points: Array[Vector2] = []
 var _points_needed: int = 0
 var _control_groups: Dictionary = {}
 var minimap: Control = null
+var _ripple_rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
 	# Set up fog
@@ -80,9 +81,7 @@ func _ready() -> void:
 		minimap.ground_layer = ground_layer
 		var world_node := get_parent()
 		if world_node and world_node.has_signal("noise_event"):
-			world_node.noise_event.connect(func(pos, _str):
-				if minimap:
-					minimap.register_noise(pos))
+			world_node.noise_event.connect(_on_noise)
 
 #	set_process(false)
 #	set_process_input(false)
@@ -517,6 +516,16 @@ func _recall_group(num: int) -> void:
 			selected_zombies.append(z)
 			if z.has_method("set_selected"):
 				z.set_selected(true)
+
+
+func _on_noise(pos: Vector2, _strength: float) -> void:
+	if minimap:
+		minimap.register_noise(pos)
+	if camera and camera.global_position.distance_to(pos) <= Balance.AGGRO.world_ripple_px:
+		var rip = load("res://scripts/noise_ripple.gd").new()
+		rip.global_position = MinimapMath.fuzz(pos, 30.0, _ripple_rng)
+		rip.z_index = 40
+		get_tree().current_scene.add_child(rip)
 
 ## Try to find a zombie under the given world position.
 func _get_zombie_at_position(world_pos: Vector2) -> Node2D:

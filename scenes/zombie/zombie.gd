@@ -17,6 +17,8 @@ var patrol_b: Vector2 = Vector2.ZERO
 var flee_point: Vector2 = Vector2.ZERO
 var _patrol_leg: int = 0
 var _no_enemy_timer: float = 0.0
+var _alert_point: Vector2 = Vector2.ZERO
+var _alert_timer: float = 0.0
 
 var command_mode: bool = false
 var command_target: Vector2 = Vector2.ZERO
@@ -111,6 +113,10 @@ func _physics_process(delta: float) -> void:
 			if e:
 				target = e
 				nav_agent.target_position = e.global_position
+			elif _alert_timer > 0.0:
+				target = null
+				_alert_timer -= delta
+				nav_agent.target_position = _alert_point
 			else:
 				target = null
 				return
@@ -185,6 +191,14 @@ func _move_along_path() -> void:
 	var next_point := nav_agent.get_next_path_position()
 	var direction := (next_point - global_position).normalized()
 	nav_agent.set_velocity(direction * speed)
+
+
+## Sound aggro: an Aggressive zombie within earshot turns toward a gunshot.
+func alert_to(world_pos: Vector2) -> void:
+	if stance != Stance.AGGRESSIVE:
+		return  # Hold / flee / patrol stances deliberately ignore sound
+	_alert_point = world_pos
+	_alert_timer = Balance.AGGRO.alert_seconds
 
 
 func set_stance(new_stance: int, p1: Vector2 = Vector2.ZERO, p2: Vector2 = Vector2.ZERO) -> void:

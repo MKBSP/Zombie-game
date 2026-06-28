@@ -39,6 +39,12 @@ const SEPARATION := {
 	time_horizon = 1.0,        # s, how far ahead RVO predicts collisions
 }
 
+# --- Stances ----------------------------------------------------------------
+const STANCE := {
+	arrive_px = 8.0,          # how close counts as "reached the point"
+	flee_safe_seconds = 2.0,  # PATROL_FLEE: seconds with no enemy seen before resuming patrol
+}
+
 # --- NPC -------------------------------------------------------------------
 const NPC := {
 	speed = 189.0,            # 10% slower than the shooter

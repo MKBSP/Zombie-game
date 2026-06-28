@@ -10,6 +10,13 @@ var damage_per_hit: int
 var attack_interval: float
 var _attack_cooldown: float = 0.0
 
+enum Stance { AGGRESSIVE, HOLD, PATROL_ATTACK, PATROL_FLEE, SKITTISH, FLEE_POINT }
+var stance: int = Stance.AGGRESSIVE
+var patrol_a: Vector2 = Vector2.ZERO
+var patrol_b: Vector2 = Vector2.ZERO
+var flee_point: Vector2 = Vector2.ZERO
+var _patrol_leg: int = 0
+var _no_enemy_timer: float = 0.0
 
 var command_mode: bool = false
 var command_target: Vector2 = Vector2.ZERO
@@ -74,29 +81,60 @@ func _process(_delta: float) -> void:
 func _physics_process(delta: float) -> void:
 	if is_dead:
 		return
+	_check_contact_damage(delta)  # ticks cooldown; bites if already touching
 
+	# One-shot right-click move overrides the stance until it arrives.
 	if command_mode:
 		nav_agent.target_position = command_target
 		if nav_agent.is_navigation_finished():
 			command_mode = false
-	else:
-		# Only chase target if it exists AND is within vision range
-		if target != null and _target_in_range():
-			nav_agent.target_position = target.global_position
-		else:
-			# Idle — stay put, but still tick the attack cooldown / bite if touching
-			_check_contact_damage(delta)
-			return
-
-	if nav_agent.is_navigation_finished():
+		_move_along_path()
 		return
 
-	var next_point := nav_agent.get_next_path_position()
-	var direction := (next_point - global_position).normalized()
-	nav_agent.set_velocity(direction * speed)
-	# velocity applied in _on_velocity_computed (RVO avoidance)
+	var e: Node2D = null
+	match stance:
+		Stance.HOLD:
+			return  # rooted; ignore fire, never chase
+		Stance.AGGRESSIVE:
+			e = _acquire_enemy()
+			if e:
+				target = e
+				nav_agent.target_position = e.global_position
+			else:
+				target = null
+				return
+		Stance.PATROL_ATTACK:
+			e = _acquire_enemy()
+			if e:
+				target = e
+				nav_agent.target_position = e.global_position
+			else:
+				target = null
+				_advance_patrol()
+		Stance.PATROL_FLEE:
+			e = _acquire_enemy()
+			if e:
+				target = null
+				_no_enemy_timer = Balance.STANCE.flee_safe_seconds
+				nav_agent.target_position = flee_point
+			else:
+				if _no_enemy_timer > 0.0:
+					_no_enemy_timer -= delta
+					nav_agent.target_position = flee_point
+				else:
+					_advance_patrol()
+		Stance.SKITTISH:
+			e = _acquire_enemy()
+			if e:
+				target = null
+				nav_agent.target_position = flee_point
+			else:
+				return
+		Stance.FLEE_POINT:
+			target = null
+			nav_agent.target_position = flee_point
 
-	_check_contact_damage(delta)
+	_move_along_path()
 
 
 func _on_velocity_computed(safe_velocity: Vector2) -> void:
@@ -104,6 +142,50 @@ func _on_velocity_computed(safe_velocity: Vector2) -> void:
 	move_and_slide()
 	if velocity.length() > 0:
 		rotation = velocity.angle()
+
+
+## Server-side: nearest visible enemy (shooter or NPC), or null.
+func _acquire_enemy() -> Node2D:
+	var nodes: Array = []
+	var cands: Array = []
+	for grp in ["shooter", "npcs"]:
+		for n in get_tree().get_nodes_in_group(grp):
+			if n is Node2D and is_instance_valid(n):
+				var eligible := true
+				if "is_dead" in n and n.is_dead:
+					eligible = false
+				nodes.append(n)
+				cands.append({ "pos": n.global_position, "eligible": eligible })
+	var idx := Targeting.nearest_index(global_position, cands, vision_range * 64.0)
+	return nodes[idx] if idx >= 0 else null
+
+
+func _advance_patrol() -> void:
+	var dest := patrol_a if _patrol_leg == 0 else patrol_b
+	nav_agent.target_position = dest
+	if StanceLogic.arrived(global_position.distance_to(dest), Balance.STANCE.arrive_px):
+		_patrol_leg = StanceLogic.flip_leg(_patrol_leg)
+
+
+func _move_along_path() -> void:
+	if nav_agent.is_navigation_finished():
+		nav_agent.set_velocity(Vector2.ZERO)
+		return
+	var next_point := nav_agent.get_next_path_position()
+	var direction := (next_point - global_position).normalized()
+	nav_agent.set_velocity(direction * speed)
+
+
+func set_stance(new_stance: int, p1: Vector2 = Vector2.ZERO, p2: Vector2 = Vector2.ZERO) -> void:
+	stance = new_stance
+	command_mode = false
+	match new_stance:
+		Stance.PATROL_ATTACK, Stance.PATROL_FLEE:
+			patrol_a = p1
+			patrol_b = p2
+			_patrol_leg = 0
+		Stance.FLEE_POINT, Stance.SKITTISH:
+			flee_point = p1
 
 
 ## Returns true if the target (shooter) is within this zombie's vision range.

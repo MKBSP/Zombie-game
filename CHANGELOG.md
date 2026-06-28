@@ -4,6 +4,11 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 7 — RTS zombie experience (in progress)
+- Phase C: per-zombie stance state machine (`Stance` enum: aggressive / hold /
+  patrol-attack / patrol-flee / skittish / flee-point) with nearest-visible-enemy
+  targeting (`Targeting` + `StanceLogic` helpers, `_acquire_enemy` scanning the
+  `shooter` + `npcs` groups). Right-click move still overrides a stance until it
+  arrives. Tunables in `Balance.STANCE`.
 - Phase B: unit separation via `NavigationAgent2D` RVO avoidance — zombies, the
   master zombie, and NPCs now flow around each other instead of stacking or
   passing through. Movement routed through `set_velocity` →

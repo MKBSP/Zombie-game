@@ -6,6 +6,9 @@ var max_hp: int
 var contact_dps: float
 var vision_range: int
 var _contact_px: float
+var damage_per_hit: int
+var attack_interval: float
+var _attack_cooldown: float = 0.0
 
 
 var command_mode: bool = false
@@ -23,6 +26,7 @@ var _merge_bar: Node2D = null
 @onready var nav_agent: NavigationAgent2D = $NavigationAgent2D
 
 signal zombie_died(zombie: Node2D)
+signal took_damage(zombie: Node2D, amount: int)
 
 func _ready() -> void:
 	# Pick the stat block by group: standard / fast / fat all use this script.
@@ -36,6 +40,8 @@ func _ready() -> void:
 	contact_dps = stats.contact_dps
 	vision_range = stats.vision
 	_contact_px = stats.contact_px
+	damage_per_hit = stats.damage_per_hit
+	attack_interval = stats.attack_interval
 	scale = Vector2(stats.scale, stats.scale)
 	hp = max_hp
 	# AI/simulation runs on the server only (true in single player too)
@@ -71,7 +77,8 @@ func _physics_process(delta: float) -> void:
 		if target != null and _target_in_range():
 			nav_agent.target_position = target.global_position
 		else:
-			# Idle — stay put
+			# Idle — stay put, but still tick the attack cooldown / bite if touching
+			_check_contact_damage(delta)
 			return
 
 	if nav_agent.is_navigation_finished():
@@ -117,18 +124,30 @@ func set_selected(value: bool) -> void:
 
 
 func _check_contact_damage(delta: float) -> void:
-	if target == null:
+	if _attack_cooldown > 0.0:
+		_attack_cooldown -= delta
+	if target == null or not is_instance_valid(target):
 		return
 	var distance := global_position.distance_to(target.global_position)
-	if distance < _contact_px:
+	if CombatMath.can_attack(distance, _contact_px, _attack_cooldown):
 		if target.has_method("take_damage"):
-			target.take_damage(contact_dps * delta)
+			target.take_damage(damage_per_hit)
+		_attack_cooldown = attack_interval
+		_lunge_toward(target.global_position)
+
+
+func _lunge_toward(point: Vector2) -> void:
+	var dir := (point - global_position).normalized()
+	var tween := create_tween()
+	tween.tween_property(self, "position", position + dir * 6.0, 0.05)
+	tween.tween_property(self, "position", position, 0.05)
 
 
 func take_damage(amount: int) -> void:
 	if is_dead:
 		return
 	hp -= amount
+	took_damage.emit(self, int(amount))
 	modulate = Color.WHITE
 	await get_tree().create_timer(0.05).timeout
 	if merge_progress < 0.0:

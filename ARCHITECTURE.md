@@ -76,6 +76,18 @@ addons/godot_ai/   # MCP plugin — IGNORE
   fatigue math. Unit-tested.
 - **weapon_visuals.gd** — weapon id → PNG texture map (Phase 5 visuals).
 - **merge_manager.gd / zombie_controller.gd** — zombie-side control & merging.
+  `zombie_controller.gd` also drives the RTS layer: drag/click selection, the
+  stance toolbar + click-to-place patrol/flee points, control groups (Ctrl+1-9),
+  the minimap, and gunshot world-ripples.
+- **combat_math.gd** (`CombatMath`) — `can_attack(distance, contact_px, cooldown)`
+  attack gate. **targeting.gd** (`Targeting`) — `nearest_index()` nearest-eligible
+  enemy. **stance_logic.gd** (`StanceLogic`) — patrol-leg / arrival helpers.
+  **minimap_math.gd** (`MinimapMath`) — world↔minimap mapping + `fuzz()`. All pure,
+  unit-tested.
+- **health_bar.gd** (`HealthBar`, Node2D) — upright health bar above zombies, shown
+  when damaged or selected. **minimap.gd** — AoE-style minimap (terrain from fog,
+  fog-aware enemy blips, ghost blips, under-attack pulse, gunshot ripple,
+  click-to-jump). **noise_ripple.gd** — brief world-space gunshot ripple.
 - **shooter_lighting.gd** (`ShooterLighting`) — HUMAN-role fog of war built on
   Godot 2D lighting: generates a hard-edged cone flashlight texture and a soft
   radial halo texture, builds `LightOccluder2D`s from building/edge tiles and
@@ -95,6 +107,17 @@ addons/godot_ai/   # MCP plugin — IGNORE
   nodes within `burst_radius_px` of the box — each landing on a validated walkable,
   prop-free tile. The crate sprite swaps to opened and replicates via
   `MultiplayerSynchronizer` (`ON_CHANGE`). All tuning in `Balance.LOOT`.
+- **Zombie RTS control:** the ZOMBIE player commands the horde top-down. Each
+  zombie runs a stance state machine (`Zombie.Stance`: aggressive / hold /
+  patrol-attack / patrol-flee / skittish / flee-point) evaluated server-side, with
+  nearest-visible-enemy targeting (`Targeting`, scanning `shooter`+`npcs`). Zombies
+  attack on a cooldown for discrete damage (`Balance.<variant>.damage_per_hit` /
+  `attack_interval`) and emit `took_damage`. Units (zombies + NPCs) separate via
+  `NavigationAgent2D` RVO avoidance (`Balance.SEPARATION`). Stances are issued from
+  the stance toolbar (`rpc_set_stance`); right-click move overrides until arrival.
+  A minimap and a shared gunshot "noise event" (`World.emit_noise` → `noise_event`)
+  drive map ripples, world ripples, and sound aggro (Aggressive zombies turn toward
+  shots). Tunables: `Balance.SEPARATION/STANCE/MINIMAP/AGGRO`.
 - **Inventory (3 slots):** `1`=pistol, `2`=heavy/special, `3`=melee
   (`select_pistol/heavy/melee` actions). `Q` swaps, `X` drops, `E` gives the
   special to a following NPC. Weapons: Pistol, Rifle, Shotgun, Machine Gun
@@ -127,7 +150,8 @@ addons/godot_ai/   # MCP plugin — IGNORE
 - **Physics layers:** 1 player, 2 zombie, 3 bullet, 4 npc.
 - **Groups:** `zombies`, `shooter`, `fast_zombie`, `npcs`, `pickups`, `loot_boxes`.
 - **Pure math in RefCounted helpers** (`AimModel`, `Melee`, `NpcAim`, `Weapons`,
-  `LootTable`, `Interact`) so it can be headless-unit-tested in `test/`.
+  `LootTable`, `Interact`, `CombatMath`, `Targeting`, `StanceLogic`, `MinimapMath`)
+  so it can be headless-unit-tested in `test/`.
 - **Testing gotcha:** the `test/` `SceneTree` scripts run via
   `Godot --headless --path . --script test/x.gd`, but that runner can't resolve
   `class_name` globals that extend scene types (`Pickup`, sometimes

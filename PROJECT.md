@@ -27,6 +27,13 @@ headless and deployed (see `DEPLOY.md` / Railway). Implemented:
   `Balance.FOG_SHOOTER`.
 - ✅ Loot boxes: 8 closed crates scatter on walkable ground; `E` to open; 1–3
   items burst out onto validated tiles; sprite swaps to opened; fully replicated.
+- ✅ RTS zombie experience (Phase 7): discrete cooldown attacks (zombies *hit*),
+  unit separation (RVO avoidance), per-zombie stance state machine + nearest-enemy
+  auto-attack, stance toolbar + control groups, health bars, a populating minimap
+  (fog-aware enemy blips, ghost blips, under-attack pulse, gunshot ripple,
+  click-to-jump), world-view gunshot ripple, and sound aggro. Tunables in
+  `Balance.SEPARATION/STANCE/MINIMAP/AGGRO` and per-variant
+  `damage_per_hit`/`attack_interval`. Owner playtest verification pending.
 
 See [CHANGELOG.md](CHANGELOG.md) for the full phase history.
 
@@ -50,6 +57,10 @@ weapon-visual logic.
 - `.claude/settings.local.json` holds local Claude Code settings.
 
 ## Next / backlog
-(Keep this list current.) Phase 6 loot boxes just landed: crate spawning, item
-burst, landing validation, sprite replication. In-engine visual verification
-(crate placement, burst rendering, collect toasts) pending MCP run by controller.
+(Keep this list current.) Phase 7 RTS zombie experience landed (code-complete,
+clean boot). **Owner playtest pending** to confirm behavior: discrete-hit damage
+chunks, no unit overlap, stance behaviors (hold ignores fire, patrol loops,
+skittish flees on sight), health bars on both views, minimap terrain/blips/ripples,
+and sound aggro. Known follow-up: stance/patrol/flee state is server-side, so the
+selection-drawer preview + stance glyph render correctly for a host zombie player
+or in single-player; client-side preview would need those fields replicated.

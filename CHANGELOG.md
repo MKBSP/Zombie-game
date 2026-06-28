@@ -4,6 +4,9 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 7 — RTS zombie experience (in progress)
+- Phase H: docs (ARCHITECTURE/PROJECT) updated for the RTS layer; the existing
+  two-layer zombie fog is reused unchanged (the minimap reads its `tile_states`).
+  In-engine fog/feature verification pending an owner playtest.
 - Phase G: world-view feedback + sound aggro. A subtle world-space ripple
   (`scripts/noise_ripple.gd`) spawns near a gunshot only when the zombie camera is
   close; Aggressive zombies within `AGGRO.alert_radius_px` get pulled toward the

@@ -9,6 +9,8 @@ var _contact_px: float
 var damage_per_hit: int
 var attack_interval: float
 var _attack_cooldown: float = 0.0
+var _health_bar: HealthBar = null
+var _last_hp_seen: int = -1
 
 var hp: int
 var is_dead: bool = false
@@ -35,6 +37,11 @@ func _ready() -> void:
 	hp = max_hp
 	scale = Vector2(Balance.MASTER.scale, Balance.MASTER.scale)
 	modulate = Color(1.0, 0.2, 0.2)
+	_health_bar = HealthBar.new()
+	_health_bar.position = Vector2(0, -22)
+	_health_bar.z_index = 20
+	add_child(_health_bar)
+	_health_bar.visible = false
 	# AI/simulation runs on the server only (true in single player too)
 	set_physics_process(multiplayer.is_server())
 	var sep: Dictionary = Balance.SEPARATION
@@ -104,9 +111,24 @@ func set_target(new_target: Node2D) -> void:
 	target = new_target
 
 
+func _process(_delta: float) -> void:
+	if _health_bar and hp != _last_hp_seen:
+		_last_hp_seen = hp
+		_refresh_health_bar()
+
+
+func _refresh_health_bar() -> void:
+	if _health_bar == null:
+		return
+	var frac := float(hp) / float(max_hp)
+	_health_bar.set_fraction(frac)
+	_health_bar.visible = is_selected or frac < 1.0
+
+
 func set_selected(value: bool) -> void:
 	is_selected = value
 	queue_redraw()
+	_refresh_health_bar()
 
 
 func _check_contact_damage(delta: float) -> void:
@@ -126,6 +148,7 @@ func take_damage(amount: int) -> void:
 		return
 	hp -= amount
 	took_damage.emit(self, int(amount))
+	_refresh_health_bar()
 	modulate = Color.WHITE
 	await get_tree().create_timer(0.05).timeout
 	modulate = Color(1.0, 0.2, 0.2)

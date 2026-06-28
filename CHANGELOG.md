@@ -4,6 +4,9 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 7 — RTS zombie experience (in progress)
+- Phase E: per-zombie health bars (`scripts/health_bar.gd`) above zombies and the
+  master, shown only when damaged or selected, kept upright as units rotate, and
+  driven by the already-replicated `hp` so they render on every peer.
 - Phase D: stance toolbar (`StancePanel` in `ZCOverlay`) with click-to-place
   patrol (2 points) / flee (1 point) targets; patrol-line & flee-marker preview
   in the selection drawer; per-zombie stance glyph under selected units; RTS

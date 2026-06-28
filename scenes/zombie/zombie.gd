@@ -29,6 +29,8 @@ var target: Node2D = null
 ## Set by MergeManager on the server; rendered locally on every peer.
 var merge_progress: float = -1.0
 var _merge_bar: Node2D = null
+var _health_bar: HealthBar = null
+var _last_hp_seen: int = -1
 
 @onready var nav_agent: NavigationAgent2D = $NavigationAgent2D
 
@@ -51,6 +53,11 @@ func _ready() -> void:
 	attack_interval = stats.attack_interval
 	scale = Vector2(stats.scale, stats.scale)
 	hp = max_hp
+	_health_bar = HealthBar.new()
+	_health_bar.position = Vector2(0, -28)
+	_health_bar.z_index = 20
+	add_child(_health_bar)
+	_health_bar.visible = false
 	# AI/simulation runs on the server only (true in single player too)
 	set_physics_process(multiplayer.is_server())
 	var sep: Dictionary = Balance.SEPARATION
@@ -77,6 +84,10 @@ func _process(_delta: float) -> void:
 		_merge_bar.queue_free()
 		_merge_bar = null
 		modulate = Color.WHITE
+	# Refresh the health bar when replicated hp changes (clients see this too).
+	if _health_bar and hp != _last_hp_seen:
+		_last_hp_seen = hp
+		_refresh_health_bar()
 
 func _physics_process(delta: float) -> void:
 	if is_dead:
@@ -227,6 +238,15 @@ func set_target(new_target: Node2D) -> void:
 func set_selected(value: bool) -> void:
 	is_selected = value
 	queue_redraw()
+	_refresh_health_bar()
+
+
+func _refresh_health_bar() -> void:
+	if _health_bar == null:
+		return
+	var frac := float(hp) / float(max_hp)
+	_health_bar.set_fraction(frac)
+	_health_bar.visible = is_selected or frac < 1.0
 
 
 func _check_contact_damage(delta: float) -> void:
@@ -254,6 +274,7 @@ func take_damage(amount: int) -> void:
 		return
 	hp -= amount
 	took_damage.emit(self, int(amount))
+	_refresh_health_bar()
 	modulate = Color.WHITE
 	await get_tree().create_timer(0.05).timeout
 	if merge_progress < 0.0:

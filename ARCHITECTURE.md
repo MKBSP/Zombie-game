@@ -125,10 +125,20 @@ addons/godot_ai/   # MCP plugin — IGNORE
   input. Spawners replicate bullets/entities. Check `multiplayer.is_server()`
   patterns before adding state changes.
 - **Physics layers:** 1 player, 2 zombie, 3 bullet, 4 npc.
-- **Groups:** `zombies`, `shooter`, `fast_zombie`.
-- **Pure math in RefCounted helpers** (`AimModel`, `Melee`, `NpcAim`, `Weapons`)
-  so it can be headless-unit-tested in `test/`.
+- **Groups:** `zombies`, `shooter`, `fast_zombie`, `npcs`, `pickups`, `loot_boxes`.
+- **Pure math in RefCounted helpers** (`AimModel`, `Melee`, `NpcAim`, `Weapons`,
+  `LootTable`, `Interact`) so it can be headless-unit-tested in `test/`.
+- **Testing gotcha:** the `test/` `SceneTree` scripts run via
+  `Godot --headless --path . --script test/x.gd`, but that runner can't resolve
+  `class_name` globals that extend scene types (`Pickup`, sometimes
+  `AimModel`/`Weapons`) — reference helpers via `load("res://...")` in tests, and
+  keep testable logic in RefCounted helpers. **Do not run these headless commands
+  while the editor is open** — concurrent Godot processes can wipe `.godot/`
+  ("Project data folder missing"; just Restart, it's cache). See CLAUDE.md Gotchas.
 
 ## Input map (`project.godot [input]`)
-WASD move · `Q` swap weapon · `E` give weapon to NPC · `X` drop · `1/2/3` select
-slot · `Ctrl` focus aim · `F1` toggle debug · arrows pan camera · toggle view.
+WASD move · `Q` swap weapon · `E` **interact** (contextual: open nearest crate /
+grab nearest dropped item / give weapon to an adjacent following NPC at tight
+radius / take a weapon back from an armed NPC — nearest-wins via `Interact`) ·
+`X` drop · `1/2/3` select slot · `Ctrl` focus aim · `F1` toggle debug · arrows
+pan camera · toggle view.

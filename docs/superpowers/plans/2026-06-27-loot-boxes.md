@@ -50,8 +50,15 @@
 **Interfaces:**
 - Produces: `LootTable.roll_item_count(r: float, chance_two: float, chance_three: float) -> int`
 - Produces: `LootTable.roll_kind(r: float, weights: Dictionary) -> int` (weights = `{kind_int: weight_int}`, deterministic cumulative walk over sorted keys)
-- Produces: `LootTable.kind_weights() -> Dictionary` (assembled from `Balance.LOOT` + `Pickup.Kind`)
 - Produces: `Interact.choose_nearest(origin: Vector2, candidates: Array) -> int` (each candidate = `{ "pos": Vector2, "radius": float }`; returns index of nearest candidate whose distance ≤ its radius, else `-1`)
+
+> **Environment constraint (discovered during execution):** the headless
+> `--script` test runner cannot resolve `Pickup` (it `extends Area2D` and
+> self-`preload`s its scene), so `LootTable` must NOT reference `Pickup.Kind`
+> anywhere or it fails to parse headless. Therefore `kind_weights()` does NOT
+> live in `LootTable`. The `{Pickup.Kind: weight}` assembly lives in
+> `loot_box.gd` (Task 4), where `Pickup` resolves at runtime, referencing the
+> enum directly (no fragile hardcoded ordinals). `LootTable` stays pure math.
 - Produces: `Balance.LOOT` dictionary (keys below)
 
 - [ ] **Step 1: Add the `LOOT` block to `balance.gd`**
@@ -692,7 +699,7 @@ git commit -m "feat(loot): contextual interact resolver with NPC give/take-back,
 - Modify: `scenes/world/world.tscn` (`MultiplayerSpawner._spawnable_scenes`)
 
 **Interfaces:**
-- Consumes: `LootTable.roll_item_count`, `LootTable.roll_kind`, `LootTable.kind_weights`, `Pickup` (`kind`, `spawn_origin`), `Balance.LOOT.*`, `world.loot_landing_spot`, `world.entities`.
+- Consumes: `LootTable.roll_item_count`, `LootTable.roll_kind`, `Pickup` (`kind`, `spawn_origin`, `Kind` enum), `Balance.LOOT.*`, `world.loot_landing_spot`, `world.entities`. (`kind_weights()` is defined locally here — see env constraint note in Task 1.)
 - Produces: `LootBox` scene in the `loot_boxes` group with `opened: bool` (replicated) and `open()` (server-only).
 - Produces: `world.loot_landing_spot(center: Vector2, placed: Array) -> Vector2`
 
@@ -729,6 +736,22 @@ func _refresh_sprite() -> void:
 		s.texture = TEX_OPENED if opened else TEX_CLOSED
 
 
+## Assemble the {Pickup.Kind: weight} table from Balance.LOOT. Lives here (not
+## in LootTable) because LootTable must stay free of the Pickup type to remain
+## headless-parseable; here Pickup resolves at runtime.
+func _kind_weights() -> Dictionary:
+	var l: Dictionary = Balance.LOOT
+	return {
+		Pickup.Kind.AMMO_MAG: l.weight_ammo_mag,
+		Pickup.Kind.BANDAGE: l.weight_bandage,
+		Pickup.Kind.MEDPACK: l.weight_medipack,
+		Pickup.Kind.MELEE: l.weight_melee,
+		Pickup.Kind.SHOTGUN: l.weight_shotgun,
+		Pickup.Kind.MACHINEGUN: l.weight_machinegun,
+		Pickup.Kind.RIFLE: l.weight_rifle,
+	}
+
+
 ## Server-only: roll and spawn loot, then mark opened (replicates the swap).
 func open() -> void:
 	if opened or not multiplayer.is_server():
@@ -736,7 +759,7 @@ func open() -> void:
 	opened = true
 	var world := get_tree().current_scene
 	var count := LootTable.roll_item_count(randf(), Balance.LOOT.chance_two, Balance.LOOT.chance_three)
-	var weights := LootTable.kind_weights()
+	var weights := _kind_weights()
 	var placed: Array[Vector2] = []
 	for _i in range(count):
 		var k := LootTable.roll_kind(randf(), weights)

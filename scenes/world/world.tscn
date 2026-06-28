@@ -199,6 +199,41 @@ visible = false
 layout_mode = 2
 text = "Cancel"
 
+[node name="StancePanel" type="VBoxContainer" parent="ZombieControllerNode/ZCOverlay"]
+visible = false
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -260.0
+offset_right = 150.0
+offset_bottom = -20.0
+grow_vertical = 0
+
+[node name="AggressiveButton" type="Button" parent="ZombieControllerNode/ZCOverlay/StancePanel"]
+layout_mode = 2
+text = "Aggressive"
+
+[node name="HoldButton" type="Button" parent="ZombieControllerNode/ZCOverlay/StancePanel"]
+layout_mode = 2
+text = "Hold"
+
+[node name="PatrolAttackButton" type="Button" parent="ZombieControllerNode/ZCOverlay/StancePanel"]
+layout_mode = 2
+text = "Patrol (Attack)"
+
+[node name="PatrolFleeButton" type="Button" parent="ZombieControllerNode/ZCOverlay/StancePanel"]
+layout_mode = 2
+text = "Patrol (Flee)"
+
+[node name="SkittishButton" type="Button" parent="ZombieControllerNode/ZCOverlay/StancePanel"]
+layout_mode = 2
+text = "Skittish"
+
+[node name="FleePointButton" type="Button" parent="ZombieControllerNode/ZCOverlay/StancePanel"]
+layout_mode = 2
+text = "Flee to point"
+
 [node name="MergeManager" type="Node" parent="." unique_id=1900905893 node_paths=PackedStringArray("ground_layer")]
 script = ExtResource("15_71ii3")
 fast_zombie_scene = ExtResource("16_bt7bg")

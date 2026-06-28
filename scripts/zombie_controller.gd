@@ -37,6 +37,18 @@ var _drag_start: Vector2 = Vector2.ZERO
 var _is_dragging: bool = false
 var _drag_threshold: float = 5.0  # pixels before a click becomes a drag
 
+# Stance placement. ST_* mirror the Zombie.Stance enum order (zombie.gd).
+const ST_AGGRESSIVE := 0
+const ST_HOLD := 1
+const ST_PATROL_ATTACK := 2
+const ST_PATROL_FLEE := 3
+const ST_SKITTISH := 4
+const ST_FLEE_POINT := 5
+var stance_panel: Control = null
+var _pending_stance: int = -1
+var _pending_points: Array[Vector2] = []
+var _points_needed: int = 0
+
 func _ready() -> void:
 	# Set up fog
 	fog_zc = FogZombieController.new()
@@ -67,6 +79,15 @@ func _ready() -> void:
 		var panel: Control = fast_button.get_parent()
 		panel.offset_left = -150
 		panel.offset_top = -100
+
+	stance_panel = get_node_or_null("ZCOverlay/StancePanel")
+	if stance_panel:
+		stance_panel.get_node("AggressiveButton").pressed.connect(func(): _begin_stance(ST_AGGRESSIVE, 0))
+		stance_panel.get_node("HoldButton").pressed.connect(func(): _begin_stance(ST_HOLD, 0))
+		stance_panel.get_node("PatrolAttackButton").pressed.connect(func(): _begin_stance(ST_PATROL_ATTACK, 2))
+		stance_panel.get_node("PatrolFleeButton").pressed.connect(func(): _begin_stance(ST_PATROL_FLEE, 2))
+		stance_panel.get_node("SkittishButton").pressed.connect(func(): _begin_stance(ST_SKITTISH, 1))
+		stance_panel.get_node("FleePointButton").pressed.connect(func(): _begin_stance(ST_FLEE_POINT, 1))
 
 func _on_fast_merge_pressed() -> void:
 	var standard_zombies := _get_standard_selected()
@@ -181,6 +202,8 @@ func _process(delta: float) -> void:
 	_update_fog()
 		# Update merge button states
 	_update_merge_buttons()
+	if stance_panel:
+		stance_panel.visible = selected_zombies.size() > 0
 
 func _update_merge_buttons() -> void:
 	if fast_button == null or fat_button == null:
@@ -209,6 +232,21 @@ func _update_merge_buttons() -> void:
 
 func _input(event: InputEvent) -> void:
 	if not is_active:
+		return
+
+	# --- Stance placement: clicks place points, not selection ---
+	if _pending_stance >= 0 and event is InputEventMouseButton \
+		and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		if get_viewport().gui_get_hovered_control() is Button:
+			return  # clicking a stance button, not placing a point
+		var wp := _screen_to_world(event.position)
+		_pending_points.append(wp)
+		if _pending_points.size() >= _points_needed:
+			var p1: Vector2 = _pending_points[0]
+			var p2: Vector2 = _pending_points[1] if _pending_points.size() > 1 else Vector2.ZERO
+			_send_stance(_pending_stance, p1, p2)
+			_pending_stance = -1
+			_pending_points.clear()
 		return
 
 	# --- Zoom ---
@@ -402,6 +440,27 @@ func _command_move(world_pos: Vector2) -> void:
 		return
 	get_tree().current_scene.rpc_command_move.rpc_id(1, names, world_pos)
 	_show_ping(world_pos)
+
+
+func _begin_stance(stance: int, points_needed: int) -> void:
+	if selected_zombies.is_empty():
+		return
+	if points_needed == 0:
+		_send_stance(stance, Vector2.ZERO, Vector2.ZERO)
+		return
+	_pending_stance = stance
+	_points_needed = points_needed
+	_pending_points.clear()
+
+
+func _send_stance(stance: int, p1: Vector2, p2: Vector2) -> void:
+	var names: Array = []
+	for z in selected_zombies:
+		if is_instance_valid(z):
+			names.append(String(z.name))
+	if names.is_empty():
+		return
+	get_tree().current_scene.rpc_set_stance.rpc_id(1, names, stance, p1, p2)
 
 ## Try to find a zombie under the given world position.
 func _get_zombie_at_position(world_pos: Vector2) -> Node2D:

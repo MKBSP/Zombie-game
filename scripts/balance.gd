@@ -45,6 +45,19 @@ const STANCE := {
 	flee_safe_seconds = 2.0,  # PATROL_FLEE: seconds with no enemy seen before resuming patrol
 }
 
+# --- Minimap ----------------------------------------------------------------
+const MINIMAP := {
+	size_px = 200.0,            # on-screen square size
+	world_px = 3008.0,          # world extent the minimap covers
+	margin_px = 12.0,           # inset from the screen corner
+	zombie_blip = 2.5,
+	enemy_blip = 3.0,
+	ghost_fade = 4.0,           # s, last-known blip fade
+	under_attack_seconds = 1.5, # s, red pulse duration
+	gunshot_jitter_px = 90.0,   # "general area" fuzz for the shot ripple
+	ripple_seconds = 1.2,
+}
+
 # --- NPC -------------------------------------------------------------------
 const NPC := {
 	speed = 189.0,            # 10% slower than the shooter

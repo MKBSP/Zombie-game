@@ -49,6 +49,7 @@ var _pending_stance: int = -1
 var _pending_points: Array[Vector2] = []
 var _points_needed: int = 0
 var _control_groups: Dictionary = {}
+var minimap: Control = null
 
 func _ready() -> void:
 	# Set up fog
@@ -60,6 +61,23 @@ func _ready() -> void:
 	if fog_rect and fog_rect.material is ShaderMaterial:
 		var mat: ShaderMaterial = fog_rect.material as ShaderMaterial
 		mat.set_shader_parameter("visibility_tex", fog_texture)
+
+	# Minimap (runtime child of ZCOverlay so it inherits zombie-only visibility).
+	var MinimapScript = load("res://scripts/minimap.gd")
+	minimap = MinimapScript.new()
+	minimap.name = "Minimap"
+	minimap.anchor_left = 1.0
+	minimap.anchor_right = 1.0
+	minimap.offset_left = -(Balance.MINIMAP.size_px + Balance.MINIMAP.margin_px)
+	minimap.offset_top = Balance.MINIMAP.margin_px
+	minimap.offset_right = -Balance.MINIMAP.margin_px
+	minimap.offset_bottom = Balance.MINIMAP.size_px + Balance.MINIMAP.margin_px
+	minimap.mouse_filter = Control.MOUSE_FILTER_STOP
+	var overlay := get_node_or_null("ZCOverlay")
+	if overlay:
+		overlay.add_child(minimap)
+		minimap.setup(fog_zc, camera)
+		minimap.ground_layer = ground_layer
 
 #	set_process(false)
 #	set_process_input(false)

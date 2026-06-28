@@ -3,6 +3,12 @@
 Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
+## Phase 7 — RTS zombie experience (in progress)
+- Phase A: zombies and the master zombie now hit on a cooldown for discrete
+  damage (`Balance.<variant>.damage_per_hit` / `attack_interval`) instead of
+  draining the shooter continuously. New `CombatMath.can_attack` helper; zombies
+  emit a `took_damage(zombie, amount)` signal and do a brief lunge on each hit.
+
 ## Phase 6 — Loot boxes
 - `scenes/loot_box/loot_box.gd` + `loot_box.tscn`: closed crate scene replicated
   via `MultiplayerSynchronizer`; server rolls 1–3 items on `open()` and bursts

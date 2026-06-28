@@ -6,6 +6,9 @@ var max_hp: int
 var contact_dps: float
 var vision_range: int
 var _contact_px: float
+var damage_per_hit: int
+var attack_interval: float
+var _attack_cooldown: float = 0.0
 
 var hp: int
 var is_dead: bool = false
@@ -18,6 +21,7 @@ var is_selected: bool = false
 @onready var nav_agent: NavigationAgent2D = $NavigationAgent2D
 
 signal master_zombie_died
+signal took_damage(zombie: Node2D, amount: int)
 
 
 func _ready() -> void:
@@ -26,6 +30,8 @@ func _ready() -> void:
 	contact_dps = Balance.MASTER.contact_dps
 	vision_range = Balance.MASTER.vision
 	_contact_px = Balance.MASTER.contact_px
+	damage_per_hit = Balance.MASTER.damage_per_hit
+	attack_interval = Balance.MASTER.attack_interval
 	hp = max_hp
 	scale = Vector2(Balance.MASTER.scale, Balance.MASTER.scale)
 	modulate = Color(1.0, 0.2, 0.2)
@@ -47,6 +53,7 @@ func _physics_process(delta: float) -> void:
 		if target != null and _target_in_range():
 			nav_agent.target_position = target.global_position
 		else:
+			_check_contact_damage(delta)  # tick cooldown / bite if touching
 			return  # Idle — stay put
 
 	if nav_agent.is_navigation_finished():
@@ -92,18 +99,22 @@ func set_selected(value: bool) -> void:
 
 
 func _check_contact_damage(delta: float) -> void:
-	if target == null:
+	if _attack_cooldown > 0.0:
+		_attack_cooldown -= delta
+	if target == null or not is_instance_valid(target):
 		return
 	var distance := global_position.distance_to(target.global_position)
-	if distance < _contact_px:
+	if CombatMath.can_attack(distance, _contact_px, _attack_cooldown):
 		if target.has_method("take_damage"):
-			target.take_damage(contact_dps * delta)
+			target.take_damage(damage_per_hit)
+		_attack_cooldown = attack_interval
 
 
 func take_damage(amount: int) -> void:
 	if is_dead:
 		return
 	hp -= amount
+	took_damage.emit(self, int(amount))
 	modulate = Color.WHITE
 	await get_tree().create_timer(0.05).timeout
 	modulate = Color(1.0, 0.2, 0.2)

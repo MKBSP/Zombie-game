@@ -4,6 +4,12 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 7 — RTS zombie experience (in progress)
+- Phase D: stance toolbar (`StancePanel` in `ZCOverlay`) with click-to-place
+  patrol (2 points) / flee (1 point) targets; patrol-line & flee-marker preview
+  in the selection drawer; per-zombie stance glyph under selected units; RTS
+  control groups (Ctrl+1-9 save, 1-9 recall). Note: stance/patrol/flee state is
+  server-side, so the preview/glyph render correctly for a host zombie player or
+  in single-player; client-side preview would need stance replication (follow-up).
 - Phase C: per-zombie stance state machine (`Stance` enum: aggressive / hold /
   patrol-attack / patrol-flee / skittish / flee-point) with nearest-visible-enemy
   targeting (`Targeting` + `StanceLogic` helpers, `_acquire_enemy` scanning the

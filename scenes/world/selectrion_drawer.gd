@@ -7,25 +7,45 @@ var draw_rect_active: bool = false
 var draw_rect_start: Vector2 = Vector2.ZERO
 var draw_rect_end: Vector2 = Vector2.ZERO
 
+# Set once by the ZombieController so we can read the current selection's stances.
+var controller: Node = null
+
 
 func _draw() -> void:
-	if not draw_rect_active:
+	if draw_rect_active:
+		var top_left := Vector2(
+			minf(draw_rect_start.x, draw_rect_end.x),
+			minf(draw_rect_start.y, draw_rect_end.y)
+		)
+		var size := Vector2(
+			absf(draw_rect_end.x - draw_rect_start.x),
+			absf(draw_rect_end.y - draw_rect_start.y)
+		)
+		var rect := Rect2(top_left, size)
+		draw_rect(rect, Color(0.0, 1.0, 0.0, 0.25), true)
+		draw_rect(rect, Color.GREEN, false, 2.0)
+
+	_draw_stance_preview()
+
+
+## Patrol lines / flee markers for the currently-selected zombies.
+func _draw_stance_preview() -> void:
+	if controller == null:
 		return
-
-	var top_left := Vector2(
-		minf(draw_rect_start.x, draw_rect_end.x),
-		minf(draw_rect_start.y, draw_rect_end.y)
-	)
-	var size := Vector2(
-		absf(draw_rect_end.x - draw_rect_start.x),
-		absf(draw_rect_end.y - draw_rect_start.y)
-	)
-	var rect := Rect2(top_left, size)
-
-	# Semi-transparent green fill
-	draw_rect(rect, Color(0.0, 1.0, 0.0, 0.25), true)
-	# Green border
-	draw_rect(rect, Color.GREEN, false, 2.0)
+	var xform := get_viewport().get_canvas_transform()
+	for z in controller.selected_zombies:
+		if not is_instance_valid(z):
+			continue
+		var st: int = z.stance
+		if st == controller.ST_PATROL_ATTACK or st == controller.ST_PATROL_FLEE:
+			var a: Vector2 = xform * z.patrol_a
+			var b: Vector2 = xform * z.patrol_b
+			draw_line(a, b, Color(1, 1, 0, 0.5), 2.0)
+			draw_circle(a, 5.0, Color.YELLOW)
+			draw_circle(b, 5.0, Color.YELLOW)
+		elif st == controller.ST_FLEE_POINT or st == controller.ST_SKITTISH:
+			var fp: Vector2 = xform * z.flee_point
+			draw_circle(fp, 6.0, Color(0.4, 0.7, 1.0, 0.7))
 
 
 func _process(_delta: float) -> void:

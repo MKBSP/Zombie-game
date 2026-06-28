@@ -48,6 +48,7 @@ var stance_panel: Control = null
 var _pending_stance: int = -1
 var _pending_points: Array[Vector2] = []
 var _points_needed: int = 0
+var _control_groups: Dictionary = {}
 
 func _ready() -> void:
 	# Set up fog
@@ -88,6 +89,8 @@ func _ready() -> void:
 		stance_panel.get_node("PatrolFleeButton").pressed.connect(func(): _begin_stance(ST_PATROL_FLEE, 2))
 		stance_panel.get_node("SkittishButton").pressed.connect(func(): _begin_stance(ST_SKITTISH, 1))
 		stance_panel.get_node("FleePointButton").pressed.connect(func(): _begin_stance(ST_FLEE_POINT, 1))
+	if selection_drawer:
+		selection_drawer.controller = self
 
 func _on_fast_merge_pressed() -> void:
 	var standard_zombies := _get_standard_selected()
@@ -233,6 +236,16 @@ func _update_merge_buttons() -> void:
 func _input(event: InputEvent) -> void:
 	if not is_active:
 		return
+
+	# --- Control groups (Ctrl+1-9 save, 1-9 recall) ---
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode >= KEY_1 and event.keycode <= KEY_9:
+			var num: int = event.keycode - KEY_0
+			if event.ctrl_pressed:
+				_save_group(num)
+			else:
+				_recall_group(num)
+			return
 
 	# --- Stance placement: clicks place points, not selection ---
 	if _pending_stance >= 0 and event is InputEventMouseButton \
@@ -461,6 +474,26 @@ func _send_stance(stance: int, p1: Vector2, p2: Vector2) -> void:
 	if names.is_empty():
 		return
 	get_tree().current_scene.rpc_set_stance.rpc_id(1, names, stance, p1, p2)
+
+
+func _save_group(num: int) -> void:
+	var names: Array = []
+	for z in selected_zombies:
+		if is_instance_valid(z):
+			names.append(String(z.name))
+	_control_groups[num] = names
+
+
+func _recall_group(num: int) -> void:
+	if not _control_groups.has(num):
+		return
+	_deselect_all()
+	for n in _control_groups[num]:
+		var z := get_tree().current_scene.get_node_or_null(NodePath("Entities/" + String(n)))
+		if z and z.is_in_group("zombies"):
+			selected_zombies.append(z)
+			if z.has_method("set_selected"):
+				z.set_selected(true)
 
 ## Try to find a zombie under the given world position.
 func _get_zombie_at_position(world_pos: Vector2) -> Node2D:

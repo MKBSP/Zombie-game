@@ -186,6 +186,7 @@ func set_stance(new_stance: int, p1: Vector2 = Vector2.ZERO, p2: Vector2 = Vecto
 			_patrol_leg = 0
 		Stance.FLEE_POINT, Stance.SKITTISH:
 			flee_point = p1
+	queue_redraw()
 
 
 ## Returns true if the target (shooter) is within this zombie's vision range.
@@ -203,6 +204,18 @@ func _draw() -> void:
 		if col_shape:
 			radius = 13.0 * col_shape.scale.x + 6.0
 		draw_arc(Vector2.ZERO, radius, 0.0, TAU, 32, Color.GREEN, 2.0)
+		draw_circle(Vector2(0, radius + 6.0), 3.5, _stance_color())
+
+
+func _stance_color() -> Color:
+	match stance:
+		Stance.AGGRESSIVE: return Color.RED
+		Stance.HOLD: return Color.GRAY
+		Stance.PATROL_ATTACK: return Color.ORANGE
+		Stance.PATROL_FLEE: return Color.YELLOW
+		Stance.SKITTISH: return Color.CYAN
+		Stance.FLEE_POINT: return Color.SKY_BLUE
+		_: return Color.WHITE
 
 func set_command(destination: Vector2) -> void:
 	command_mode = true

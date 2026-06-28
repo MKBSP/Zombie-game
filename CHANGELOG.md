@@ -4,6 +4,13 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 7 — RTS zombie experience (in progress)
+- Phase F: minimap (`scripts/minimap.gd`, runtime child of `ZCOverlay`) — explored
+  terrain from the existing fog `tile_states`, own-zombie blips always, enemy blips
+  only on currently-visible tiles, fading last-known ghost blips, AoE-style red
+  under-attack pulse (driven by `took_damage`), subtle gunshot ripple at a fuzzed
+  position, and click/drag-to-jump camera. Shared "noise event" infra: the shooter
+  calls `World.emit_noise` on each shot → `rpc_noise_event` → `noise_event` signal.
+  Helpers `MinimapMath` (mapping + fuzz) unit-tested. Tunables in `Balance.MINIMAP`.
 - Phase E: per-zombie health bars (`scripts/health_bar.gd`) above zombies and the
   master, shown only when damaged or selected, kept upright as units rotate, and
   driven by the already-replicated `hp` so they render on every peer.

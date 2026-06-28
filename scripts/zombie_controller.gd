@@ -78,6 +78,11 @@ func _ready() -> void:
 		overlay.add_child(minimap)
 		minimap.setup(fog_zc, camera)
 		minimap.ground_layer = ground_layer
+		var world_node := get_parent()
+		if world_node and world_node.has_signal("noise_event"):
+			world_node.noise_event.connect(func(pos, _str):
+				if minimap:
+					minimap.register_noise(pos))
 
 #	set_process(false)
 #	set_process_input(false)

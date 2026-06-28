@@ -286,6 +286,18 @@ func rpc_command_move(zombie_names: Array, world_pos: Vector2) -> void:
 		if z and z.has_method("set_command"):
 			z.set_command(world_pos)
 
+signal noise_event(world_pos: Vector2, strength: float)
+
+## Server-side: broadcast a noise (e.g. a gunshot) to every peer.
+func emit_noise(world_pos: Vector2, strength: float) -> void:
+	if not multiplayer.is_server():
+		return
+	rpc_noise_event.rpc(world_pos, strength)
+
+@rpc("authority", "call_local", "reliable")
+func rpc_noise_event(world_pos: Vector2, strength: float) -> void:
+	noise_event.emit(world_pos, strength)
+
 @rpc("any_peer", "call_local", "reliable")
 func rpc_set_stance(zombie_names: Array, stance: int, p1: Vector2, p2: Vector2) -> void:
 	if not multiplayer.is_server():

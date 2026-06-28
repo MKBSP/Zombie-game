@@ -11,6 +11,8 @@ var ground_layer: TileMapLayer
 var _ghosts: Dictionary = {}          # instance_id -> { pos: Vector2, t: float }
 var _attacks: Array = []              # [{ pos: Vector2, t: float }]
 var _attack_connected: Dictionary = {}
+var _ripples: Array = []              # [{ pos: Vector2, t: float }]
+var _noise_rng := RandomNumberGenerator.new()
 
 func setup(p_fog: FogZombieController, p_cam: Camera2D) -> void:
 	fog_zc = p_fog
@@ -32,6 +34,14 @@ func _connect_new_zombies() -> void:
 
 func register_attack(world_pos: Vector2) -> void:
 	_attacks.append({ "pos": world_pos, "t": Time.get_ticks_msec() / 1000.0 })
+
+
+## A gunshot ripple at a fuzzed ("general area") position.
+func register_noise(world_pos: Vector2) -> void:
+	_ripples.append({
+		"pos": MinimapMath.fuzz(world_pos, Balance.MINIMAP.gunshot_jitter_px, _noise_rng),
+		"t": Time.get_ticks_msec() / 1000.0,
+	})
 
 func _draw() -> void:
 	var s: float = Balance.MINIMAP.size_px
@@ -85,6 +95,15 @@ func _draw() -> void:
 		var pulse: float = 0.5 + 0.5 * sin(aage * 18.0)
 		draw_circle(MinimapMath.world_to_minimap(_attacks[i]["pos"], wpx, s),
 			Balance.MINIMAP.enemy_blip + 2.0, Color(1, 0.1, 0.1, pulse))
+	# Gunshot ripples (subtle expanding rings at fuzzed positions).
+	for i in range(_ripples.size() - 1, -1, -1):
+		var rage: float = now - _ripples[i]["t"]
+		if rage > Balance.MINIMAP.ripple_seconds:
+			_ripples.remove_at(i)
+			continue
+		var frac: float = rage / Balance.MINIMAP.ripple_seconds
+		var center: Vector2 = MinimapMath.world_to_minimap(_ripples[i]["pos"], wpx, s)
+		draw_arc(center, 3.0 + frac * 16.0, 0.0, TAU, 20, Color(1, 1, 1, (1.0 - frac) * 0.4), 1.5)
 
 func _tile_visible(world: Vector2) -> bool:
 	if fog_zc == null or ground_layer == null:

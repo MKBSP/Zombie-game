@@ -262,6 +262,10 @@ func shoot() -> void:
 	var radius := aim_spread_coeff * dist
 	Weapons.fire(parent, gun_tip.global_position, cursor, radius, w, self)
 
+	var w_scene := get_tree().current_scene
+	if w_scene.has_method("emit_noise"):
+		w_scene.emit_noise(gun_tip.global_position, 1.0)
+
 	# Post-shot recoil: refresh to the initial kick, recover over
 	# recoil_recover_factor x damage-units seconds.
 	var dmg_units := (w.damage * w.pellets) / PISTOL_DMG_REF

@@ -26,10 +26,10 @@ const SHOOTER := {
 }
 
 # --- Zombies (variant chosen by group in zombie.gd) ------------------------
-const ZOMBIE := { speed = 85.0,  max_hp = 150, contact_dps = 12.0, vision = 2, contact_px = 38.0, scale = 1.0 }
-const FAST   := { speed = 220.0, max_hp = 150, contact_dps = 18.0, vision = 2, contact_px = 38.0, scale = 1.0 }
-const FAT    := { speed = 76.5,  max_hp = 750, contact_dps = 60.0, vision = 2, contact_px = 38.0, scale = 1.5 }
-const MASTER := { speed = 60.0,  max_hp = 450, contact_dps = 12.0, vision = 3, contact_px = 48.0, scale = 1.8 }
+const ZOMBIE := { speed = 85.0,  max_hp = 150, contact_dps = 12.0, vision = 2, contact_px = 38.0, scale = 1.0, damage_per_hit = 15, attack_interval = 1.0 }
+const FAST   := { speed = 220.0, max_hp = 150, contact_dps = 18.0, vision = 2, contact_px = 38.0, scale = 1.0, damage_per_hit = 12, attack_interval = 0.7 }
+const FAT    := { speed = 76.5,  max_hp = 750, contact_dps = 60.0, vision = 2, contact_px = 38.0, scale = 1.5, damage_per_hit = 45, attack_interval = 1.3 }
+const MASTER := { speed = 60.0,  max_hp = 450, contact_dps = 12.0, vision = 3, contact_px = 48.0, scale = 1.8, damage_per_hit = 20, attack_interval = 1.2 }
 
 # --- NPC -------------------------------------------------------------------
 const NPC := {

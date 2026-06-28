@@ -46,6 +46,13 @@ func _ready() -> void:
 	hp = max_hp
 	# AI/simulation runs on the server only (true in single player too)
 	set_physics_process(multiplayer.is_server())
+	var sep: Dictionary = Balance.SEPARATION
+	nav_agent.avoidance_enabled = true
+	nav_agent.radius = sep.agent_radius
+	nav_agent.neighbor_distance = sep.neighbor_distance
+	nav_agent.max_neighbors = sep.max_neighbors
+	nav_agent.time_horizon_agents = sep.time_horizon
+	nav_agent.velocity_computed.connect(_on_velocity_computed)
 	await get_tree().physics_frame
 	nav_agent.target_position = global_position  # Stay put initially
 
@@ -86,13 +93,17 @@ func _physics_process(delta: float) -> void:
 
 	var next_point := nav_agent.get_next_path_position()
 	var direction := (next_point - global_position).normalized()
-	velocity = direction * speed
-	move_and_slide()
-
-	if velocity.length() > 0:
-		rotation = velocity.angle()
+	nav_agent.set_velocity(direction * speed)
+	# velocity applied in _on_velocity_computed (RVO avoidance)
 
 	_check_contact_damage(delta)
+
+
+func _on_velocity_computed(safe_velocity: Vector2) -> void:
+	velocity = safe_velocity
+	move_and_slide()
+	if velocity.length() > 0:
+		rotation = velocity.angle()
 
 
 ## Returns true if the target (shooter) is within this zombie's vision range.

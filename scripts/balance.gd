@@ -31,6 +31,14 @@ const FAST   := { speed = 220.0, max_hp = 150, contact_dps = 18.0, vision = 2, c
 const FAT    := { speed = 76.5,  max_hp = 750, contact_dps = 60.0, vision = 2, contact_px = 38.0, scale = 1.5, damage_per_hit = 45, attack_interval = 1.3 }
 const MASTER := { speed = 60.0,  max_hp = 450, contact_dps = 12.0, vision = 3, contact_px = 48.0, scale = 1.8, damage_per_hit = 20, attack_interval = 1.2 }
 
+# --- Unit separation (RVO avoidance) ---------------------------------------
+const SEPARATION := {
+	agent_radius = 16.0,       # px, ~body radius; agents keep this much apart
+	neighbor_distance = 80.0,  # px, how far an agent looks for neighbors
+	max_neighbors = 10,
+	time_horizon = 1.0,        # s, how far ahead RVO predicts collisions
+}
+
 # --- NPC -------------------------------------------------------------------
 const NPC := {
 	speed = 189.0,            # 10% slower than the shooter

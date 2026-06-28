@@ -91,6 +91,13 @@ func _ready() -> void:
 	if multiplayer.is_server():
 		nav_agent.path_desired_distance = 8.0
 		nav_agent.target_desired_distance = 8.0
+		var sep: Dictionary = Balance.SEPARATION
+		nav_agent.avoidance_enabled = true
+		nav_agent.radius = sep.agent_radius
+		nav_agent.neighbor_distance = sep.neighbor_distance
+		nav_agent.max_neighbors = sep.max_neighbors
+		nav_agent.time_horizon_agents = sep.time_horizon
+		nav_agent.velocity_computed.connect(_on_velocity_computed)
 		conversion_zone.body_entered.connect(_on_zone_body_entered)
 		npc_shoot_cooldown.timeout.connect(_on_npc_shoot_cooldown_timeout)
 		# Short randomized first wait so NPCs don't all move at once
@@ -137,7 +144,12 @@ func _physics_process(delta: float) -> void:
 
 func _nav_move() -> void:
 	var next_pos: Vector2 = nav_agent.get_next_path_position()
-	velocity = (next_pos - global_position).normalized() * speed
+	nav_agent.set_velocity((next_pos - global_position).normalized() * speed)
+	# velocity applied in _on_velocity_computed (RVO avoidance)
+
+
+func _on_velocity_computed(safe_velocity: Vector2) -> void:
+	velocity = safe_velocity
 	move_and_slide()
 
 

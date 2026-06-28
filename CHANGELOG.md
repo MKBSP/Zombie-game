@@ -4,6 +4,10 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 7 — RTS zombie experience (in progress)
+- Phase B: unit separation via `NavigationAgent2D` RVO avoidance — zombies, the
+  master zombie, and NPCs now flow around each other instead of stacking or
+  passing through. Movement routed through `set_velocity` →
+  `_on_velocity_computed`. Tunables in `Balance.SEPARATION`.
 - Phase A: zombies and the master zombie now hit on a cooldown for discrete
   damage (`Balance.<variant>.damage_per_hit` / `attack_interval`) instead of
   draining the shooter continuously. New `CombatMath.can_attack` helper; zombies

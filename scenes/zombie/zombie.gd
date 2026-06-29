@@ -212,13 +212,13 @@ func _move_along_path() -> void:
 
 ## Enter/leave merge mode. While merging, avoidance is off (so zombies can
 ## touch) and the stance machine is bypassed (so they don't wander off).
-func set_merging(value: bool, target: Vector2 = Vector2.ZERO) -> void:
+func set_merging(value: bool, dest: Vector2 = Vector2.ZERO) -> void:
 	_merging = value
 	command_mode = false
 	nav_agent.avoidance_enabled = not value
 	if value:
-		_merge_target = target
-		nav_agent.target_position = target
+		_merge_target = dest
+		nav_agent.target_position = dest
 
 
 ## Sound aggro: an Aggressive zombie within earshot turns toward a gunshot.

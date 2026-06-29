@@ -17,11 +17,11 @@ func _draw() -> void:
 			minf(draw_rect_start.x, draw_rect_end.x),
 			minf(draw_rect_start.y, draw_rect_end.y)
 		)
-		var size := Vector2(
+		var box_size := Vector2(
 			absf(draw_rect_end.x - draw_rect_start.x),
 			absf(draw_rect_end.y - draw_rect_start.y)
 		)
-		var rect := Rect2(top_left, size)
+		var rect := Rect2(top_left, box_size)
 		draw_rect(rect, Color(0.0, 1.0, 0.0, 0.25), true)
 		draw_rect(rect, Color.GREEN, false, 2.0)
 
@@ -34,8 +34,8 @@ func _draw_stance_preview() -> void:
 		return
 	var xform := get_viewport().get_canvas_transform()
 	for z in controller.selected_zombies:
-		if not is_instance_valid(z):
-			continue
+		if not is_instance_valid(z) or not ("stance" in z):
+			continue  # e.g. the master zombie has no stance
 		var st: int = z.stance
 		if st == controller.ST_PATROL_ATTACK or st == controller.ST_PATROL_FLEE:
 			var a: Vector2 = xform * z.patrol_a

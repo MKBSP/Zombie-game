@@ -70,18 +70,23 @@ func _ready() -> void:
 	var MinimapScript = load("res://scripts/minimap.gd")
 	minimap = MinimapScript.new()
 	minimap.name = "Minimap"
-	minimap.anchor_left = 1.0
-	minimap.anchor_right = 1.0
-	minimap.offset_left = -(Balance.MINIMAP.size_px + Balance.MINIMAP.margin_px)
-	minimap.offset_top = Balance.MINIMAP.margin_px
-	minimap.offset_right = -Balance.MINIMAP.margin_px
-	minimap.offset_bottom = Balance.MINIMAP.size_px + Balance.MINIMAP.margin_px
+	minimap.anchor_left = 0.0
+	minimap.anchor_right = 0.0
+	minimap.anchor_top = 1.0
+	minimap.anchor_bottom = 1.0
+	minimap.offset_left = Balance.MINIMAP.margin_px
+	minimap.offset_top = -(Balance.MINIMAP.size_px + Balance.MINIMAP.margin_px)
+	minimap.offset_right = Balance.MINIMAP.margin_px + Balance.MINIMAP.size_px
+	minimap.offset_bottom = -Balance.MINIMAP.margin_px
 	minimap.mouse_filter = Control.MOUSE_FILTER_STOP
 	var overlay := get_node_or_null("ZCOverlay")
 	if overlay:
 		overlay.add_child(minimap)
 		minimap.setup(fog_zc, camera)
 		minimap.ground_layer = ground_layer
+		minimap.building_layer = get_node_or_null("../BuildingLayer")
+		minimap.rally_point_picked.connect(_rally_all)
+		_create_rally_button(overlay)
 		var world_node := get_parent()
 		if world_node and world_node.has_signal("noise_event"):
 			world_node.noise_event.connect(_on_noise)
@@ -282,6 +287,9 @@ func _input(event: InputEvent) -> void:
 				_save_group(num)
 			else:
 				_recall_group(num)
+			return
+		if event.keycode == KEY_G:
+			_arm_rally()
 			return
 
 	# --- Stance placement: clicks place points, not selection ---
@@ -531,6 +539,39 @@ func _recall_group(num: int) -> void:
 			selected_zombies.append(z)
 			if z.has_method("set_selected"):
 				z.set_selected(true)
+
+
+func _create_rally_button(overlay: Node) -> void:
+	var btn := Button.new()
+	btn.name = "RallyAllButton"
+	btn.text = "Rally All (G)"
+	btn.anchor_top = 1.0
+	btn.anchor_bottom = 1.0
+	var m: float = Balance.MINIMAP.margin_px
+	var sz: float = Balance.MINIMAP.size_px
+	btn.offset_left = m
+	btn.offset_right = m + sz
+	btn.offset_top = -(sz + m + 30.0)
+	btn.offset_bottom = -(sz + m + 4.0)
+	btn.pressed.connect(_arm_rally)
+	overlay.add_child(btn)
+
+
+func _arm_rally() -> void:
+	if minimap:
+		minimap.rally_armed = true
+
+
+## Send every zombie (the whole horde) to a point; leaves the selection intact.
+func _rally_all(world_pos: Vector2) -> void:
+	var names: Array = []
+	for z in get_tree().get_nodes_in_group("zombies"):
+		if is_instance_valid(z):
+			names.append(String(z.name))
+	if names.is_empty():
+		return
+	get_tree().current_scene.rpc_command_move.rpc_id(1, names, world_pos)
+	_show_ping(world_pos)
 
 
 func _on_noise(pos: Vector2, _strength: float) -> void:

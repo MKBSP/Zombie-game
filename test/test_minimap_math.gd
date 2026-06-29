@@ -18,6 +18,13 @@ func _init() -> void:
 	var f: Vector2 = M.fuzz(Vector2(500, 500), 40.0, rng)
 	if f.distance_to(Vector2(500, 500)) > 40.0:
 		push_error("fuzz out of range"); failed += 1
+	# Terrain colors: building wins, known types map, unknown is black.
+	if M.terrain_color("road", false) != Color(0.33, 0.33, 0.35):
+		push_error("road color"); failed += 1
+	if M.terrain_color("grass", true) != Color(0.15, 0.15, 0.18):
+		push_error("building overrides ground"); failed += 1
+	if M.terrain_color("nope", false) != Color(0, 0, 0):
+		push_error("unknown is black"); failed += 1
 	if failed == 0:
 		print("test_minimap_math: PASS"); quit(0)
 	else:

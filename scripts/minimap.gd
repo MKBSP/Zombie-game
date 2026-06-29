@@ -7,7 +7,12 @@ extends Control
 var fog_zc: FogZombieController
 var camera: Camera2D
 var ground_layer: TileMapLayer
+var building_layer: TileMapLayer
 
+var rally_armed: bool = false
+signal rally_point_picked(world_pos: Vector2)
+
+var _terrain_colors: PackedColorArray = PackedColorArray()
 var _ghosts: Dictionary = {}          # instance_id -> { pos: Vector2, t: float }
 var _attacks: Array = []              # [{ pos: Vector2, t: float }]
 var _attack_connected: Dictionary = {}
@@ -46,21 +51,35 @@ func register_noise(world_pos: Vector2) -> void:
 func _draw() -> void:
 	var s: float = Balance.MINIMAP.size_px
 	var wpx: float = Balance.MINIMAP.world_px
-	# Terrain from fog tile_states.
+	# Opaque black backing so unexplored stays black (not see-through).
+	draw_rect(Rect2(Vector2.ZERO, Vector2(s, s)), Color(0, 0, 0, 1))
+	# Terrain + buildings (cached), dimmed by fog state.
 	if fog_zc:
 		var gw: int = fog_zc.GRID_W
 		var gh: int = fog_zc.GRID_H
+		if _terrain_colors.size() != gw * gh:
+			_build_terrain_cache()
 		var cw: float = s / gw
 		var ch: float = s / gh
 		for x in range(gw):
 			for y in range(gh):
-				var st: int = fog_zc.tile_states[y * gw + x]
-				var col: Color
-				match st:
-					FogZombieController.STATE_UNEXPLORED: col = Color(0, 0, 0, 1)
-					FogZombieController.STATE_EXPLORED:   col = Color(0.18, 0.18, 0.2, 1)
-					_:                                    col = Color(0.32, 0.34, 0.38, 1)
-				draw_rect(Rect2(Vector2(x * cw, y * ch), Vector2(cw + 1, ch + 1)), col)
+				var idx := y * gw + x
+				var st: int = fog_zc.tile_states[idx]
+				if st == FogZombieController.STATE_UNEXPLORED:
+					continue
+				var dim: float = 0.4 if st == FogZombieController.STATE_EXPLORED else 1.0
+				var base: Color = _terrain_colors[idx]
+				var c := Color(base.r * dim, base.g * dim, base.b * dim, 1.0)
+				draw_rect(Rect2(Vector2(x * cw, y * ch), Vector2(cw + 1, ch + 1)), c)
+	# Discovered static features (shown anywhere explored; they don't move).
+	for p in get_tree().get_nodes_in_group("props"):
+		if p is Node2D and _tile_explored(p.global_position):
+			var pc := Color(0.25, 0.7, 0.25) if "Tree" in str(p.name) else Color(0.5, 0.5, 0.5)
+			draw_circle(MinimapMath.world_to_minimap(p.global_position, wpx, s), 1.8, pc)
+	for b in get_tree().get_nodes_in_group("loot_boxes"):
+		if b is Node2D and _tile_explored(b.global_position):
+			var bpos := MinimapMath.world_to_minimap(b.global_position, wpx, s)
+			draw_rect(Rect2(bpos - Vector2(2, 2), Vector2(4, 4)), Color(1.0, 0.84, 0.0))
 	# Own zombies (always blipped).
 	for z in get_tree().get_nodes_in_group("zombies"):
 		if z is Node2D:
@@ -104,6 +123,9 @@ func _draw() -> void:
 		var frac: float = rage / Balance.MINIMAP.ripple_seconds
 		var center: Vector2 = MinimapMath.world_to_minimap(_ripples[i]["pos"], wpx, s)
 		draw_arc(center, 3.0 + frac * 16.0, 0.0, TAU, 20, Color(1, 1, 1, (1.0 - frac) * 0.4), 1.5)
+	# Armed-rally border cue.
+	if rally_armed:
+		draw_rect(Rect2(Vector2.ZERO, Vector2(s, s)), Color(1, 0.84, 0, 0.9), false, 2.0)
 
 func _tile_visible(world: Vector2) -> bool:
 	if fog_zc == null or ground_layer == null:
@@ -113,14 +135,47 @@ func _tile_visible(world: Vector2) -> bool:
 		return false
 	return fog_zc.tile_states[t.y * fog_zc.GRID_W + t.x] == FogZombieController.STATE_VISIBLE
 
+
+func _tile_explored(world: Vector2) -> bool:
+	if fog_zc == null or ground_layer == null:
+		return true
+	var t: Vector2i = ground_layer.local_to_map(ground_layer.to_local(world))
+	if t.x < 0 or t.y < 0 or t.x >= fog_zc.GRID_W or t.y >= fog_zc.GRID_H:
+		return false
+	return fog_zc.tile_states[t.y * fog_zc.GRID_W + t.x] != FogZombieController.STATE_UNEXPLORED
+
+
+func _build_terrain_cache() -> void:
+	var gw: int = fog_zc.GRID_W
+	var gh: int = fog_zc.GRID_H
+	_terrain_colors.resize(gw * gh)
+	for x in range(gw):
+		for y in range(gh):
+			var tile := Vector2i(x, y)
+			var has_bld: bool = building_layer != null and building_layer.get_cell_tile_data(tile) != null
+			var ttype := ""
+			if ground_layer:
+				var td: TileData = ground_layer.get_cell_tile_data(tile)
+				if td:
+					ttype = td.get_custom_data("tile_type")
+			_terrain_colors[y * gw + x] = MinimapMath.terrain_color(ttype, has_bld)
+
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		_jump_camera(event.position)
+		if rally_armed:
+			rally_armed = false
+			rally_point_picked.emit(_local_to_world(event.position))
+		else:
+			_jump_camera(event.position)
 	elif event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-		_jump_camera(event.position)
+		if not rally_armed:
+			_jump_camera(event.position)
+
+func _local_to_world(local_pos: Vector2) -> Vector2:
+	return MinimapMath.minimap_to_world(local_pos, Balance.MINIMAP.world_px, Balance.MINIMAP.size_px)
 
 func _jump_camera(local_pos: Vector2) -> void:
 	if camera == null:
 		return
-	var world := MinimapMath.minimap_to_world(local_pos, Balance.MINIMAP.world_px, Balance.MINIMAP.size_px)
+	var world := _local_to_world(local_pos)
 	camera.global_position = world.clamp(Vector2.ZERO, Vector2(Balance.MINIMAP.world_px, Balance.MINIMAP.world_px))

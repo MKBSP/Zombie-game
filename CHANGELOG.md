@@ -4,6 +4,12 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 7 — RTS zombie experience (in progress)
+- Minimap detail: now a discovered-world map. Cached terrain base (roads/sidewalks/
+  grass/parking + buildings) dimmed by fog; discovered static features drawn where
+  explored — trees (green) + other props (grey, new `props` group on the 5 prop
+  scenes) and loot boxes (gold). Moved to bottom-left; stance toolbar shifted right
+  of it. Added a Rally All button + `G` hotkey (arm → click map → whole horde moves
+  there, selection untouched). New `MinimapMath.terrain_color` (unit-tested).
 - Fix: merging broke after the RTS layer landed — RVO avoidance held zombies
   ~32px apart (> `touch_distance` 30px) and the default Aggressive stance pulled
   them off the merge midpoint. Added a dedicated `Zombie.set_merging()` mode that

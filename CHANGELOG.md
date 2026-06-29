@@ -4,6 +4,14 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 7 — RTS zombie experience (in progress)
+- Fix: merging broke after the RTS layer landed — RVO avoidance held zombies
+  ~32px apart (> `touch_distance` 30px) and the default Aggressive stance pulled
+  them off the merge midpoint. Added a dedicated `Zombie.set_merging()` mode that
+  bypasses both the stance machine and avoidance so merging zombies overlap and
+  lock in; `MergeManager` now drives merges through it.
+- Toolbar gating: stance commands are turned on one at a time for testing via
+  `ZombieController.ENABLED_STANCES` (currently Aggressive + Hold); other stance
+  buttons are hidden.
 - Phase H: docs (ARCHITECTURE/PROJECT) updated for the RTS layer; the existing
   two-layer zombie fog is reused unchanged (the minimap reads its `tile_states`).
   In-engine fog/feature verification pending an owner playtest.

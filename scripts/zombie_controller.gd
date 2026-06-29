@@ -44,6 +44,9 @@ const ST_PATROL_ATTACK := 2
 const ST_PATROL_FLEE := 3
 const ST_SKITTISH := 4
 const ST_FLEE_POINT := 5
+# Toolbar buttons currently enabled — we turn commands on one at a time for
+# testing. "AggressiveButton" stays on as the reset-to-normal-chase command.
+const ENABLED_STANCES := ["AggressiveButton", "HoldButton"]
 var stance_panel: Control = null
 var _pending_stance: int = -1
 var _pending_points: Array[Vector2] = []
@@ -105,12 +108,24 @@ func _ready() -> void:
 
 	stance_panel = get_node_or_null("ZCOverlay/StancePanel")
 	if stance_panel:
-		stance_panel.get_node("AggressiveButton").pressed.connect(func(): _begin_stance(ST_AGGRESSIVE, 0))
-		stance_panel.get_node("HoldButton").pressed.connect(func(): _begin_stance(ST_HOLD, 0))
-		stance_panel.get_node("PatrolAttackButton").pressed.connect(func(): _begin_stance(ST_PATROL_ATTACK, 2))
-		stance_panel.get_node("PatrolFleeButton").pressed.connect(func(): _begin_stance(ST_PATROL_FLEE, 2))
-		stance_panel.get_node("SkittishButton").pressed.connect(func(): _begin_stance(ST_SKITTISH, 1))
-		stance_panel.get_node("FleePointButton").pressed.connect(func(): _begin_stance(ST_FLEE_POINT, 1))
+		var stance_defs := {
+			"AggressiveButton": [ST_AGGRESSIVE, 0],
+			"HoldButton": [ST_HOLD, 0],
+			"PatrolAttackButton": [ST_PATROL_ATTACK, 2],
+			"PatrolFleeButton": [ST_PATROL_FLEE, 2],
+			"SkittishButton": [ST_SKITTISH, 1],
+			"FleePointButton": [ST_FLEE_POINT, 1],
+		}
+		for bname in stance_defs:
+			var btn: Button = stance_panel.get_node_or_null(bname)
+			if btn == null:
+				continue
+			if bname in ENABLED_STANCES:
+				var st: int = stance_defs[bname][0]
+				var pts: int = stance_defs[bname][1]
+				btn.pressed.connect(func(): _begin_stance(st, pts))
+			else:
+				btn.visible = false
 	if selection_drawer:
 		selection_drawer.controller = self
 

@@ -19,6 +19,8 @@ var _patrol_leg: int = 0
 var _no_enemy_timer: float = 0.0
 var _alert_point: Vector2 = Vector2.ZERO
 var _alert_timer: float = 0.0
+var _merging: bool = false
+var _merge_target: Vector2 = Vector2.ZERO
 
 var command_mode: bool = false
 var command_target: Vector2 = Vector2.ZERO
@@ -95,6 +97,13 @@ func _physics_process(delta: float) -> void:
 	if is_dead:
 		return
 	_check_contact_damage(delta)  # ticks cooldown; bites if already touching
+
+	# Merging overrides everything: head to (and sit at) the merge point, no
+	# stance and no avoidance, so zombies can overlap and reach touch_distance.
+	if _merging:
+		nav_agent.target_position = _merge_target
+		_move_along_path()
+		return
 
 	# One-shot right-click move overrides the stance until it arrives.
 	if command_mode:
@@ -186,11 +195,30 @@ func _advance_patrol() -> void:
 
 func _move_along_path() -> void:
 	if nav_agent.is_navigation_finished():
-		nav_agent.set_velocity(Vector2.ZERO)
+		if nav_agent.avoidance_enabled:
+			nav_agent.set_velocity(Vector2.ZERO)
 		return
 	var next_point := nav_agent.get_next_path_position()
 	var direction := (next_point - global_position).normalized()
-	nav_agent.set_velocity(direction * speed)
+	if nav_agent.avoidance_enabled:
+		nav_agent.set_velocity(direction * speed)
+	else:
+		# Avoidance off (e.g. merging): move directly so units can overlap.
+		velocity = direction * speed
+		move_and_slide()
+		if velocity.length() > 0:
+			rotation = velocity.angle()
+
+
+## Enter/leave merge mode. While merging, avoidance is off (so zombies can
+## touch) and the stance machine is bypassed (so they don't wander off).
+func set_merging(value: bool, target: Vector2 = Vector2.ZERO) -> void:
+	_merging = value
+	command_mode = false
+	nav_agent.avoidance_enabled = not value
+	if value:
+		_merge_target = target
+		nav_agent.target_position = target
 
 
 ## Sound aggro: an Aggressive zombie within earshot turns toward a gunshot.

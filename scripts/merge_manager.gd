@@ -62,10 +62,10 @@ func start_merge(zombies: Array[Node2D], type: String) -> void:
 		midpoint += z.global_position
 	midpoint /= float(merge_zombies.size())
 
-	# Command each zombie to walk to the midpoint
+	# Walk each zombie to the midpoint in merge mode (no stance, no avoidance).
 	for z in merge_zombies:
-		if z.has_method("set_command"):
-			z.set_command(midpoint)
+		if z.has_method("set_merging"):
+			z.set_merging(true, midpoint)
 
 	merge_started.emit()
 
@@ -77,8 +77,8 @@ func cancel_merge() -> void:
 
 	# Revert zombies to AI mode
 	for z in merge_zombies:
-		if is_instance_valid(z):
-			z.command_mode = false
+		if is_instance_valid(z) and z.has_method("set_merging"):
+			z.set_merging(false)
 
 	merge_zombies.clear()
 	merge_type = ""
@@ -90,7 +90,8 @@ func cancel_merge() -> void:
 func _abort_locked() -> void:
 	for z in merge_zombies:
 		if is_instance_valid(z):
-			z.command_mode = false
+			if z.has_method("set_merging"):
+				z.set_merging(false)
 			z.visible = true
 			z.merge_progress = -1.0
 	merge_zombies.clear()
@@ -144,15 +145,13 @@ func _enter_locked_state() -> void:
 	# Keep the first zombie visible, hide and freeze the rest
 	_visible_zombie = merge_zombies[0]
 	_visible_zombie.global_position = midpoint
-	_visible_zombie.command_mode = true
-	_visible_zombie.command_target = midpoint
+	_visible_zombie.set_merging(true, midpoint)
 	_visible_zombie.velocity = Vector2.ZERO
 	_visible_zombie.merge_progress = 0.0  # synced; peers render bar + pulse
 
 	for i in range(1, merge_zombies.size()):
 		var z := merge_zombies[i]
-		z.command_mode = true
-		z.command_target = z.global_position
+		z.set_merging(true, z.global_position)
 		z.velocity = Vector2.ZERO
 		z.visible = false  # Hide — absorbed into the merge (synced)
 

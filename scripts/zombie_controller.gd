@@ -281,11 +281,16 @@ func _input(event: InputEvent) -> void:
 
 	# --- Stance placement: clicks place points, not selection ---
 	if _pending_movement >= 0 and event is InputEventMouseButton \
-		and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		and event.button_index == MOUSE_BUTTON_LEFT:
+		# Swallow the release too, so placing a point can't deselect the horde.
+		if not event.pressed:
+			_is_dragging = false
+			return
 		if get_viewport().gui_get_hovered_control() is Button:
 			return  # clicking a toolbar button, not placing a point
 		var wp := _screen_to_world(event.position)
 		_pending_points.append(wp)
+		_show_ping(wp, Color.YELLOW, 34.0)  # feedback that the point landed
 		if _pending_points.size() >= _points_needed:
 			var p1: Vector2 = _pending_points[0]
 			var p2: Vector2 = _pending_points[1] if _pending_points.size() > 1 else Vector2.ZERO

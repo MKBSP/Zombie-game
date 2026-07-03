@@ -41,8 +41,10 @@ const SEPARATION := {
 
 # --- Stances ----------------------------------------------------------------
 const STANCE := {
-	arrive_px = 8.0,          # how close counts as "reached the point"
-	flee_safe_seconds = 2.0,  # PATROL_FLEE: seconds with no enemy seen before resuming patrol
+	arrive_px = 8.0,             # how close counts as "reached the point"
+	hold_attack_px = 64.0,       # Hold: bite enemies within ~1 tile, no chase
+	leash_px = 120.0,            # Aggressive: engage radius around a parked flee point
+	damage_flee_window = 0.4,    # seconds the "recently damaged" flag stays up
 }
 
 # --- Minimap ----------------------------------------------------------------
@@ -69,7 +71,7 @@ const AGGRO := {
 
 # --- NPC -------------------------------------------------------------------
 const NPC := {
-	speed = 189.0,            # 10% slower than the shooter
+	speed = 160.0,            # 10% slower than the shooter
 	max_hp = 50,
 	hide_min = 10.0,
 	hide_max = 20.0,

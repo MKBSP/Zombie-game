@@ -37,18 +37,19 @@ var _drag_start: Vector2 = Vector2.ZERO
 var _is_dragging: bool = false
 var _drag_threshold: float = 5.0  # pixels before a click becomes a drag
 
-# Stance placement. ST_* mirror the Zombie.Stance enum order (zombie.gd).
-const ST_AGGRESSIVE := 0
-const ST_HOLD := 1
-const ST_PATROL_ATTACK := 2
-const ST_PATROL_FLEE := 3
-const ST_SKITTISH := 4
-const ST_FLEE_POINT := 5
-# Toolbar buttons currently enabled — we turn commands on one at a time for
-# testing. "AggressiveButton" stays on as the reset-to-normal-chase command.
-const ENABLED_STANCES := ["AggressiveButton", "HoldButton", "FleePointButton"]
+# Combat / movement / trigger values mirror the Zombie enums (zombie.gd).
+const CB_AGGRESSIVE := 0
+const CB_HOLD := 1
+const MV_FREE := 0
+const MV_FLEE := 1
+const MV_PATROL := 2
+const FT_ON_SIGHT := 0
+const FT_ON_DAMAGE := 1
+const FT_IDLE := 2
 var stance_panel: Control = null
-var _pending_stance: int = -1
+# Movement placement (flee = 1 point, patrol = 2 points).
+var _pending_movement: int = -1
+var _pending_trigger: int = 0
 var _pending_points: Array[Vector2] = []
 var _points_needed: int = 0
 var _control_groups: Dictionary = {}
@@ -111,26 +112,12 @@ func _ready() -> void:
 		panel.offset_left = -150
 		panel.offset_top = -100
 
-	stance_panel = get_node_or_null("ZCOverlay/StancePanel")
-	if stance_panel:
-		var stance_defs := {
-			"AggressiveButton": [ST_AGGRESSIVE, 0],
-			"HoldButton": [ST_HOLD, 0],
-			"PatrolAttackButton": [ST_PATROL_ATTACK, 2],
-			"PatrolFleeButton": [ST_PATROL_FLEE, 2],
-			"SkittishButton": [ST_SKITTISH, 1],
-			"FleePointButton": [ST_FLEE_POINT, 1],
-		}
-		for bname in stance_defs:
-			var btn: Button = stance_panel.get_node_or_null(bname)
-			if btn == null:
-				continue
-			if bname in ENABLED_STANCES:
-				var st: int = stance_defs[bname][0]
-				var pts: int = stance_defs[bname][1]
-				btn.pressed.connect(func(): _begin_stance(st, pts))
-			else:
-				btn.visible = false
+	# Hide the old .tscn stance panel; build a two-row toolbar at runtime.
+	var old_panel := get_node_or_null("ZCOverlay/StancePanel")
+	if old_panel:
+		old_panel.queue_free()
+	if overlay:
+		_build_stance_toolbar(overlay)
 	if selection_drawer:
 		selection_drawer.controller = self
 
@@ -293,17 +280,17 @@ func _input(event: InputEvent) -> void:
 			return
 
 	# --- Stance placement: clicks place points, not selection ---
-	if _pending_stance >= 0 and event is InputEventMouseButton \
+	if _pending_movement >= 0 and event is InputEventMouseButton \
 		and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		if get_viewport().gui_get_hovered_control() is Button:
-			return  # clicking a stance button, not placing a point
+			return  # clicking a toolbar button, not placing a point
 		var wp := _screen_to_world(event.position)
 		_pending_points.append(wp)
 		if _pending_points.size() >= _points_needed:
 			var p1: Vector2 = _pending_points[0]
 			var p2: Vector2 = _pending_points[1] if _pending_points.size() > 1 else Vector2.ZERO
-			_send_stance(_pending_stance, p1, p2)
-			_pending_stance = -1
+			_send_movement(_pending_movement, _pending_trigger, p1, p2)
+			_pending_movement = -1
 			_pending_points.clear()
 		return
 
@@ -512,25 +499,69 @@ func _command_move(world_pos: Vector2) -> void:
 		minimap.register_move_marker(world_pos, Color.GREEN)
 
 
-func _begin_stance(stance: int, points_needed: int) -> void:
-	if selected_zombies.is_empty():
-		return
-	if points_needed == 0:
-		_send_stance(stance, Vector2.ZERO, Vector2.ZERO)
-		return
-	_pending_stance = stance
-	_points_needed = points_needed
-	_pending_points.clear()
-
-
-func _send_stance(stance: int, p1: Vector2, p2: Vector2) -> void:
+func _selected_names() -> Array:
 	var names: Array = []
 	for z in selected_zombies:
 		if is_instance_valid(z):
 			names.append(String(z.name))
+	return names
+
+
+func _send_combat(combat: int) -> void:
+	var names := _selected_names()
 	if names.is_empty():
 		return
-	get_tree().current_scene.rpc_set_stance.rpc_id(1, names, stance, p1, p2)
+	get_tree().current_scene.rpc_set_combat.rpc_id(1, names, combat)
+
+
+func _begin_movement(mode: int, trigger: int, points_needed: int) -> void:
+	if selected_zombies.is_empty():
+		return
+	if points_needed == 0:
+		_send_movement(mode, trigger, Vector2.ZERO, Vector2.ZERO)
+		return
+	_pending_movement = mode
+	_pending_trigger = trigger
+	_points_needed = points_needed
+	_pending_points.clear()
+
+
+func _send_movement(mode: int, trigger: int, p1: Vector2, p2: Vector2) -> void:
+	var names := _selected_names()
+	if names.is_empty():
+		return
+	get_tree().current_scene.rpc_set_movement.rpc_id(1, names, mode, trigger, p1, p2)
+
+
+func _add_btn(parent: Node, text: String, cb: Callable) -> void:
+	var b := Button.new()
+	b.text = text
+	b.pressed.connect(cb)
+	parent.add_child(b)
+
+
+func _build_stance_toolbar(overlay: Node) -> void:
+	stance_panel = VBoxContainer.new()
+	stance_panel.name = "StanceToolbar"
+	stance_panel.anchor_top = 1.0
+	stance_panel.anchor_bottom = 1.0
+	var m: float = Balance.MINIMAP.margin_px
+	var sz: float = Balance.MINIMAP.size_px
+	stance_panel.offset_left = m + sz + 12.0
+	stance_panel.offset_right = m + sz + 210.0
+	stance_panel.offset_top = -320.0
+	stance_panel.offset_bottom = -m
+	var combat_row := HBoxContainer.new()
+	stance_panel.add_child(combat_row)
+	_add_btn(combat_row, "Aggressive", func(): _send_combat(CB_AGGRESSIVE))
+	_add_btn(combat_row, "Hold", func(): _send_combat(CB_HOLD))
+	_add_btn(stance_panel, "Free", func(): _begin_movement(MV_FREE, 0, 0))
+	_add_btn(stance_panel, "Flee: on sight", func(): _begin_movement(MV_FLEE, FT_ON_SIGHT, 1))
+	_add_btn(stance_panel, "Flee: on hit", func(): _begin_movement(MV_FLEE, FT_ON_DAMAGE, 1))
+	_add_btn(stance_panel, "Flee: idle", func(): _begin_movement(MV_FLEE, FT_IDLE, 1))
+	_add_btn(stance_panel, "Patrol", func(): _begin_movement(MV_PATROL, 0, 2))
+	overlay.add_child(stance_panel)
+	stance_panel.visible = false
 
 
 func _save_group(num: int) -> void:

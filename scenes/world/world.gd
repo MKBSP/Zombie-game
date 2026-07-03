@@ -303,13 +303,22 @@ func rpc_noise_event(world_pos: Vector2, strength: float) -> void:
 	noise_event.emit(world_pos, strength)
 
 @rpc("any_peer", "call_local", "reliable")
-func rpc_set_stance(zombie_names: Array, stance: int, p1: Vector2, p2: Vector2) -> void:
+func rpc_set_combat(zombie_names: Array, combat: int) -> void:
 	if not multiplayer.is_server():
 		return
 	for n in zombie_names:
 		var z := entities.get_node_or_null(NodePath(String(n)))
-		if z and z.has_method("set_stance"):
-			z.set_stance(stance, p1, p2)
+		if z and z.has_method("set_combat"):
+			z.set_combat(combat)
+
+@rpc("any_peer", "call_local", "reliable")
+func rpc_set_movement(zombie_names: Array, mode: int, trigger: int, p1: Vector2, p2: Vector2) -> void:
+	if not multiplayer.is_server():
+		return
+	for n in zombie_names:
+		var z := entities.get_node_or_null(NodePath(String(n)))
+		if z and z.has_method("set_movement"):
+			z.set_movement(mode, trigger, p1, p2)
 
 @rpc("any_peer", "call_local", "reliable")
 func rpc_request_merge(zombie_names: Array, type: String) -> void:

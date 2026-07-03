@@ -34,16 +34,16 @@ func _draw_stance_preview() -> void:
 		return
 	var xform := get_viewport().get_canvas_transform()
 	for z in controller.selected_zombies:
-		if not is_instance_valid(z) or not ("stance" in z):
-			continue  # e.g. the master zombie has no stance
-		var st: int = z.stance
-		if st == controller.ST_PATROL_ATTACK or st == controller.ST_PATROL_FLEE:
+		if not is_instance_valid(z) or not ("movement_mode" in z):
+			continue  # e.g. the master zombie has no movement mode
+		var mv: int = z.movement_mode
+		if mv == 2:  # PATROL
 			var a: Vector2 = xform * z.patrol_a
 			var b: Vector2 = xform * z.patrol_b
 			draw_line(a, b, Color(1, 1, 0, 0.5), 2.0)
 			draw_circle(a, 5.0, Color.YELLOW)
 			draw_circle(b, 5.0, Color.YELLOW)
-		elif st == controller.ST_FLEE_POINT or st == controller.ST_SKITTISH:
+		elif mv == 1:  # FLEE
 			var fp: Vector2 = xform * z.flee_point
 			draw_circle(fp, 6.0, Color(0.4, 0.7, 1.0, 0.7))
 

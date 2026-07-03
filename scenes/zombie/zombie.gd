@@ -10,13 +10,18 @@ var damage_per_hit: int
 var attack_interval: float
 var _attack_cooldown: float = 0.0
 
-enum Stance { AGGRESSIVE, HOLD, PATROL_ATTACK, PATROL_FLEE, SKITTISH, FLEE_POINT }
-var stance: int = Stance.AGGRESSIVE
+enum Combat { AGGRESSIVE, HOLD }
+enum Movement { FREE, FLEE, PATROL }
+enum FleeTrigger { ON_SIGHT, ON_DAMAGE, IDLE }
+var combat_stance: int = Combat.AGGRESSIVE
+var movement_mode: int = Movement.FREE
+var flee_trigger: int = FleeTrigger.ON_SIGHT
 var patrol_a: Vector2 = Vector2.ZERO
 var patrol_b: Vector2 = Vector2.ZERO
 var flee_point: Vector2 = Vector2.ZERO
 var _patrol_leg: int = 0
-var _no_enemy_timer: float = 0.0
+var _fled: bool = false
+var _damaged_timer: float = 0.0
 var _alert_point: Vector2 = Vector2.ZERO
 var _alert_timer: float = 0.0
 var _merging: bool = false
@@ -96,7 +101,11 @@ func _process(_delta: float) -> void:
 func _physics_process(delta: float) -> void:
 	if is_dead:
 		return
-	_check_contact_damage(delta)  # ticks cooldown; bites if already touching
+	if _damaged_timer > 0.0:
+		_damaged_timer -= delta
+	if _alert_timer > 0.0:
+		_alert_timer -= delta
+	_check_contact_damage(delta)  # ticks cooldown; bites the current target
 
 	# Merging overrides everything: head to (and sit at) the merge point, no
 	# stance and no avoidance, so zombies can overlap and reach touch_distance.
@@ -113,52 +122,16 @@ func _physics_process(delta: float) -> void:
 		_move_along_path()
 		return
 
-	var e: Node2D = null
-	match stance:
-		Stance.HOLD:
-			return  # rooted; ignore fire, never chase
-		Stance.AGGRESSIVE:
-			e = _acquire_enemy()
-			if e:
-				target = e
-				nav_agent.target_position = e.global_position
-			elif _alert_timer > 0.0:
-				target = null
-				_alert_timer -= delta
-				nav_agent.target_position = _alert_point
-			else:
-				target = null
-				return
-		Stance.PATROL_ATTACK:
-			e = _acquire_enemy()
-			if e:
-				target = e
-				nav_agent.target_position = e.global_position
-			else:
-				target = null
-				_advance_patrol()
-		Stance.PATROL_FLEE:
-			e = _acquire_enemy()
-			if e:
-				target = null
-				_no_enemy_timer = Balance.STANCE.flee_safe_seconds
-				nav_agent.target_position = flee_point
-			else:
-				if _no_enemy_timer > 0.0:
-					_no_enemy_timer -= delta
-					nav_agent.target_position = flee_point
-				else:
-					_advance_patrol()
-		Stance.SKITTISH:
-			e = _acquire_enemy()
-			if e:
-				target = null
-				nav_agent.target_position = flee_point
-			else:
-				return
-		Stance.FLEE_POINT:
-			target = null
-			nav_agent.target_position = flee_point
+	# Flee latches once its trigger fires, then parks at the point for good.
+	if movement_mode == Movement.FLEE and not _fled and _flee_should_trigger():
+		_fled = true
+
+	if _fled:
+		_move_parked(flee_point)
+	elif movement_mode == Movement.PATROL:
+		_patrol_movement()
+	else:
+		_free_movement()
 
 	_move_along_path()
 
@@ -171,7 +144,9 @@ func _on_velocity_computed(safe_velocity: Vector2) -> void:
 
 
 ## Server-side: nearest visible enemy (shooter or NPC), or null.
-func _acquire_enemy() -> Node2D:
+func _acquire_enemy(radius_px: float = -1.0) -> Node2D:
+	if radius_px < 0.0:
+		radius_px = vision_range * 64.0
 	var nodes: Array = []
 	var cands: Array = []
 	for grp in ["shooter", "npcs"]:
@@ -182,8 +157,23 @@ func _acquire_enemy() -> Node2D:
 					eligible = false
 				nodes.append(n)
 				cands.append({ "pos": n.global_position, "eligible": eligible })
-	var idx := Targeting.nearest_index(global_position, cands, vision_range * 64.0)
+	var idx := Targeting.nearest_index(global_position, cands, radius_px)
 	return nodes[idx] if idx >= 0 else null
+
+
+func _attack_range() -> float:
+	return Balance.STANCE.hold_attack_px if combat_stance == Combat.HOLD else _contact_px
+
+
+func _flee_should_trigger() -> bool:
+	match flee_trigger:
+		FleeTrigger.ON_SIGHT:
+			return _acquire_enemy(vision_range * 64.0) != null
+		FleeTrigger.ON_DAMAGE:
+			return _damaged_timer > 0.0
+		FleeTrigger.IDLE:
+			return _acquire_enemy(vision_range * 64.0) == null
+	return false
 
 
 func _advance_patrol() -> void:
@@ -191,6 +181,51 @@ func _advance_patrol() -> void:
 	nav_agent.target_position = dest
 	if StanceLogic.arrived(global_position.distance_to(dest), Balance.STANCE.arrive_px):
 		_patrol_leg = StanceLogic.flip_leg(_patrol_leg)
+
+
+func _free_movement() -> void:
+	if combat_stance == Combat.AGGRESSIVE:
+		var e := _acquire_enemy()
+		if e:
+			target = e
+			nav_agent.target_position = e.global_position
+		elif _alert_timer > 0.0:
+			target = null
+			nav_agent.target_position = _alert_point
+		else:
+			target = _acquire_enemy(_attack_range())
+			nav_agent.target_position = global_position
+	else:  # HOLD: rooted, bite only within 1 tile
+		target = _acquire_enemy(Balance.STANCE.hold_attack_px)
+		nav_agent.target_position = global_position
+
+
+func _patrol_movement() -> void:
+	if combat_stance == Combat.AGGRESSIVE:
+		var e := _acquire_enemy()
+		if e:
+			target = e
+			nav_agent.target_position = e.global_position
+			return
+		target = null
+	else:
+		target = _acquire_enemy(Balance.STANCE.hold_attack_px)
+	_advance_patrol()
+
+
+## Parked at a flee point: hold there; Aggressive engages enemies within the
+## leash of the point, Hold only bites within 1 tile.
+func _move_parked(point: Vector2) -> void:
+	if combat_stance == Combat.AGGRESSIVE:
+		var e := _acquire_enemy()
+		if e and point.distance_to(e.global_position) <= Balance.STANCE.leash_px:
+			target = e
+			nav_agent.target_position = e.global_position
+			return
+		target = _acquire_enemy(_attack_range())
+	else:
+		target = _acquire_enemy(Balance.STANCE.hold_attack_px)
+	nav_agent.target_position = point
 
 
 func _move_along_path() -> void:
@@ -223,22 +258,30 @@ func set_merging(value: bool, dest: Vector2 = Vector2.ZERO) -> void:
 
 ## Sound aggro: an Aggressive zombie within earshot turns toward a gunshot.
 func alert_to(world_pos: Vector2) -> void:
-	if stance != Stance.AGGRESSIVE:
-		return  # Hold / flee / patrol stances deliberately ignore sound
+	if combat_stance != Combat.AGGRESSIVE:
+		return  # Hold deliberately ignores sound
 	_alert_point = world_pos
 	_alert_timer = Balance.AGGRO.alert_seconds
 
 
-func set_stance(new_stance: int, p1: Vector2 = Vector2.ZERO, p2: Vector2 = Vector2.ZERO) -> void:
-	stance = new_stance
+func set_combat(new_combat: int) -> void:
+	combat_stance = new_combat
 	command_mode = false
-	match new_stance:
-		Stance.PATROL_ATTACK, Stance.PATROL_FLEE:
+	queue_redraw()
+
+
+func set_movement(mode: int, trigger: int, p1: Vector2, p2: Vector2) -> void:
+	movement_mode = mode
+	command_mode = false
+	_fled = false
+	flee_trigger = trigger
+	match mode:
+		Movement.FLEE:
+			flee_point = p1
+		Movement.PATROL:
 			patrol_a = p1
 			patrol_b = p2
 			_patrol_leg = 0
-		Stance.FLEE_POINT, Stance.SKITTISH:
-			flee_point = p1
 	queue_redraw()
 
 
@@ -261,14 +304,7 @@ func _draw() -> void:
 
 
 func _stance_color() -> Color:
-	match stance:
-		Stance.AGGRESSIVE: return Color.RED
-		Stance.HOLD: return Color.GRAY
-		Stance.PATROL_ATTACK: return Color.ORANGE
-		Stance.PATROL_FLEE: return Color.YELLOW
-		Stance.SKITTISH: return Color.CYAN
-		Stance.FLEE_POINT: return Color.SKY_BLUE
-		_: return Color.WHITE
+	return Color.RED if combat_stance == Combat.AGGRESSIVE else Color.GRAY
 
 func set_command(destination: Vector2) -> void:
 	command_mode = true
@@ -297,7 +333,7 @@ func _check_contact_damage(delta: float) -> void:
 	if target == null or not is_instance_valid(target):
 		return
 	var distance := global_position.distance_to(target.global_position)
-	if CombatMath.can_attack(distance, _contact_px, _attack_cooldown):
+	if CombatMath.can_attack(distance, _attack_range(), _attack_cooldown):
 		if target.has_method("take_damage"):
 			target.take_damage(damage_per_hit)
 		_attack_cooldown = attack_interval
@@ -315,6 +351,7 @@ func take_damage(amount: int) -> void:
 	if is_dead:
 		return
 	hp -= amount
+	_damaged_timer = Balance.STANCE.damage_flee_window
 	took_damage.emit(self, int(amount))
 	_refresh_health_bar()
 	modulate = Color.WHITE

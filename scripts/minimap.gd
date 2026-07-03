@@ -17,6 +17,7 @@ var _ghosts: Dictionary = {}          # instance_id -> { pos: Vector2, t: float 
 var _attacks: Array = []              # [{ pos: Vector2, t: float }]
 var _attack_connected: Dictionary = {}
 var _ripples: Array = []              # [{ pos: Vector2, t: float }]
+var _markers: Array = []              # [{ pos: Vector2, t: float, c: Color }]
 var _noise_rng := RandomNumberGenerator.new()
 
 func setup(p_fog: FogZombieController, p_cam: Camera2D) -> void:
@@ -39,6 +40,11 @@ func _connect_new_zombies() -> void:
 
 func register_attack(world_pos: Vector2) -> void:
 	_attacks.append({ "pos": world_pos, "t": Time.get_ticks_msec() / 1000.0 })
+
+
+## A brief command-destination blip on the map (move = green, rally = gold).
+func register_move_marker(world_pos: Vector2, marker_color: Color = Color.GREEN) -> void:
+	_markers.append({ "pos": world_pos, "t": Time.get_ticks_msec() / 1000.0, "c": marker_color })
 
 
 ## A gunshot ripple at a fuzzed ("general area") position.
@@ -123,6 +129,15 @@ func _draw() -> void:
 		var frac: float = rage / Balance.MINIMAP.ripple_seconds
 		var center: Vector2 = MinimapMath.world_to_minimap(_ripples[i]["pos"], wpx, s)
 		draw_arc(center, 3.0 + frac * 16.0, 0.0, TAU, 20, Color(1, 1, 1, (1.0 - frac) * 0.4), 1.5)
+	# Command destination markers (move / rally).
+	for mi in range(_markers.size() - 1, -1, -1):
+		var mage: float = now - _markers[mi]["t"]
+		if mage > 0.9:
+			_markers.remove_at(mi)
+			continue
+		var mt: float = mage / 0.9
+		var mp: Vector2 = MinimapMath.world_to_minimap(_markers[mi]["pos"], wpx, s)
+		draw_arc(mp, 2.0 + mt * 9.0, 0.0, TAU, 20, Color(_markers[mi]["c"], 1.0 - mt), 1.5)
 	# Armed-rally border cue.
 	if rally_armed:
 		draw_rect(Rect2(Vector2.ZERO, Vector2(s, s)), Color(1, 0.84, 0, 0.9), false, 2.0)

@@ -307,6 +307,16 @@ func _input(event: InputEvent) -> void:
 			_pending_points.clear()
 		return
 
+	# --- Rally placement: a world click (while armed) rallies the whole horde ---
+	if minimap and minimap.rally_armed and event is InputEventMouseButton \
+		and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		var hovered := get_viewport().gui_get_hovered_control()
+		if hovered is Button or hovered == minimap:
+			return  # let the rally button / minimap handle their own click
+		minimap.rally_armed = false
+		_rally_all(_screen_to_world(event.position))
+		return
+
 	# --- Zoom ---
 	if event is InputEventMouseButton:
 		if event.pressed:
@@ -498,6 +508,8 @@ func _command_move(world_pos: Vector2) -> void:
 		return
 	get_tree().current_scene.rpc_command_move.rpc_id(1, names, world_pos)
 	_show_ping(world_pos)
+	if minimap:
+		minimap.register_move_marker(world_pos, Color.GREEN)
 
 
 func _begin_stance(stance: int, points_needed: int) -> void:
@@ -562,16 +574,29 @@ func _arm_rally() -> void:
 		minimap.rally_armed = true
 
 
-## Send every zombie (the whole horde) to a point; leaves the selection intact.
+## Rally: select the whole horde (rings light up as feedback) and send it to a
+## point. Works from a minimap click or a world click while armed.
 func _rally_all(world_pos: Vector2) -> void:
+	_select_all_zombies()
 	var names: Array = []
-	for z in get_tree().get_nodes_in_group("zombies"):
+	for z in selected_zombies:
 		if is_instance_valid(z):
 			names.append(String(z.name))
 	if names.is_empty():
 		return
 	get_tree().current_scene.rpc_command_move.rpc_id(1, names, world_pos)
-	_show_ping(world_pos)
+	_show_ping(world_pos, Color(1.0, 0.84, 0.0), 90.0)
+	if minimap:
+		minimap.register_move_marker(world_pos, Color(1.0, 0.84, 0.0))
+
+
+func _select_all_zombies() -> void:
+	_deselect_all()
+	for z in get_tree().get_nodes_in_group("zombies"):
+		if z is Node2D:
+			selected_zombies.append(z)
+			if z.has_method("set_selected"):
+				z.set_selected(true)
 
 
 func _on_noise(pos: Vector2, _strength: float) -> void:
@@ -592,16 +617,11 @@ func _get_zombie_at_position(world_pos: Vector2) -> Node2D:
 	return null
 	
 
-func _show_ping(world_pos: Vector2) -> void:
+func _show_ping(world_pos: Vector2, ping_color: Color = Color.GREEN, max_radius: float = 48.0) -> void:
 	var ping := Node2D.new()
+	ping.set_script(preload("res://scripts/ping_visual.gd"))
 	ping.global_position = world_pos
 	ping.z_index = 50
+	ping.color = ping_color
+	ping.max_radius = max_radius
 	get_tree().current_scene.add_child(ping)
-
-	# Simple circle that fades out
-	var tween := get_tree().create_tween()
-	tween.tween_property(ping, "modulate:a", 0.0, 0.5)
-	tween.tween_callback(ping.queue_free)
-
-	# Draw a green circle
-	ping.set_script(preload("res://scripts/ping_visual.gd"))

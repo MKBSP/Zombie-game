@@ -46,7 +46,7 @@ const ST_SKITTISH := 4
 const ST_FLEE_POINT := 5
 # Toolbar buttons currently enabled — we turn commands on one at a time for
 # testing. "AggressiveButton" stays on as the reset-to-normal-chase command.
-const ENABLED_STANCES := ["AggressiveButton", "HoldButton"]
+const ENABLED_STANCES := ["AggressiveButton", "HoldButton", "FleePointButton"]
 var stance_panel: Control = null
 var _pending_stance: int = -1
 var _pending_points: Array[Vector2] = []

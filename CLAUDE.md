@@ -22,7 +22,16 @@ every file each session. Keep them current as part of your work.
 
 ## House rules
 - **No `Co-Authored-By` / Claude attribution in commit messages.**
-- Don't commit or push unless asked.
+- **NEVER `git push` to any remote — only Mads pushes to GitHub, ever, even if
+  asked or if his own push failed. If a push is needed, print the command for
+  him to run; do not run it.**
+- **All game-file edits go through the godot-ai MCP** (`script_patch`,
+  `script_create`, `node_*`, `scene_*`, `filesystem_manage`) so the real files in
+  this local folder are updated and the live editor stays in sync. The loop is:
+  AI edits via MCP → local folder updated → Mads playtests + edits in the Godot
+  editor → **Mads** pushes the folder's latest to GitHub. Never edit game files by
+  a path the editor won't see, and never push.
+- Don't commit unless asked.
 - After meaningful changes, add a line to CHANGELOG.md and update
   ARCHITECTURE.md / PROJECT.md if structure or status changed.
 

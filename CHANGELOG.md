@@ -4,6 +4,11 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 7 — RTS zombie experience (in progress)
+- Config + bodies: starting zombie count now lives in `Balance.WORLD.zombie_count`
+  (NPC count was already `Balance.WORLD.npc_count`); `world.gd` spawns that many.
+  Zombies + master now have a solid collision body vs each other
+  (`collision_mask` layer 2), so they can't pass through — toggled off during a
+  merge so units can still overlap to combine.
 - Minimap detail: now a discovered-world map. Cached terrain base (roads/sidewalks/
   grass/parking + buildings) dimmed by fog; discovered static features drawn where
   explored — trees (green) + other props (grey, new `props` group on the 5 prop

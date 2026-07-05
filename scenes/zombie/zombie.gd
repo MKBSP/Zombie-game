@@ -76,6 +76,7 @@ func _ready() -> void:
 	nav_agent.max_neighbors = sep.max_neighbors
 	nav_agent.time_horizon_agents = sep.time_horizon
 	nav_agent.velocity_computed.connect(_on_velocity_computed)
+	set_collision_mask_value(2, true)  # solid body vs other zombies (no pass-through)
 	await get_tree().physics_frame
 	nav_agent.target_position = global_position  # Stay put initially
 
@@ -251,6 +252,7 @@ func set_merging(value: bool, dest: Vector2 = Vector2.ZERO) -> void:
 	_merging = value
 	command_mode = false
 	nav_agent.avoidance_enabled = not value
+	set_collision_mask_value(2, not value)  # let merging zombies overlap to touch
 	if value:
 		_merge_target = dest
 		nav_agent.target_position = dest

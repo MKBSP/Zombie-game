@@ -150,7 +150,7 @@ const MERGE := {
 }
 
 # --- World -----------------------------------------------------------------
-const WORLD := { npc_count = 5, fog_enabled = true }
+const WORLD := { zombie_count = 5, npc_count = 5, fog_enabled = true }
 
 # --- Loot boxes ------------------------------------------------------------
 # box_count crates scatter on walkable tiles. Each box rolls an item count

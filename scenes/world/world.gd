@@ -19,6 +19,7 @@ var pickup_scene := preload("res://scenes/pickup/pickup.tscn")
 var loot_box_scene := preload("res://scenes/loot_box/loot_box.tscn")
 
 # From Balance.WORLD (assigned in _ready).
+var zombie_count: int
 var npc_count: int
 ## Testing switch: skip the fog-of-war overlay entirely.
 var fog_enabled: bool
@@ -29,6 +30,7 @@ var master_zombie: CharacterBody2D = null
 var _client_ready: bool = false
 
 func _ready() -> void:
+	zombie_count = Balance.WORLD.zombie_count
 	npc_count = Balance.WORLD.npc_count
 	fog_enabled = Balance.WORLD.fog_enabled
 	# Shared seed so static scenery (props) looks identical on both peers.
@@ -133,7 +135,7 @@ func _spawn_standard_zombies() -> void:
 	var master_tile := ground_layer.local_to_map(master_zombie.global_position)
 	var spawned := 0
 	var attempts := 0
-	while spawned < 5 and attempts < 100:
+	while spawned < zombie_count and attempts < zombie_count * 40 + 100:
 		var offset := Vector2i(randi_range(-5, 5), randi_range(-5, 5))
 		var candidate := master_tile + offset
 		var tile := _find_clear_road_tile_near(candidate)

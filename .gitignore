@@ -5,3 +5,4 @@
 # Screen recordings / video captures
 *.mov
 *.mp4
+.DS_Store

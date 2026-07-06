@@ -72,6 +72,8 @@ func _on_entity_spawned(node: Node) -> void:
 		master_zombie = node
 		if _client_ready:
 			hud.master_zombie = master_zombie
+		if GameState.role == GameState.Role.ZOMBIE:
+			zc_camera.global_position = master_zombie.global_position
 	if not _client_ready and shooter != null:
 		_client_ready = true
 		hud.setup(shooter, master_zombie)
@@ -95,6 +97,8 @@ func _apply_role() -> void:
 		hud.visible = false
 		zc_node.activate()
 		zc_camera.make_current()
+		if is_instance_valid(master_zombie):
+			zc_camera.global_position = master_zombie.global_position
 		aim_cursor.teardown()
 
 
@@ -133,20 +137,41 @@ func _spawn_master_zombie() -> void:
 
 func _spawn_standard_zombies() -> void:
 	var master_tile := ground_layer.local_to_map(master_zombie.global_position)
+	var used: Array[Vector2i] = []
 	var spawned := 0
 	var attempts := 0
-	while spawned < zombie_count and attempts < zombie_count * 40 + 100:
-		var offset := Vector2i(randi_range(-5, 5), randi_range(-5, 5))
-		var candidate := master_tile + offset
-		var tile := _find_clear_road_tile_near(candidate)
-		if tile != Vector2i(-1, -1):
-			var z := zombie_scene.instantiate()
-			z.global_position = ground_layer.map_to_local(tile)
-			entities.add_child(z, true)
-			z.set_target(shooter)
-			z.zombie_died.connect(_on_zombie_died)
-			spawned += 1
+	while spawned < zombie_count and attempts < zombie_count * 60 + 200:
 		attempts += 1
+		var offset := Vector2i(randi_range(-6, 6), randi_range(-6, 6))
+		var tile := _find_clear_walkable_tile_near(master_tile + offset, used)
+		if tile == Vector2i(-1, -1):
+			continue
+		used.append(tile)  # one zombie per tile so solid bodies don't wedge
+		var z := zombie_scene.instantiate()
+		z.global_position = ground_layer.map_to_local(tile)
+		entities.add_child(z, true)
+		z.set_target(shooter)
+		z.zombie_died.connect(_on_zombie_died)
+		spawned += 1
+
+
+## A walkable, in-bounds tile near `target`, clear of buildings and not already
+## used. get_cell_tile_data returns null off-map, so off-map tiles are skipped.
+func _find_clear_walkable_tile_near(target: Vector2i, used: Array) -> Vector2i:
+	var walkable: Array[String] = ["road", "sidewalk", "grass", "parking"]
+	for radius in range(0, 15):
+		for dx in range(-radius, radius + 1):
+			for dy in range(-radius, radius + 1):
+				var coords := target + Vector2i(dx, dy)
+				if coords in used:
+					continue
+				var td: TileData = ground_layer.get_cell_tile_data(coords)
+				if td == null or not td.get_custom_data("tile_type") in walkable:
+					continue
+				if building_layer.get_cell_tile_data(coords) != null:
+					continue
+				return coords
+	return Vector2i(-1, -1)
 
 func _spawn_npcs() -> void:
 	var walkable: Array[String] = ["road", "sidewalk", "grass", "parking"]

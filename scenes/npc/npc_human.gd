@@ -98,6 +98,8 @@ func _ready() -> void:
 		nav_agent.max_neighbors = sep.max_neighbors
 		nav_agent.time_horizon_agents = sep.time_horizon
 		nav_agent.velocity_computed.connect(_on_velocity_computed)
+		set_collision_mask_value(2, true)  # solid body vs zombies
+		set_collision_mask_value(4, true)  # solid body vs other NPCs
 		conversion_zone.body_entered.connect(_on_zone_body_entered)
 		npc_shoot_cooldown.timeout.connect(_on_npc_shoot_cooldown_timeout)
 		# Short randomized first wait so NPCs don't all move at once

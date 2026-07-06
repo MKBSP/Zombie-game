@@ -66,6 +66,13 @@ func _ready() -> void:
 	if fog_rect and fog_rect.material is ShaderMaterial:
 		var mat: ShaderMaterial = fog_rect.material as ShaderMaterial
 		mat.set_shader_parameter("visibility_tex", fog_texture)
+	if fog_rect:
+		# A TextureRect with no texture draws nothing, so the fog shader never
+		# runs. Give it the fog texture (the shader overrides COLOR anyway) and
+		# put it above the entities so unexplored areas actually go dark.
+		fog_rect.texture = fog_texture
+		fog_rect.stretch_mode = TextureRect.STRETCH_SCALE
+		fog_rect.z_index = 100
 
 	# Minimap (runtime child of ZCOverlay so it inherits zombie-only visibility).
 	var MinimapScript = load("res://scripts/minimap.gd")

@@ -4,11 +4,22 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 7 — RTS zombie experience (in progress)
+- Spawn/camera fixes: the zombie-controller camera now starts centered on the
+  master zombie (was pinned to map center). Standard zombies spawn on distinct,
+  in-bounds, walkable tiles (`_find_clear_walkable_tile_near`, tracks used tiles)
+  so they no longer stack on one tile and wedge inside each other's new solid
+  bodies (the "stuck zombie" bug).
 - Config + bodies: starting zombie count now lives in `Balance.WORLD.zombie_count`
   (NPC count was already `Balance.WORLD.npc_count`); `world.gd` spawns that many.
-  Zombies + master now have a solid collision body vs each other
-  (`collision_mask` layer 2), so they can't pass through — toggled off during a
-  merge so units can still overlap to combine.
+  Zombies, master, and NPCs now have solid collision bodies vs each other and vs
+  the other type (`collision_mask` layers 2/4), so nothing passes through —
+  zombie-vs-zombie is toggled off during a merge so units can still overlap to
+  combine. (Zombie→NPC conversion still fires first: the convert zone (r20) is
+  bigger than the bodies.)
+- Fog fix: the zombie-view `ZCFogRect` had a shader material but no texture, so a
+  TextureRect with nothing to draw never ran the shader — the fog was invisible in
+  the world view (only the minimap, which reads the raw data, showed it). Gave the
+  rect the fog texture + `z_index=100` so unexplored areas darken over the map.
 - Minimap detail: now a discovered-world map. Cached terrain base (roads/sidewalks/
   grass/parking + buildings) dimmed by fog; discovered static features drawn where
   explored — trees (green) + other props (grey, new `props` group on the 5 prop

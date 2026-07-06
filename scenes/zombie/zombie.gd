@@ -77,6 +77,7 @@ func _ready() -> void:
 	nav_agent.time_horizon_agents = sep.time_horizon
 	nav_agent.velocity_computed.connect(_on_velocity_computed)
 	set_collision_mask_value(2, true)  # solid body vs other zombies (no pass-through)
+	set_collision_mask_value(4, true)  # ...and vs NPCs
 	await get_tree().physics_frame
 	nav_agent.target_position = global_position  # Stay put initially
 

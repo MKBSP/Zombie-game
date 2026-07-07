@@ -43,6 +43,7 @@ func _on_body_entered(body: Node2D) -> void:
 	if body.is_in_group("shooter"):
 		# Never hit the shooter (bullets spawn near its body)
 		return
+	var w := get_tree().current_scene
 	if body.is_in_group("zombies"):
 		# Center-mass crit: 4x when the shot's path threads the zombie's core.
 		var dmg := _damage_for_hit()
@@ -52,15 +53,23 @@ func _on_body_entered(body: Node2D) -> void:
 				shooter_ref.register_headshot()
 		if body.has_method("take_damage"):
 			body.take_damage(dmg)
+		if w.has_method("spawn_hit_fx"):
+			w.spawn_hit_fx(FxPresets.GREEN_BLOOD, global_position, direction)
 		queue_free()
 	elif body.is_in_group("npcs"):
-		# Deal damage to the NPC
+		# Deal damage to the NPC (humans bleed red)
 		if body.has_method("take_damage"):
 			body.take_damage(_damage_for_hit())
+		if w.has_method("spawn_hit_fx"):
+			w.spawn_hit_fx(FxPresets.RED_BLOOD, global_position, direction)
 		queue_free()
 	elif body is TileMapLayer:
-		# Hit a building or edge tile — despawn
+		# Hit a building or edge tile — sparks + despawn
+		if w.has_method("spawn_hit_fx"):
+			w.spawn_hit_fx(FxPresets.SPARKS, global_position, -direction)
 		queue_free()
 	elif body is StaticBody2D:
-		# Hit a prop (car, fence, etc.) — despawn
+		# Hit a prop (car, fence, etc.) — sparks + despawn
+		if w.has_method("spawn_hit_fx"):
+			w.spawn_hit_fx(FxPresets.SPARKS, global_position, -direction)
 		queue_free()

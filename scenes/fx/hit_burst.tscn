@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://c06ufxvii0yv4"]
+
+[ext_resource type="Script" path="res://scenes/fx/hit_burst.gd" id="1_upcn8"]
+
+[node name="HitBurst" type="CPUParticles2D" unique_id=252124258]
+script = ExtResource("1_upcn8")

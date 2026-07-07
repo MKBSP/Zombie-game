@@ -14,6 +14,7 @@ extends CharacterBody2D
 signal converted(zombie: Node2D)
 
 const ZOMBIE_SCENE := preload("res://scenes/zombie/zombie.tscn")
+const MUZZLE_FLASH_SCENE := preload("res://scenes/fx/muzzle_flash.tscn")
 
 # All tuning comes from Balance.NPC (assigned in _ready).
 var speed: float
@@ -316,6 +317,7 @@ func _process_shooting(delta: float) -> void:
 	var coeff: float = AimModel.spread_coeff(w, debuff, 0.0)
 	var radius: float = coeff * origin.distance_to(cursor)
 	Weapons.fire(get_parent(), origin, cursor, radius, w)
+	_npc_muzzle_fx.rpc(origin, base_angle)
 
 	# Per-shot recoil kick (decays over recover-factor x damage-units seconds).
 	var dmg_units: float = (w.damage * w.pellets) / Balance.NPC.dmg_ref
@@ -333,6 +335,16 @@ func _process_shooting(delta: float) -> void:
 		npc_shoot_cooldown.start(w.reload_time)
 	else:
 		npc_shoot_cooldown.start(maxf(w.cooldown, Balance.NPC.min_shot_interval))
+
+
+## Per-shot muzzle flash + small light pulse at the NPC's muzzle, on every peer.
+@rpc("authority", "call_local", "unreliable")
+func _npc_muzzle_fx(origin: Vector2, angle: float) -> void:
+	var flash := MUZZLE_FLASH_SCENE.instantiate()
+	add_child(flash)
+	flash.global_position = origin
+	flash.global_rotation = angle
+	flash.play(Balance.FX.muzzle_npc_light_energy)
 
 
 func _on_npc_shoot_cooldown_timeout() -> void:

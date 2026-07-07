@@ -1,0 +1,18 @@
+[gd_scene format=3 uid="uid://v1oana1h80wc"]
+
+[ext_resource type="Script" uid="uid://ce580uuq8kmgo" path="res://scenes/fx/muzzle_flash.gd" id="1_w7s2e"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_mvxjv"]
+blend_mode = 1
+
+[node name="MuzzleFlash" type="Node2D" unique_id=1054277322]
+script = ExtResource("1_w7s2e")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1975862604]
+modulate = Color(1, 0.9, 0.5, 1)
+material = SubResource("CanvasItemMaterial_mvxjv")
+position = Vector2(10, 0)
+
+[node name="PointLight2D" type="PointLight2D" parent="." unique_id=1447652421]
+color = Color(1, 0.85, 0.5, 1)
+energy = 0.0

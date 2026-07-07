@@ -10,6 +10,10 @@ extends Node2D
 @onready var entities: Node2D = $Entities
 @onready var merge_manager: MergeManager = $MergeManager
 @onready var aim_cursor: Control = $HUDLayer/AimCursor
+@onready var _effects: Node2D = $Effects
+@onready var _blood_canvas: BloodCanvas = $BloodCanvas
+
+const HIT_BURST_SCENE: PackedScene = preload("res://scenes/fx/hit_burst.tscn")
 
 var shooter_scene := preload("res://scenes/shooter/shooter.tscn")
 var zombie_scene := preload("res://scenes/zombie/zombie.tscn")
@@ -39,6 +43,7 @@ func _ready() -> void:
 		seed(GameState.world_seed)
 	_create_grid()
 	prop_scatter.scatter()
+	_setup_blood_canvas()
 
 	if multiplayer.is_server():
 		# Server (also single player): spawn and simulate everything.
@@ -328,6 +333,32 @@ func emit_noise(world_pos: Vector2, strength: float) -> void:
 @rpc("authority", "call_local", "reliable")
 func rpc_noise_event(world_pos: Vector2, strength: float) -> void:
 	noise_event.emit(world_pos, strength)
+
+## Server entry point for a cosmetic hit burst; replicates to every peer.
+func spawn_hit_fx(preset: int, pos: Vector2, dir: Vector2) -> void:
+	if not multiplayer.is_server():
+		return
+	rpc_spawn_hit_fx.rpc(preset, pos, dir)
+
+@rpc("authority", "call_local", "unreliable")
+func rpc_spawn_hit_fx(preset: int, pos: Vector2, dir: Vector2) -> void:
+	var burst := HIT_BURST_SCENE.instantiate()
+	_effects.add_child(burst)
+	burst.global_position = pos
+	burst.play(preset, dir)
+
+## Size the permanent blood-trail canvas to the ground bounds. Runs on every
+## peer so each accumulates an identical trail from the server-authored drips.
+func _setup_blood_canvas() -> void:
+	var used: Rect2i = ground_layer.get_used_rect()
+	var ts: Vector2i = ground_layer.tile_set.tile_size
+	var origin: Vector2 = ground_layer.to_global(ground_layer.map_to_local(used.position)) - Vector2(ts) * 0.5
+	var size_px := Vector2(used.size.x * ts.x, used.size.y * ts.y)
+	_blood_canvas.setup(origin, size_px)
+
+@rpc("authority", "call_local", "unreliable")
+func rpc_bleed_drop(world_pos: Vector2) -> void:
+	_blood_canvas.stamp(world_pos)
 
 @rpc("any_peer", "call_local", "reliable")
 func rpc_set_combat(zombie_names: Array, combat: int) -> void:

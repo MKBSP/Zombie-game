@@ -339,6 +339,10 @@ func _check_contact_damage(delta: float) -> void:
 	if CombatMath.can_attack(distance, _attack_range(), _attack_cooldown):
 		if target.has_method("take_damage"):
 			target.take_damage(damage_per_hit)
+			var w := get_tree().current_scene
+			if w.has_method("spawn_hit_fx"):
+				var dir := (target.global_position - global_position).normalized()
+				w.spawn_hit_fx(FxPresets.RED_BLOOD, target.global_position, dir)
 		_attack_cooldown = attack_interval
 		_lunge_toward(target.global_position)
 

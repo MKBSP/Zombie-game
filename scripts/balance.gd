@@ -213,3 +213,25 @@ const FOG_ZC := {
 	grid_w = 47, grid_h = 47,
 	vis_unexplored = 0.0, vis_explored = 0.35, vis_visible = 1.0,
 }
+
+# --- Combat juice / effects (all cosmetic; no gameplay impact) --------------
+const FX := {
+	# One-shot hit bursts (CPUParticles2D). Colors are Color(r,g,b).
+	presets = {
+		"red_blood":   { color = Color(0.65, 0.02, 0.02), amount = 14, lifetime = 0.42, spread_deg = 55.0, vel_min = 60.0, vel_max = 180.0, scale_min = 2.0, scale_max = 4.0, gravity = 220.0 },
+		"green_blood": { color = Color(0.20, 0.75, 0.10), amount = 14, lifetime = 0.42, spread_deg = 55.0, vel_min = 60.0, vel_max = 180.0, scale_min = 2.0, scale_max = 4.0, gravity = 220.0 },
+		"sparks":      { color = Color(1.0, 0.85, 0.35),  amount = 10, lifetime = 0.20, spread_deg = 40.0, vel_min = 140.0, vel_max = 320.0, scale_min = 1.0, scale_max = 2.0, gravity = 40.0 },
+	},
+	# Muzzle flash: brief additive sprite + PointLight2D pulse at the gun tip.
+	muzzle_flash_time = 0.06,        # seconds the flash + light stay up
+	muzzle_light_energy = 1.6,       # player light pulse energy
+	muzzle_light_range_px = 130.0,   # player light radius
+	muzzle_npc_light_energy = 0.8,   # NPCs get a smaller pulse
+	muzzle_flash_scale = 0.6,
+	# Player bleed trail (baked, permanent).
+	bleed_seconds = 6.0,             # bleeding window, refreshed on each hit
+	bleed_drip_px = 26.0,            # emit one drop per this much travel
+	bleed_drop_radius_px = 3.0,      # stamp radius on the canvas, world px
+	bleed_color = Color(0.45, 0.02, 0.02, 0.85),
+	canvas_downscale = 1,            # 1 = world-res canvas (crisp); raise to save memory
+}

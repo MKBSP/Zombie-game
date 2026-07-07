@@ -4,6 +4,22 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 7 — RTS zombie experience (in progress)
+- Combat juice / effects (cosmetic, server-authored, replicated via `call_local`
+  RPCs like `rpc_noise_event`; all tuning in `Balance.FX`):
+  - Green blood bursts when the shooter hits a zombie (bullet or melee); red
+    blood when a zombie bites the player/an NPC or when an NPC is shot; sparks
+    when a bullet hits a wall or prop. One reusable `scenes/fx/hit_burst.tscn`
+    (`CPUParticles2D`) covers all three via `FxPresets` presets; the world's
+    `spawn_hit_fx()` spawns them under a non-replicated `Effects` node.
+  - Permanent player bleed trail: once wounded, the player drips blood while
+    moving (server emits a drop every `bleed_drip_px` of travel during a
+    `bleed_seconds` window that refreshes on each hit). Drops bake into one
+    world-sized `BloodCanvas` image (`scripts/blood_canvas.gd`, same technique
+    as the fog texture) — never fades, one draw call. `DecalMath` maps world→
+    pixel (unit-tested).
+  - Per-shot muzzle flash + brief light pulse at the gun tip for the player and
+    armed NPCs (`scenes/fx/muzzle_flash.tscn`; radial texture generated at
+    runtime via `ShooterLighting`, no new asset).
 - Spawn/camera fixes: the zombie-controller camera now starts centered on the
   master zombie (was pinned to map center). Standard zombies spawn on distinct,
   in-bounds, walkable tiles (`_find_clear_walkable_tile_near`, tracks used tiles)

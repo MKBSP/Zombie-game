@@ -17,6 +17,10 @@ var controls_enabled: bool = true
 var can_shoot: bool = true
 var is_dead: bool = false
 var _damage_accumulator: float = 0.0
+# Bleed-trail state (server-authored): while bleeding and moving, drip blood.
+var _bleeding_until: float = 0.0
+var _last_drip_pos: Vector2 = Vector2.ZERO
+var _drip_inited: bool = false
 
 # --- Weapon / ammo state (server-authoritative, synced for the HUD) ---
 ## Currently drawn weapon: Weapons.PISTOL, or held_special/held_melee when out.
@@ -79,6 +83,8 @@ var PISTOL_DMG_REF: float
 @onready var _weapon_sprite: Sprite2D = $WeaponSprite
 @onready var shoot_cooldown: Timer = $ShootCooldown
 @onready var reload_timer: Timer = $ReloadTimer
+
+const MUZZLE_FLASH_SCENE: PackedScene = preload("res://scenes/fx/muzzle_flash.tscn")
 
 # --- Signals ---
 signal hp_changed(new_hp: int)
@@ -175,6 +181,8 @@ func _physics_process(delta: float) -> void:
 	if _net_aim_target != global_position:
 		rotation = (_net_aim_target - global_position).angle()
 
+	_maybe_drip()
+
 	_update_recoil(delta)
 	_update_focus(delta)
 	var target_coeff := AimModel.spread_coeff(_active_weapon(), _debuff_total(), _focus_fraction())
@@ -261,6 +269,7 @@ func shoot() -> void:
 	var dist := gun_tip.global_position.distance_to(cursor)
 	var radius := aim_spread_coeff * dist
 	Weapons.fire(parent, gun_tip.global_position, cursor, radius, w, self)
+	_muzzle_fx.rpc()
 
 	var w_scene := get_tree().current_scene
 	if w_scene.has_method("emit_noise"):
@@ -326,6 +335,9 @@ func _swing() -> void:
 			if Melee.forward_strike(global_position, facing, Balance.MELEE.range_px, Balance.MELEE.half_width_px, z.global_position):
 				z.take_damage(dmg)
 				hit = true
+				var w := get_tree().current_scene
+				if w.has_method("spawn_hit_fx"):
+					w.spawn_hit_fx(FxPresets.GREEN_BLOOD, z.global_position, facing)
 	if hit:
 		_melee_hits.append(now)
 		while not _melee_hits.is_empty() and now - _melee_hits[0] > Balance.MELEE.fatigue_recover:
@@ -335,6 +347,14 @@ func _swing() -> void:
 
 
 ## Brief swing flash on every peer (placeholder until weapon visuals, Phase 5).
+## Per-shot muzzle flash + brief light pulse at the gun tip, on every peer.
+@rpc("authority", "call_local", "unreliable")
+func _muzzle_fx() -> void:
+	var flash := MUZZLE_FLASH_SCENE.instantiate()
+	gun_tip.add_child(flash)
+	flash.play(Balance.FX.muzzle_light_energy)
+
+
 @rpc("authority", "call_local", "unreliable")
 func _swing_fx() -> void:
 	var spr := get_node_or_null("Sprite2D")
@@ -503,8 +523,29 @@ func take_damage(amount: float) -> void:
 	if whole_damage >= 1:
 		_damage_accumulator -= whole_damage
 		hp = max(hp - whole_damage, 0)  # setter emits hp_changed
+		# Start/refresh the bleeding window so the player drips a lasting trail.
+		_bleeding_until = (Time.get_ticks_msec() / 1000.0) + Balance.FX.bleed_seconds
 		if hp <= 0:
 			die()
+
+
+## Server-side: while bleeding and moving, emit a permanent blood drop every
+## Balance.FX.bleed_drip_px of travel. Replicated to all peers via the world.
+func _maybe_drip() -> void:
+	if is_dead:
+		return
+	var now: float = Time.get_ticks_msec() / 1000.0
+	if now >= _bleeding_until:
+		return
+	if not _drip_inited:
+		_last_drip_pos = global_position
+		_drip_inited = true
+		return
+	if global_position.distance_to(_last_drip_pos) >= Balance.FX.bleed_drip_px:
+		_last_drip_pos = global_position
+		var w := get_tree().current_scene
+		if w.has_method("rpc_bleed_drop"):
+			w.rpc_bleed_drop.rpc(global_position)
 
 
 func die() -> void:

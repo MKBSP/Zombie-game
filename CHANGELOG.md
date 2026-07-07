@@ -4,6 +4,27 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 7 — RTS zombie experience (in progress)
+- Online co-op — up to 5 players per match: **1 zombie commander (required) +
+  1–4 shooters**. Generalizes the old 2-player (1 human + 1 zombie) stack:
+  - Lobby now tracks one zombie slot + a list of shooter peers (`network.gd`,
+    capacity 5). The **host** presses Start (valid once a zombie and ≥1 shooter
+    are present); matches no longer auto-start. New role logic is a pure,
+    unit-tested helper (`scripts/lobby_model.gd`); a refused role-claim keeps the
+    player's current slot. Lobby UI shows a shooter roster and a host-only Start
+    button.
+  - `world.gd` spawns one shooter per peer, each with its own
+    `set_multiplayer_authority(peer)`; `shooter.gd` gates input on
+    `is_multiplayer_authority()` and the server validates the RPC sender so a
+    client can only drive its own shooter. Shooters spawn on random walkable
+    tiles kept clear of the zombie spawn (`Balance.SHOOTER.min_dist_from_zombie_px`)
+    and spaced from each other. Zombies/NPCs target the nearest living shooter
+    (`nearest_shooter()` + pure `scripts/shooter_select.gd`, unit-tested).
+  - Death & win/lose: a dead shooter becomes a **spectator** (server hands its
+    camera to a living ally via RPC; a non-pausing "YOU DIED — spectating"
+    banner). The **zombie wins** when all shooters are dead; the **shooters win**
+    when the master zombie dies. Mid-match disconnects are handled server-side.
+  - **Friendly fire is on**: a player's bullet damages other shooters (never the
+    firer); NPC bullets still never hit shooters.
 - Combat juice / effects (cosmetic, server-authored, replicated via `call_local`
   RPCs like `rpc_noise_event`; all tuning in `Balance.FX`):
   - Green blood bursts when the shooter hits a zombie (bullet or melee); red

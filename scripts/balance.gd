@@ -23,6 +23,10 @@ const SHOOTER := {
 	debuff_running = 0.20,        # aim spread while moving
 	debuff_hurt = 0.40,           # aim spread below injured_hp_frac hp
 	debuff_injured = 0.20,        # aim spread when below max hp but not badly hurt
+	# Multiplayer spawn placement: keep shooters away from the zombie spawn and
+	# from each other (pixels; 64px = 1 tile).
+	min_dist_from_zombie_px = 768.0,
+	min_dist_from_shooter_px = 256.0,
 }
 
 # --- Zombies (variant chosen by group in zombie.gd) ------------------------

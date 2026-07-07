@@ -196,16 +196,27 @@ static func remove(state: Dictionary, peer: int) -> Dictionary:
 	s["shooters"].erase(peer)
 	return s
 
-## Release `peer`'s current slot, then grant the requested role if available.
+## Grant the requested role if available, releasing whatever slot `peer` already
+## held. A refused claim (role taken / shooters full) is a no-op: the player
+## keeps its current slot rather than being dropped. (Corrected during execution —
+## the original release-first-always version dropped players on a refused claim.)
 static func claim(state: Dictionary, peer: int, role: int, max_shooters: int) -> Dictionary:
-	var s := remove(state, peer)
 	if role == ROLE_ZOMBIE:
-		if s["zombie"] == 0:
-			s["zombie"] = peer
+		if state.get("zombie", 0) == peer:
+			return _copy(state)  # already zombie — idempotent
+		if int(state.get("zombie", 0)) != 0:
+			return _copy(state)  # taken by someone else — refuse, keep current slot
+		var s := remove(state, peer)  # release old shooter slot, take zombie
+		s["zombie"] = peer
+		return s
 	else:  # ROLE_HUMAN / shooter
-		if peer not in s["shooters"] and s["shooters"].size() < max_shooters:
-			s["shooters"].append(peer)
-	return s
+		if peer in (state.get("shooters", []) as Array):
+			return _copy(state)  # already a shooter — idempotent
+		if (state.get("shooters", []) as Array).size() >= max_shooters:
+			return _copy(state)  # full — refuse, keep current slot
+		var s := remove(state, peer)  # release old zombie slot, take shooter
+		s["shooters"].append(peer)
+		return s
 
 ## The host may start only with a zombie and at least one shooter.
 static func can_start(state: Dictionary) -> bool:

@@ -17,3 +17,8 @@ var is_dedicated_server: bool = false
 
 ## RNG seed shared by both peers so scenery (props) matches visually.
 var world_seed: int = 0
+
+## Peer ids assigned to the shooter role for the current match, set by Net on
+## the server just before the world loads. Read by world.gd to spawn one shooter
+## per peer with the correct multiplayer authority.
+var shooter_peers: Array[int] = []

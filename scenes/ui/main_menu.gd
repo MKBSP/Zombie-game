@@ -69,6 +69,7 @@ func _ready() -> void:
 
 	lobby_human_button.pressed.connect(func(): Net.request_role(GameState.Role.HUMAN))
 	lobby_zombie_button.pressed.connect(func(): Net.request_role(GameState.Role.ZOMBIE))
+	start_button.pressed.connect(func(): Net.request_start())
 
 	Net.connected_to_server.connect(_on_connected_to_server)
 	Net.connection_failed.connect(_on_connection_failed)
@@ -187,15 +188,36 @@ func _on_room_error(message: String) -> void:
 		mp_status.text = message
 
 
-func _on_lobby_updated(human_peer: int, zombie_peer: int) -> void:
+func _on_lobby_updated(zombie_peer: int, shooter_peers: Array, host_peer: int) -> void:
 	var me := multiplayer.get_unique_id()
-	_style_role_button(lobby_human_button, "HUMAN", human_peer, me)
+	# The shooter button represents claiming a shooter slot (up to 4 can hold it).
+	var i_am_shooter := me in shooter_peers
+	_style_shooter_button(lobby_human_button, shooter_peers.size(), i_am_shooter)
 	_style_role_button(lobby_zombie_button, "ZOMBIE", zombie_peer, me)
-	var filled := int(human_peer != 0) + int(zombie_peer != 0)
-	if filled < 2:
-		lobby_status.text = "Code %s  —  pick a role, waiting for both players (%d/2)..." % [_room_code, filled]
+
+	var can_start := zombie_peer != 0 and not shooter_peers.is_empty()
+	var is_host := me == host_peer
+	start_button.visible = is_host
+	start_button.disabled = not can_start
+
+	var zlabel := "zombie ✓" if zombie_peer != 0 else "no zombie"
+	var tail := ""
+	if is_host:
+		tail = "  Host: press Start." if can_start else "  Waiting for a zombie + a shooter…"
 	else:
-		lobby_status.text = "Both ready — starting!"
+		tail = "  Waiting for the host to start…"
+	lobby_status.text = "Code %s  —  shooters %d/4, %s.%s" % [_room_code, shooter_peers.size(), zlabel, tail]
+
+
+## The shooter slot is shared (up to 4). Show count and whether you hold one.
+func _style_shooter_button(btn: Button, count: int, mine: bool) -> void:
+	if mine:
+		btn.text = "SHOOTER  ✓ (you)  %d/4" % count
+		btn.modulate = Color(0.5, 1.5, 0.5)
+	else:
+		btn.text = "Join as SHOOTER  %d/4" % count
+		btn.modulate = Color.WHITE
+	btn.disabled = (not mine) and count >= 4
 
 
 ## Reflect a role's availability: claimed-by-you, taken, or free.

@@ -49,8 +49,8 @@ func nearest_shooter(from: Vector2) -> Node:
 	return shooters[idx] if idx >= 0 else null
 
 func _ready() -> void:
-	zombie_count = Balance.WORLD.zombie_count
-	npc_count = Balance.WORLD.npc_count
+	# zombie_count / npc_count are computed from the shooter count on the server
+	# (see _apply_population_scaling), after shooters spawn.
 	fog_enabled = Balance.WORLD.fog_enabled
 	# Shared seed so static scenery (props) looks identical on both peers.
 	# Must run BEFORE any other RNG use so both peers consume it in step.
@@ -65,6 +65,7 @@ func _ready() -> void:
 		# Master spawns first so _spawn_shooters() can keep shooters clear of it.
 		_spawn_master_zombie()
 		_spawn_shooters()
+		_apply_population_scaling()
 		_spawn_standard_zombies()
 		_spawn_npcs()
 		_spawn_loot_boxes()
@@ -213,6 +214,15 @@ func _spawn_master_zombie() -> void:
 	# Shooters don't exist yet at master-spawn time; _spawn_shooters() gives the
 	# master its initial target once they're placed.
 	master_zombie.master_zombie_died.connect(_on_master_zombie_died)
+
+## Scale enemy/NPC counts to the number of shooter players. Normal zombies grow
+## by zombies_per_extra_shooter for each shooter beyond the first; NPCs are
+## npc_per_player for every player, counting the zombie commander (shooters + 1).
+func _apply_population_scaling() -> void:
+	var n := shooters.size()
+	zombie_count = Balance.WORLD.base_zombie_count + Balance.WORLD.zombies_per_extra_shooter * (n - 1)
+	npc_count = Balance.WORLD.npc_per_player * (n + 1)
+
 
 func _spawn_standard_zombies() -> void:
 	var master_tile := ground_layer.local_to_map(master_zombie.global_position)

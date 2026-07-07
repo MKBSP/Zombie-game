@@ -25,6 +25,11 @@ here as part of finishing any meaningful change.
     when the master zombie dies. Mid-match disconnects are handled server-side.
   - **Friendly fire is on**: a player's bullet damages other shooters (never the
     firer); NPC bullets still never hit shooters.
+  - Population scales with shooter count (`world.gd::_apply_population_scaling`,
+    tuned in `Balance.WORLD`): normal zombies = `base_zombie_count +
+    zombies_per_extra_shooter * (shooters - 1)` (15 / 20 / 25 / 30 for 1–4
+    shooters, plus the master); NPCs = `npc_per_player * (shooters + 1)` — 5 per
+    player counting the zombie commander (e.g. 3 shooters + zombie = 20 NPCs).
 - Combat juice / effects (cosmetic, server-authored, replicated via `call_local`
   RPCs like `rpc_noise_event`; all tuning in `Balance.FX`):
   - Green blood bursts when the shooter hits a zombie (bullet or melee); red

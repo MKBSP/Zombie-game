@@ -154,7 +154,16 @@ const MERGE := {
 }
 
 # --- World -----------------------------------------------------------------
-const WORLD := { zombie_count = 5, npc_count = 5, fog_enabled = true }
+# Enemy / NPC counts scale with the number of shooter players (computed in
+# world.gd from the spawned shooter count):
+#   normal zombies = base_zombie_count + zombies_per_extra_shooter * (shooters - 1)
+#   NPCs           = npc_per_player * (shooters + 1)   # +1 counts the zombie player
+const WORLD := {
+	base_zombie_count = 15,
+	zombies_per_extra_shooter = 5,
+	npc_per_player = 5,
+	fog_enabled = true,
+}
 
 # --- Loot boxes ------------------------------------------------------------
 # box_count crates scatter on walkable tiles. Each box rolls an item count

@@ -114,7 +114,7 @@ func _ready() -> void:
 ## the input to the server. With call_local, solo and host-as-human use the
 ## exact same path.
 func _process(_delta: float) -> void:
-	if not controls_enabled or is_dead:
+	if not is_multiplayer_authority() or not controls_enabled or is_dead:
 		return
 	var input_dir := Vector2(
 		Input.get_axis("move_left", "move_right"),
@@ -147,6 +147,8 @@ func _process(_delta: float) -> void:
 func _send_input(dir: Vector2, aim_target: Vector2, shooting: bool, focus: bool) -> void:
 	if not multiplayer.is_server():
 		return
+	if multiplayer.get_remote_sender_id() != get_multiplayer_authority():
+		return  # ignore input aimed at a shooter this peer doesn't own
 	_net_dir = dir.limit_length(1.0)
 	_net_aim_target = aim_target
 	_net_shooting = shooting
@@ -155,19 +157,19 @@ func _send_input(dir: Vector2, aim_target: Vector2, shooting: bool, focus: bool)
 
 @rpc("any_peer", "call_local", "reliable")
 func _action_select(slot: int) -> void:
-	if multiplayer.is_server():
+	if multiplayer.is_server() and multiplayer.get_remote_sender_id() == get_multiplayer_authority():
 		_select_slot(slot)
 
 
 @rpc("any_peer", "call_local", "reliable")
 func _action_drop() -> void:
-	if multiplayer.is_server():
+	if multiplayer.is_server() and multiplayer.get_remote_sender_id() == get_multiplayer_authority():
 		_drop_equipped()
 
 
 @rpc("any_peer", "call_local", "reliable")
 func _action_interact() -> void:
-	if multiplayer.is_server():
+	if multiplayer.is_server() and multiplayer.get_remote_sender_id() == get_multiplayer_authority():
 		_interact()
 
 
@@ -552,3 +554,9 @@ func die() -> void:
 	is_dead = true
 	player_died.emit()
 	# Don't queue_free — we want the body to stay so the game over screen shows
+
+
+## Owning client only: stop driving this body (the world hands the view to a
+## spectator camera on a living ally).
+func enter_spectator() -> void:
+	controls_enabled = false

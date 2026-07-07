@@ -2,10 +2,10 @@
 
 ## What it is
 A top-down 2D zombie survival game built in **Godot 4.6.3**. Asymmetric
-multiplayer: one side plays the **human shooter** (with AI survivor NPCs that can
-be armed and recruited), the other controls **zombies** (with merging mechanics
-and variants). Built solo, iteratively, in numbered phases — each phase has a
-design spec + implementation plan in `docs/`.
+multiplayer for up to **5 players**: **1–4 co-op shooters** (with AI survivor NPCs
+that can be armed and recruited) versus **1 zombie commander** (with merging
+mechanics and variants). Built solo, iteratively, in numbered phases — each phase
+has a design spec + implementation plan in `docs/`.
 
 ## Current status (as of Phase 5)
 Single-player and **local multiplayer** both work; a dedicated server can be run
@@ -14,7 +14,11 @@ headless and deployed (see `DEPLOY.md` / Railway). Implemented:
 - ✅ Core loop: map, HUD, win/lose, props/scenery.
 - ✅ Zombie control + merging + variants (standard / fast / fat / master).
 - ✅ NPC survivors: hide, follow, shoot when armed, convert on contact.
-- ✅ Multiplayer: rooms, lobby, role select, sequential rematch reuse.
+- ✅ Multiplayer: rooms, lobby, role select, sequential rematch reuse. Online
+  co-op for up to 5 players (1 zombie + 1–4 shooters): host-controlled start,
+  per-shooter authority, friendly fire, random shooter spawns clear of the
+  zombie, dead-shooter spectate, and last-man / master-death win conditions
+  (Phase 7; owner multi-window playtest pending).
 - ✅ Shooting model: per-weapon spread, focus aim, range→damage falloff, visible
   aim cursor.
 - ✅ Headshots: center-mass crit zone, 4× range-scaled damage.
@@ -47,9 +51,10 @@ See [CHANGELOG.md](CHANGELOG.md) for the full phase history.
 
 ## Tests
 Headless unit tests live in `test/` (`test_aim_model`, `test_melee`,
-`test_npc_aim`, `test_weapon_visuals`) covering the pure-math helpers. Run via the
-godot-ai MCP `test_run`. Run them after touching aim, melee, NPC accuracy, or
-weapon-visual logic.
+`test_npc_aim`, `test_weapon_visuals`, `test_lobby_model`, `test_shooter_select`)
+covering the pure-logic helpers. Run via the godot-ai MCP `test_run`, or headless
+with the editor closed. Run them after touching aim, melee, NPC accuracy,
+weapon-visual, or lobby/shooter-selection logic.
 
 ## Tooling notes
 - The **godot-ai MCP** plugin (`addons/godot_ai/`) is installed for AI-driven
@@ -64,3 +69,11 @@ skittish flees on sight), health bars on both views, minimap terrain/blips/rippl
 and sound aggro. Known follow-up: stance/patrol/flee state is server-side, so the
 selection-drawer preview + stance glyph render correctly for a host zombie player
 or in single-player; client-side preview would need those fields replicated.
+
+**Online 5-player co-op (Phase 7) is code-complete with a clean boot; a
+multi-window owner playtest is pending** to confirm: lobby roster + host Start,
+each shooter driving only its own body, random spawns clear of the zombie,
+friendly fire, dead-shooter spectate (non-pausing banner + camera follows a
+living ally), and the win/lose conditions (zombie wins on wipe, shooters win on
+master death). Known visual follow-up: a spectator sees the match through the
+fog set up for their own (dead) shooter, not the ally they're watching.

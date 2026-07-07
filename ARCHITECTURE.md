@@ -2,7 +2,8 @@
 
 Top-down 2D survival game in **Godot 4.6.3** (GL Compatibility renderer).
 Authoritative-server multiplayer: one peer (or a dedicated headless server) runs
-the simulation; clients send input and render replicated state.
+the simulation; clients send input and render replicated state. A match is up to
+**5 players — 1 zombie commander (required) + 1–4 co-op shooters**.
 
 > `addons/godot_ai/` is the godot-ai MCP plugin — **tooling, not game code.**
 > Ignore it when reasoning about the game.
@@ -10,17 +11,24 @@ the simulation; clients send input and render replicated state.
 ## Boot flow
 `project.godot` → main scene `scenes/ui/main_menu.tscn`. The menu sets
 `GameState` (role, multiplayer flags, world seed) and asks `Net` to host/join.
-When a match starts, `scenes/world/world.tscn` (`world.gd`) loads and spawns the
-shooter, zombies, NPCs and items, then runs the authoritative loop.
+When a match starts, `scenes/world/world.tscn` (`world.gd`) loads and spawns one
+shooter per assigned peer (from `GameState.shooter_peers`), the zombies, NPCs and
+items, then runs the authoritative loop.
 
 ## Autoloads (singletons)
 Defined in `project.godot [autoload]`:
 - **GameState** (`scripts/game_state.gd`) — cross-scene state: `role`
-  (HUMAN/ZOMBIE), `multiplayer_active`, `is_dedicated_server`, `world_seed`.
-  Set by the menu, read by `world.gd` at match start.
+  (HUMAN=shooter / ZOMBIE=commander), `multiplayer_active`, `is_dedicated_server`,
+  `world_seed`, and `shooter_peers` (peer ids assigned to shooters, set by Net
+  before the world loads). Set by the menu/Net, read by `world.gd` at match start.
 - **Net** (`scripts/network.gd`) — multiplayer transport: rooms, lobby, role
-  claiming, rematch, dedicated `--server` mode. Emits `connected_to_server`,
-  `room_joined`, `lobby_updated`, `room_closed`, etc.
+  claiming, host-controlled start, rematch, dedicated `--server` mode. A room
+  holds one `_zombie_peer` + a `_shooter_peers` list (max 4; `MAX_MEMBERS` = 5).
+  The host calls `request_start()` once `LobbyModel.can_start()` (zombie + ≥1
+  shooter). Emits `connected_to_server`, `room_joined`,
+  `lobby_updated(zombie_peer, shooter_peers, host_peer)`, `room_closed`, etc.
+  Role claim/switch/capacity/start rules live in the pure, unit-tested
+  `LobbyModel` (`scripts/lobby_model.gd`).
 - **Balance** (`scripts/balance.gd`) — **single source of truth for all gameplay
   tuning** (player, zombie variants, NPC, weapons, melee, headshots, merging,
   fog, aim). Read as e.g. `Balance.ZOMBIE.speed`, `Balance.PISTOL.damage`.
@@ -29,7 +37,9 @@ Defined in `project.godot [autoload]`:
 ## Directory map
 ```
 scenes/            # Game scenes, each .tscn paired with its .gd
-  world/           # world.gd — authoritative spawn + match orchestration; fog draw
+  world/           # world.gd — authoritative spawn + match orchestration; fog
+                   #   draw; spawns one shooter/peer, nearest_shooter() targeting,
+                   #   dead-shooter spectate + co-op win/lose
   shooter/         # shooter.gd — player (CharacterBody2D): movement, inventory,
                    #   shooting, reload, melee swing, focus/recoil aim, HP/death
   zombie/          # zombie.gd + master_zombie.gd; variants: zombie/fast/fat/master.tscn
@@ -84,6 +94,10 @@ addons/godot_ai/   # MCP plugin — IGNORE
   enemy. **stance_logic.gd** (`StanceLogic`) — patrol-leg / arrival helpers.
   **minimap_math.gd** (`MinimapMath`) — world↔minimap mapping + `fuzz()`. All pure,
   unit-tested.
+- **lobby_model.gd** (`LobbyModel`) — pure role claim/switch/capacity/start rules
+  for the 1-zombie + up-to-4-shooter lobby (`test/test_lobby_model.gd`).
+  **shooter_select.gd** (`ShooterSelect`) — `nearest_alive_index()` for picking
+  the nearest living shooter (`test/test_shooter_select.gd`). Both pure.
 - **health_bar.gd** (`HealthBar`, Node2D) — upright health bar above zombies, shown
   when damaged or selected. **minimap.gd** — AoE-style minimap (terrain from fog,
   fog-aware enemy blips, ghost blips, under-attack pulse, gunshot ripple,

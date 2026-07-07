@@ -41,7 +41,17 @@ func _damage_for_hit() -> float:
 
 func _on_body_entered(body: Node2D) -> void:
 	if body.is_in_group("shooter"):
-		# Never hit the shooter (bullets spawn near its body)
+		# Never hit the firer (bullets spawn near its body). NPC-fired bullets
+		# (from_player == false) never hit shooters. Friendly fire applies only to
+		# another player's shot landing on a different shooter.
+		if body == shooter_ref or not from_player:
+			return
+		var w := get_tree().current_scene
+		if body.has_method("take_damage"):
+			body.take_damage(_damage_for_hit())
+		if w.has_method("spawn_hit_fx"):
+			w.spawn_hit_fx(FxPresets.RED_BLOOD, global_position, direction)
+		queue_free()
 		return
 	var w := get_tree().current_scene
 	if body.is_in_group("zombies"):

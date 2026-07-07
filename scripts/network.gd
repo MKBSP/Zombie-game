@@ -3,8 +3,10 @@ extends Node
 ## Autoload "Net" — online multiplayer over WebSocket with a dedicated,
 ## authoritative headless server (launched with --server). Players connect as
 ## clients, then either HOST a game (server makes a room + share code) or JOIN
-## one with that code. Inside a room each player picks Human/Zombie (the server
-## arbitrates) and the server starts the match. The server is NOT a player.
+## one with that code. Inside a room each player picks Shooter/Zombie (the server
+## arbitrates); the HOST presses Start to begin. The server is NOT a player.
+##
+## Up to 5 players per room: 1 zombie commander (required) + 1-4 co-op shooters.
 ##
 ## Single active game for now: the server hosts one room at a time. Concurrent
 ## lobbies / ranked matchmaking come later.
@@ -23,21 +25,25 @@ const PROD_SERVER_URL := "wss://zombie-game-production-2dad.up.railway.app"
 const CODE_CHARS := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 const CODE_LENGTH := 4
 
+const MAX_SHOOTERS := 4
+const MAX_MEMBERS := 5
+
 signal connected_to_server          # client: handshake complete
 signal connection_failed            # client: could not reach the server
 signal server_disconnected          # client: lost the server
 signal room_joined(code: String)    # client: now in a room (as host or joiner)
 signal room_error(message: String)  # client: host/join was refused
-## Lobby roster changed. Each arg is the peer id holding that role (0 = free).
-signal lobby_updated(human_peer: int, zombie_peer: int)
+## Lobby roster changed: the zombie peer (0 = free), the array of shooter peers,
+## and the host peer (members[0]) so only the host shows the Start button.
+signal lobby_updated(zombie_peer: int, shooter_peers: Array, host_peer: int)
 ## The room ended out from under this client (opponent left, etc.).
 signal room_closed(reason: String)
 
 # Server-only room state (single active room).
 var _room_code: String = ""
-var _members: Array[int] = []   # peers in the room (max 2); _members[0] is host
-var _human_peer: int = 0
+var _members: Array[int] = []   # peers in the room (max MAX_MEMBERS); _members[0] is host
 var _zombie_peer: int = 0
+var _shooter_peers: Array[int] = []
 var _match_started: bool = false
 var _match_over: bool = false   # match finished; players choosing rematch/quit
 
@@ -88,25 +94,23 @@ func _on_server_peer_disconnected(id: int) -> void:
 
 ## A member left (disconnect or explicit leave). End the session sensibly:
 ## an empty room closes; during or after a match any departure closes the room
-## and sends the other player home; in the lobby only the host leaving closes it
-## (a joiner leaving just frees their slot so the host can keep waiting).
+## and sends the others home; the zombie or the host leaving closes the room; a
+## shooter leaving in the lobby just frees their slot so the host can keep waiting.
 func _handle_member_left(id: int) -> void:
 	if id not in _members:
 		return
 	var was_host := _members[0] == id
+	var was_zombie := _zombie_peer == id
 	_members.erase(id)
-	if id == _human_peer:
-		_human_peer = 0
-	if id == _zombie_peer:
-		_zombie_peer = 0
+	_apply_lobby_state(LobbyModel.remove(_lobby_state(), id))
 	if _members.is_empty():
 		_close_room()
 		return
-	if _match_started or _match_over or was_host:
+	if _match_started or _match_over or was_host or was_zombie:
 		var remaining := _members.duplicate()
 		_close_room()
 		for m in remaining:
-			_room_closed.rpc_id(m, "The other player left.")
+			_room_closed.rpc_id(m, "The game ended (a required player left).")
 	else:
 		_broadcast_lobby()
 
@@ -122,8 +126,8 @@ func create_room() -> void:
 		return
 	_room_code = _gen_code()
 	_members = [sender]
-	_human_peer = 0
 	_zombie_peer = 0
+	_shooter_peers = []
 	_match_started = false
 	_match_over = false
 	print("[server] room created: %s (host=%d)" % [_room_code, sender])
@@ -144,17 +148,18 @@ func join_room(code: String) -> void:
 	if c != _room_code:
 		_room_error.rpc_id(sender, "No game found with code %s." % c)
 		return
-	if sender not in _members and _members.size() >= 2:
+	if sender not in _members and _members.size() >= MAX_MEMBERS:
 		_room_error.rpc_id(sender, "That game is full.")
 		return
 	if sender not in _members:
 		_members.append(sender)
-	print("[server] peer %d joined room %s (%d/2)" % [sender, _room_code, _members.size()])
+	print("[server] peer %d joined room %s (%d/%d)" % [sender, _room_code, _members.size(), MAX_MEMBERS])
 	_room_joined.rpc_id(sender, _room_code)
 	_broadcast_lobby()
 
 
-## Client -> server: request a role within the room. The server is the arbiter.
+## Client -> server: request a role within the room. The server is the arbiter;
+## a refused claim (role taken / shooters full) leaves the sender's slot intact.
 @rpc("any_peer", "reliable")
 func claim_role(role: int) -> void:
 	if not multiplayer.is_server() or _match_started or _match_over:
@@ -162,22 +167,36 @@ func claim_role(role: int) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender not in _members:
 		return
-	# Release any role the sender currently holds (lets them switch).
-	if _human_peer == sender:
-		_human_peer = 0
-	if _zombie_peer == sender:
-		_zombie_peer = 0
-	if role == GameState.Role.HUMAN and _human_peer == 0:
-		_human_peer = sender
-	elif role == GameState.Role.ZOMBIE and _zombie_peer == 0:
-		_zombie_peer = sender
-	# else: requested role is held by the other peer — ignore the request.
+	_apply_lobby_state(LobbyModel.claim(_lobby_state(), sender, role, MAX_SHOOTERS))
 	_broadcast_lobby()
-	if _human_peer != 0 and _zombie_peer != 0:
-		_start_match()
 
 
-## Client -> server: restart with the same two players and the same roles.
+func _lobby_state() -> Dictionary:
+	return { "zombie": _zombie_peer, "shooters": _shooter_peers.duplicate() }
+
+
+func _apply_lobby_state(state: Dictionary) -> void:
+	_zombie_peer = state["zombie"]
+	var arr: Array[int] = []
+	for p in state["shooters"]:
+		arr.append(int(p))
+	_shooter_peers = arr
+
+
+## Client -> server: the host starts the match. Requires a zombie + >=1 shooter.
+@rpc("any_peer", "reliable")
+func start_match() -> void:
+	if not multiplayer.is_server() or _match_started or _match_over:
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if _members.is_empty() or sender != _members[0]:
+		return  # only the host may start
+	if not LobbyModel.can_start(_lobby_state()):
+		return
+	_start_match()
+
+
+## Client -> server: restart with the same players and roles.
 @rpc("any_peer", "reliable")
 func rematch() -> void:
 	if not multiplayer.is_server():
@@ -186,9 +205,9 @@ func rematch() -> void:
 	if sender not in _members:
 		return
 	if _match_started:
-		return  # already restarting — both players may click Play Again
-	if _human_peer == 0 or _zombie_peer == 0:
-		return  # need both roles still present
+		return  # already restarting
+	if not LobbyModel.can_start(_lobby_state()):
+		return  # need a zombie + at least one shooter still present
 	_start_match()
 
 
@@ -201,8 +220,9 @@ func leave_room() -> void:
 
 
 func _broadcast_lobby() -> void:
+	var host := _members[0] if not _members.is_empty() else 0
 	for m in _members:
-		_update_lobby.rpc_id(m, _human_peer, _zombie_peer)
+		_update_lobby.rpc_id(m, _zombie_peer, _shooter_peers, host)
 
 
 func _start_match() -> void:
@@ -210,9 +230,11 @@ func _start_match() -> void:
 	_match_over = false
 	GameState.world_seed = randi()
 	GameState.multiplayer_active = true
-	print("[server] both roles filled — starting match (human=%d zombie=%d seed=%d)" % [_human_peer, _zombie_peer, GameState.world_seed])
-	_assign_role_and_start.rpc_id(_human_peer, GameState.Role.HUMAN, GameState.world_seed)
-	_assign_role_and_start.rpc_id(_zombie_peer, GameState.Role.ZOMBIE, GameState.world_seed)
+	GameState.shooter_peers = _shooter_peers.duplicate()
+	print("[server] starting match (zombie=%d shooters=%s seed=%d)" % [_zombie_peer, str(_shooter_peers), GameState.world_seed])
+	_assign_role_and_start.rpc_id(_zombie_peer, GameState.Role.ZOMBIE, GameState.world_seed, _shooter_peers)
+	for sp in _shooter_peers:
+		_assign_role_and_start.rpc_id(sp, GameState.Role.HUMAN, GameState.world_seed, _shooter_peers)
 	get_tree().paused = false
 	get_tree().change_scene_to_file("res://scenes/world/world.tscn")
 
@@ -232,8 +254,8 @@ func server_on_match_ended() -> void:
 func _close_room() -> void:
 	_room_code = ""
 	_members = []
-	_human_peer = 0
 	_zombie_peer = 0
+	_shooter_peers = []
 	_match_started = false
 	_match_over = false
 	print("[server] room closed — waiting for a host")
@@ -284,6 +306,11 @@ func request_role(role: int) -> void:
 	claim_role.rpc_id(1, role)
 
 
+## Client -> server: host starts the match.
+func request_start() -> void:
+	start_match.rpc_id(1)
+
+
 ## Client -> server: rematch with the same players/roles.
 func request_rematch() -> void:
 	rematch.rpc_id(1)
@@ -327,15 +354,19 @@ func _room_error(message: String) -> void:
 
 
 @rpc("authority", "reliable")
-func _update_lobby(human_peer: int, zombie_peer: int) -> void:
-	lobby_updated.emit(human_peer, zombie_peer)
+func _update_lobby(zombie_peer: int, shooter_peers: Array, host_peer: int) -> void:
+	lobby_updated.emit(zombie_peer, shooter_peers, host_peer)
 
 
 @rpc("authority", "reliable")
-func _assign_role_and_start(role: int, world_seed: int) -> void:
-	GameState.role = role
+func _assign_role_and_start(role: int, world_seed: int, shooter_peers: Array) -> void:
+	GameState.role = role as GameState.Role
 	GameState.world_seed = world_seed
 	GameState.multiplayer_active = true
+	var arr: Array[int] = []
+	for p in shooter_peers:
+		arr.append(int(p))
+	GameState.shooter_peers = arr
 	get_tree().paused = false
 	get_tree().change_scene_to_file("res://scenes/world/world.tscn")
 
@@ -359,8 +390,8 @@ func leave() -> void:
 	GameState.is_dedicated_server = false
 	_room_code = ""
 	_members = []
-	_human_peer = 0
 	_zombie_peer = 0
+	_shooter_peers = []
 	_match_started = false
 	_match_over = false
 

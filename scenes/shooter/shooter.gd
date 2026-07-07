@@ -84,6 +84,12 @@ var PISTOL_DMG_REF: float
 @onready var shoot_cooldown: Timer = $ShootCooldown
 @onready var reload_timer: Timer = $ReloadTimer
 
+# --- Contextual interact prompt (client-side, controlling player only). A small
+# world-space label that floats over the nearest interactable, spelling out what
+# pressing "E" will do. Built lazily, so idle/remote shooters never spawn one. ---
+var _prompt_anchor: Node2D = null
+var _interact_prompt: Label = null
+
 const MUZZLE_FLASH_SCENE: PackedScene = preload("res://scenes/fx/muzzle_flash.tscn")
 
 # --- Signals ---
@@ -115,6 +121,7 @@ func _ready() -> void:
 ## exact same path.
 func _process(_delta: float) -> void:
 	if not is_multiplayer_authority() or not controls_enabled or is_dead:
+		_hide_interact_prompt()
 		return
 	var input_dir := Vector2(
 		Input.get_axis("move_left", "move_right"),
@@ -141,6 +148,8 @@ func _process(_delta: float) -> void:
 		_action_drop.rpc_id(1)
 	if Input.is_action_just_pressed("interact"):
 		_action_interact.rpc_id(1)
+
+	_update_interact_prompt()
 
 
 @rpc("any_peer", "call_local", "unreliable_ordered")
@@ -415,33 +424,10 @@ func _cancel_reload() -> void:
 ## armed NPC to disarm — then acts on the single nearest one (each type carries
 ## its own reach via Balance.LOOT, so a tight-radius give only wins point-blank).
 func _interact() -> void:
-	var origin := global_position
-	var cands: Array = []
-	var acts: Array = []  # parallel: ["pickup"|"box"|"give"|"take", node]
-
-	for p in get_tree().get_nodes_in_group("pickups"):
-		if not p.is_collectable():
-			continue
-		cands.append({ "pos": p.global_position, "radius": Balance.LOOT.interact_pickup_px })
-		acts.append(["pickup", p])
-
-	for b in get_tree().get_nodes_in_group("loot_boxes"):
-		if b.opened:
-			continue
-		cands.append({ "pos": b.global_position, "radius": Balance.LOOT.interact_box_px })
-		acts.append(["box", b])
-
-	for n in get_tree().get_nodes_in_group("npcs"):
-		if not (n is Node2D):
-			continue
-		if n.weapon_id != -1:
-			cands.append({ "pos": n.global_position, "radius": Balance.LOOT.interact_take_px })
-			acts.append(["take", n])
-		elif held_special != -1 and "state" in n and n.state == 2:  # FOLLOWING
-			cands.append({ "pos": n.global_position, "radius": Balance.LOOT.interact_give_px })
-			acts.append(["give", n])
-
-	var idx := Interact.choose_nearest(origin, cands)
+	var gathered := _gather_interactables()
+	var cands: Array = gathered["cands"]
+	var acts: Array = gathered["acts"]
+	var idx := Interact.choose_nearest(global_position, cands)
 	if idx == -1:
 		return
 	var act: Array = acts[idx]
@@ -455,6 +441,114 @@ func _interact() -> void:
 			_drop_special()
 		"take":
 			_take_weapon_from(act[1])
+
+
+## Gather every interactable reachable from this shooter, as two parallel arrays:
+## `cands` (pos/radius dicts for Interact.choose_nearest) and `acts`
+## (["pickup"|"box"|"give"|"take", node]). Shared by the server-side resolver
+## (_interact) and the client-side prompt (_update_interact_prompt) so the hint
+## always names exactly what pressing E would act on.
+func _gather_interactables() -> Dictionary:
+	var cands: Array = []
+	var acts: Array = []
+	for p in get_tree().get_nodes_in_group("pickups"):
+		if not p.is_collectable():
+			continue
+		cands.append({ "pos": p.global_position, "radius": Balance.LOOT.interact_pickup_px })
+		acts.append(["pickup", p])
+	for b in get_tree().get_nodes_in_group("loot_boxes"):
+		if b.opened:
+			continue
+		cands.append({ "pos": b.global_position, "radius": Balance.LOOT.interact_box_px })
+		acts.append(["box", b])
+	for n in get_tree().get_nodes_in_group("npcs"):
+		if not (n is Node2D):
+			continue
+		if n.weapon_id != -1:
+			cands.append({ "pos": n.global_position, "radius": Balance.LOOT.interact_take_px })
+			acts.append(["take", n])
+		elif held_special != -1 and "state" in n and n.state == 2:  # FOLLOWING
+			cands.append({ "pos": n.global_position, "radius": Balance.LOOT.interact_give_px })
+			acts.append(["give", n])
+	return { "cands": cands, "acts": acts }
+
+
+## Client-side, controlling player only: float a small "Press E to …" label over
+## the nearest interactable so the shooter knows what E will do before pressing.
+## Reuses _gather_interactables, so the hint always matches the server action.
+func _update_interact_prompt() -> void:
+	var gathered := _gather_interactables()
+	var cands: Array = gathered["cands"]
+	var acts: Array = gathered["acts"]
+	var idx := Interact.choose_nearest(global_position, cands)
+	if idx == -1:
+		_hide_interact_prompt()
+		return
+	var act: Array = acts[idx]
+	var target: Node2D = act[1]
+	var lbl := _ensure_interact_prompt()
+	lbl.text = _interact_prompt_text(act)
+	lbl.visible = true
+	# The anchor lives in world space (top_level), so the label ignores the
+	# shooter's rotation; center the text just above the target.
+	_prompt_anchor.global_position = target.global_position
+	lbl.position = Vector2(-lbl.get_minimum_size().x * 0.5, -40.0)
+
+
+## Human-readable description of what pressing E will do for the chosen action.
+func _interact_prompt_text(act: Array) -> String:
+	match act[0]:
+		"pickup":
+			return "Press E to " + _pickup_action_text(act[1].kind)
+		"box":
+			return "Press E to open crate"
+		"give":
+			return "Press E to arm NPC with " + Weapons.get_data(held_special).display_name
+		"take":
+			return "Press E to equip " + Weapons.get_data(act[1].weapon_id).display_name
+	return ""
+
+
+func _pickup_action_text(kind: int) -> String:
+	if Pickup.KIND_TO_WEAPON.has(kind):
+		return "equip " + Weapons.get_data(Pickup.KIND_TO_WEAPON[kind]).display_name
+	match kind:
+		Pickup.Kind.AMMO_MAG:
+			return "pick up ammo"
+		Pickup.Kind.MEDPACK:
+			return "grab medpack"
+		Pickup.Kind.BANDAGE:
+			return "grab bandage"
+	return "pick up item"
+
+
+## Lazily build the floating prompt label and its world-space anchor. Only the
+## controlling client calls this, so idle/remote shooters never spawn a label.
+func _ensure_interact_prompt() -> Label:
+	if _interact_prompt != null and is_instance_valid(_interact_prompt):
+		return _interact_prompt
+	_prompt_anchor = Node2D.new()
+	_prompt_anchor.name = "InteractPromptAnchor"
+	_prompt_anchor.top_level = true  # ignore the shooter's position/rotation
+	_prompt_anchor.z_index = 100
+	_prompt_anchor.z_as_relative = false
+	add_child(_prompt_anchor)
+	var lbl := Label.new()
+	lbl.name = "InteractPrompt"
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lbl.add_theme_font_size_override("font_size", 12)
+	lbl.add_theme_color_override("font_color", Color(1, 1, 1))
+	lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	lbl.add_theme_constant_override("outline_size", 4)
+	lbl.visible = false
+	_prompt_anchor.add_child(lbl)
+	_interact_prompt = lbl
+	return lbl
+
+
+func _hide_interact_prompt() -> void:
+	if _interact_prompt != null and is_instance_valid(_interact_prompt):
+		_interact_prompt.visible = false
 
 
 ## Re-equip the weapon an NPC hands back, preserving its remaining ammo and

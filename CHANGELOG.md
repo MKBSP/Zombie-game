@@ -4,6 +4,14 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 7 — RTS zombie experience (in progress)
+- Interact prompts — a small "Press E to …" label now floats over the nearest
+  interactable when a shooter is in reach (`shooter.gd`), so players know what E
+  will do: *equip/pick up* a floor item, *open crate*, *arm NPC with {weapon}*,
+  or *equip {weapon}* from an armed NPC. Client-side and controlling-player-only
+  (built lazily, world-space `top_level` anchor so it ignores the shooter's
+  rotation). Candidate resolution is now shared between the server-side action
+  and the client-side hint (`_gather_interactables`), so the label always names
+  exactly what pressing E would do.
 - Online co-op — up to 5 players per match: **1 zombie commander (required) +
   1–4 shooters**. Generalizes the old 2-player (1 human + 1 zombie) stack:
   - Lobby now tracks one zombie slot + a list of shooter peers (`network.gd`,

@@ -9,7 +9,9 @@ the simulation; clients send input and render replicated state. A match is up to
 > Ignore it when reasoning about the game.
 
 ## Boot flow
-`project.godot` → main scene `scenes/ui/main_menu.tscn`. The menu sets
+`project.godot` → main scene `scenes/ui/loading_screen.tscn` (brand/boot screen;
+skipped for `--server`/`--host`/`--join`/`--role`/`--autojoin` launches) →
+`scenes/ui/main_menu.tscn`. The menu sets
 `GameState` (role, multiplayer flags, world seed) and asks `Net` to host/join.
 When a match starts, `scenes/world/world.tscn` (`world.gd`) loads and spawns one
 shooter per assigned peer (from `GameState.shooter_peers`), the zombies, NPCs and
@@ -32,6 +34,13 @@ Defined in `project.godot [autoload]`:
 - **Balance** (`scripts/balance.gd`) — **single source of truth for all gameplay
   tuning** (player, zombie variants, NPC, weapons, melee, headshots, merging,
   fog, aim). Read as e.g. `Balance.ZOMBIE.speed`, `Balance.PISTOL.damage`.
+- **UITheme** (`scripts/ui_theme.gd`) — builds the "ZOMBIE COMMAND" Theme in
+  code from `UIStyle` tokens and applies it to the root window at startup, so
+  every Control inherits it. Type variations: `TitleLabel`, `HeadingLabel`,
+  `MonoLabel`, `MicroLabel`, `BodyLabel`, `MenuItemButton`, `DangerButton`,
+  `CardPanel`, `ModalPanel`. See `docs/design_system.md`.
+- **Settings** (`scripts/settings.gd`) — user prefs persisted to
+  `user://settings.cfg` (HUD toggles); emits `changed(key, value)`.
 - **_mcp_game_helper** — part of the MCP plugin; ignore.
 
 ## Directory map
@@ -48,12 +57,14 @@ scenes/            # Game scenes, each .tscn paired with its .gd
   pickup/          # pickup.gd — floor weapon/ammo/heal pickups (show weapon PNGs)
   loot_box/        # loot_box.gd — crate that bursts 1-3 items on interact; replicated
   props/           # static scatter props (car, dumpster, fence, statue, tree)
-  ui/              # main_menu, pause_menu, game_over, hud, aim_cursor
+  ui/              # loading_screen, main_menu, pause_menu, settings_menu
+                   #   (code-built, no .tscn), game_over, hud, aim_cursor;
+                   #   ZOMBIE COMMAND widgets: game_bg, logo_lockup, menu_widgets
 scripts/           # Shared logic, autoloads, RefCounted helpers (see below)
   loot_table.gd    # LootTable — pure roll helpers (roll_item_count, roll_kind); headless-safe
   interact_pick.gd # Interact — choose_nearest() contextual interact resolver
 shader/            # fog_zc.gdshader (zombie-controller fog; fog_of_war.gdshader removed)
-resources/         # city_tileset.tres
+resources/         # city_tileset.tres; fonts/ (Share Tech Mono + Rajdhani, OFL)
 sprites/           # weapon + entity PNG art
 textures/          # generated tiles
 test/              # headless unit tests (test_aim_model, test_melee, test_npc_aim,
@@ -63,6 +74,10 @@ addons/godot_ai/   # MCP plugin — IGNORE
 ```
 
 ## scripts/ — shared logic
+- **ui_style.gd** (`class_name UIStyle`, RefCounted) — **single source of truth
+  for UI styling**: palette/border/font constants, `hp_color(pct)`, `fade()`,
+  `box()` StyleBoxFlat builder, cached `font()` / `mono_spaced()` loaders.
+  The visual counterpart of balance.gd; rules in `docs/design_system.md`.
 - **balance.gd** — all tuning constants (see Autoloads). Includes `LOOT` block
   for loot box tuning (box count, item-count chances, per-kind weights, heal
   amounts, burst geometry, interact radii).

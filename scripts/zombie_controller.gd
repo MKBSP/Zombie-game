@@ -47,6 +47,9 @@ const FT_ON_SIGHT := 0
 const FT_ON_DAMAGE := 1
 const FT_IDLE := 2
 var stance_panel: Control = null
+var _sel_header: Label = null
+var _sel_stats: Label = null
+var _portraits: Control = null
 # Movement placement (flee = 1 point, patrol = 2 points).
 var _pending_movement: int = -1
 var _pending_trigger: int = 0
@@ -113,11 +116,24 @@ func _ready() -> void:
 		merge_manager.merge_cancelled.connect(func(): cancel_button.visible = false)
 		merge_manager.merge_locked_in.connect(func(): cancel_button.visible = false)
 
-	# Fix MergePanel size so buttons are clickable
+	# MERGE OPS panel (bottom-right): size so buttons are clickable + restyle.
 	if fast_button:
 		var panel: Control = fast_button.get_parent()
-		panel.offset_left = -150
-		panel.offset_top = -100
+		panel.offset_left = -216
+		panel.offset_top = -160
+		panel.offset_right = -16
+		panel.offset_bottom = -16
+		if panel is VBoxContainer:
+			panel.add_theme_constant_override("separation", 5)
+		var merge_head := _panel_header("MERGE OPS")
+		panel.add_child(merge_head)
+		panel.move_child(merge_head, 0)
+		fast_button.text = "MERGE → FAST  (2)"
+		fat_button.text = "MERGE → FAT  (3)"
+		cancel_button.text = "CANCEL MERGE"
+		_style_merge_button(fast_button, UIStyle.FAST_CYAN)
+		_style_merge_button(fat_button, UIStyle.FAT_AMBER)
+		_style_merge_button(cancel_button, UIStyle.HEMORRHAGE)
 
 	# Hide the old .tscn stance panel; build a two-row toolbar at runtime.
 	var old_panel := get_node_or_null("ZCOverlay/StancePanel")
@@ -127,6 +143,9 @@ func _ready() -> void:
 		_build_stance_toolbar(overlay)
 	if selection_drawer:
 		selection_drawer.controller = self
+	if overlay:
+		_build_bottom_panel(overlay)
+
 
 func _on_fast_merge_pressed() -> void:
 	var standard_zombies := _get_standard_selected()
@@ -243,6 +262,7 @@ func _process(delta: float) -> void:
 	_update_merge_buttons()
 	if stance_panel:
 		stance_panel.visible = selected_zombies.size() > 0
+	_update_selection_readout()
 
 func _update_merge_buttons() -> void:
 	if fast_button == null or fat_button == null:
@@ -325,9 +345,9 @@ func _input(event: InputEvent) -> void:
 			elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 				_zoom_camera(-ZOOM_STEP)
 				return
-	# Skip selection logic when clicking on UI buttons
+	# Skip selection logic when clicking on UI (buttons, bottom bar, minimap)
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		if get_viewport().gui_get_hovered_control() is Button:
+		if _pointer_on_ui():
 			return
 
 	# --- Left click: selection ---
@@ -366,9 +386,26 @@ func _input(event: InputEvent) -> void:
 
 	# --- Right click: move command ---
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
-		if event.pressed and selected_zombies.size() > 0:
+		if event.pressed and selected_zombies.size() > 0 and not _pointer_on_ui():
 			var world_pos: Vector2 = _screen_to_world(event.position)
 			_command_move(world_pos)
+
+
+## True when the mouse is over interactive UI (a button, the minimap, or the
+## bottom command bar) — world clicks should not fire there. The world-sized
+## fog TextureRect ignores the mouse, so it never trips this.
+func _pointer_on_ui() -> bool:
+	var hovered := get_viewport().gui_get_hovered_control()
+	if hovered == null:
+		return false
+	if hovered is Button or hovered == minimap:
+		return true
+	var n: Node = hovered
+	while n != null:
+		if n.name == "ZCBottomBar":
+			return true
+		n = n.get_parent()
+	return false
 
 
 ## Convert a screen position to a world position, accounting for camera.
@@ -545,11 +582,205 @@ func _send_movement(mode: int, trigger: int, p1: Vector2, p2: Vector2) -> void:
 	get_tree().current_scene.rpc_set_movement.rpc_id(1, names, mode, trigger, p1, p2)
 
 
-func _add_btn(parent: Node, text: String, cb: Callable) -> void:
+## Bottom command bar (mockup screen 10): SELECTED[n] portraits + group stats,
+## with the stance toolbar and MERGE OPS panel reparented in as sections.
+## Runs from the minimap's right edge to the screen edge.
+func _build_bottom_panel(overlay: Node) -> void:
+	var m: float = Balance.MINIMAP.margin_px
+	var sz: float = Balance.MINIMAP.size_px
+
+	var bar := PanelContainer.new()
+	bar.name = "ZCBottomBar"
+	var bar_sb := UIStyle.box(UIStyle.fade(UIStyle.BAR_BG, 0.88), Color.TRANSPARENT)
+	bar_sb.border_color = UIStyle.BORDER
+	bar_sb.border_width_top = 1
+	bar_sb.border_width_left = 1
+	bar.add_theme_stylebox_override("panel", bar_sb)
+	bar.anchor_left = 0.0
+	bar.anchor_right = 1.0
+	bar.anchor_top = 1.0
+	bar.anchor_bottom = 1.0
+	bar.offset_left = m + sz + 12.0
+	bar.offset_right = -0.0
+	bar.offset_top = -152.0
+	bar.offset_bottom = 0.0
+	# STOP so _pointer_on_ui() can tell bar clicks from map clicks.
+	bar.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.add_child(bar)
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 0)
+	bar.add_child(row)
+
+	# — SELECTED [n] portraits + group stats —
+	var sel_margin := MarginContainer.new()
+	sel_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for side in ["left", "right"]:
+		sel_margin.add_theme_constant_override("margin_" + side, 12)
+	for side in ["top", "bottom"]:
+		sel_margin.add_theme_constant_override("margin_" + side, 8)
+	row.add_child(sel_margin)
+	var sel_col := VBoxContainer.new()
+	sel_col.add_theme_constant_override("separation", 5)
+	sel_margin.add_child(sel_col)
+	_sel_header = Label.new()
+	_sel_header.theme_type_variation = "MicroLabel"
+	_sel_header.text = "NO UNITS SELECTED"
+	sel_col.add_child(_sel_header)
+	_portraits = PortraitStrip.new()
+	_portraits.controller = self
+	_portraits.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sel_col.add_child(_portraits)
+	_sel_stats = Label.new()
+	_sel_stats.theme_type_variation = "MicroLabel"
+	_sel_stats.add_theme_color_override("font_color", UIStyle.MOSS)
+	sel_col.add_child(_sel_stats)
+
+	row.add_child(_bar_vline())
+
+	# — Stance toolbar becomes a fixed section of the bar —
+	if stance_panel:
+		stance_panel.reparent(row)
+		stance_panel.custom_minimum_size = Vector2(224, 0)
+		stance_panel.alignment = BoxContainer.ALIGNMENT_CENTER
+
+	row.add_child(_bar_vline())
+
+	# — Merge ops panel likewise —
+	if fast_button:
+		var merge_panel: Control = fast_button.get_parent()
+		merge_panel.reparent(row)
+		merge_panel.custom_minimum_size = Vector2(216, 0)
+		if merge_panel is BoxContainer:
+			merge_panel.alignment = BoxContainer.ALIGNMENT_CENTER
+
+
+## Keep the SELECTED header + group stats in sync with the live selection.
+func _update_selection_readout() -> void:
+	if _sel_header == null:
+		return
+	var alive: Array = []
+	for z in selected_zombies:
+		if is_instance_valid(z):
+			alive.append(z)
+	if alive.is_empty():
+		_sel_header.text = "NO UNITS SELECTED"
+		_sel_header.add_theme_color_override("font_color", UIStyle.DIM)
+		_sel_stats.text = "CLICK OR DRAG TO SELECT  ·  RMB TO MOVE"
+		return
+	_sel_header.text = "SELECTED  [%d]" % alive.size()
+	_sel_header.add_theme_color_override("font_color", UIStyle.INFECTION)
+	var hp_sum := 0.0
+	var counted := 0
+	for z in alive:
+		if "hp" in z and "max_hp" in z and z.max_hp > 0:
+			hp_sum += float(z.hp) / float(z.max_hp)
+			counted += 1
+	if counted > 0:
+		_sel_stats.text = "%d UNITS  ·  AVG HP %d%%" % [alive.size(), int(hp_sum / counted * 100.0)]
+	else:
+		_sel_stats.text = "%d UNITS" % alive.size()
+
+
+func _bar_vline() -> Control:
+	var line := ColorRect.new()
+	line.color = UIStyle.BORDER
+	line.custom_minimum_size = Vector2(1, 0)
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return line
+
+
+## Live portraits of the current selection: type-colored frames + HP micro-bars.
+class PortraitStrip:
+	extends Control
+
+	const BOX := 40.0
+	const GAP := 6.0
+	const MAX_SHOWN := 12
+
+	var controller: Node = null
+
+	func _process(_delta: float) -> void:
+		queue_redraw()
+
+	func _draw() -> void:
+		if controller == null:
+			return
+		var i := 0
+		for z in controller.selected_zombies:
+			if not is_instance_valid(z) or i >= MAX_SHOWN:
+				break
+			var accent := UIStyle.INFECTION
+			if z.is_in_group("master_zombie"):
+				accent = UIStyle.HEMORRHAGE
+			elif z.is_in_group("fat_zombie"):
+				accent = UIStyle.FAT_AMBER
+			elif z.is_in_group("fast_zombie"):
+				accent = UIStyle.FAST_CYAN
+			var x := i * (BOX + GAP)
+			var box := Rect2(Vector2(x, 0), Vector2(BOX, BOX))
+			draw_rect(box, UIStyle.fade(accent, 0.08))
+			draw_rect(box, UIStyle.fade(accent, 0.7), false, 1.0)
+			# Simple silhouette: head + torso blocks.
+			draw_rect(Rect2(Vector2(x + BOX * 0.38, 7), Vector2(BOX * 0.24, BOX * 0.22)),
+				UIStyle.fade(accent, 0.55))
+			draw_rect(Rect2(Vector2(x + BOX * 0.28, 7 + BOX * 0.28), Vector2(BOX * 0.44, BOX * 0.34)),
+				UIStyle.fade(accent, 0.35))
+			# HP micro-bar.
+			var pct := 1.0
+			if "hp" in z and "max_hp" in z and z.max_hp > 0:
+				pct = clampf(float(z.hp) / float(z.max_hp), 0.0, 1.0)
+			draw_rect(Rect2(Vector2(x, BOX + 3), Vector2(BOX, 3)), UIStyle.BUNKER)
+			draw_rect(Rect2(Vector2(x, BOX + 3), Vector2(BOX * pct, 3)), UIStyle.hp_color(pct))
+			i += 1
+
+
+## Compact ZOMBIE COMMAND toolbar button: mono caps, accent border on hover.
+func _add_btn(parent: Node, text: String, cb: Callable, accent: Color = UIStyle.MOSS) -> void:
 	var b := Button.new()
-	b.text = text
+	b.text = text.to_upper()
 	b.pressed.connect(cb)
+	b.add_theme_font_size_override("font_size", 11)
+	b.custom_minimum_size = Vector2(102, 25)
+	b.add_theme_stylebox_override("normal",
+		UIStyle.box(UIStyle.fade(UIStyle.PANEL_DARK, 0.9), UIStyle.BORDER_DIM))
+	var hot := UIStyle.box(
+		UIStyle.fade(accent, 0.10), accent, UIStyle.fade(accent, 0.20), 5)
+	for state in ["hover", "pressed", "focus"]:
+		b.add_theme_stylebox_override(state, hot)
+	b.add_theme_color_override("font_color", UIStyle.fade(accent, 0.85))
+	b.add_theme_color_override("font_hover_color", accent)
+	b.add_theme_color_override("font_pressed_color", accent)
+	b.add_theme_color_override("font_focus_color", accent)
 	parent.add_child(b)
+
+
+## Micro section header for the ZC panels ("STANCE", "MERGE OPS", …).
+func _panel_header(text: String) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.theme_type_variation = "MicroLabel"
+	return l
+
+
+## Merge-op button: always shows its accent frame (these are the panel's
+## whole identity — cyan fast / amber fat / red cancel).
+func _style_merge_button(b: Button, accent: Color) -> void:
+	b.add_theme_font_size_override("font_size", 11)
+	b.custom_minimum_size = Vector2(0, 30)
+	b.add_theme_stylebox_override("normal",
+		UIStyle.box(UIStyle.fade(accent, 0.05), UIStyle.fade(accent, 0.6)))
+	var hot := UIStyle.box(
+		UIStyle.fade(accent, 0.12), accent, UIStyle.fade(accent, 0.25), 6)
+	for state in ["hover", "pressed", "focus"]:
+		b.add_theme_stylebox_override(state, hot)
+	b.add_theme_stylebox_override("disabled",
+		UIStyle.box(Color.TRANSPARENT, UIStyle.BORDER_DIM))
+	b.add_theme_color_override("font_color", accent)
+	b.add_theme_color_override("font_hover_color", accent)
+	b.add_theme_color_override("font_pressed_color", accent)
+	b.add_theme_color_override("font_focus_color", accent)
+	b.add_theme_color_override("font_disabled_color", UIStyle.DIM)
 
 
 func _build_stance_toolbar(overlay: Node) -> void:
@@ -563,15 +794,25 @@ func _build_stance_toolbar(overlay: Node) -> void:
 	stance_panel.offset_right = m + sz + 210.0
 	stance_panel.offset_top = -320.0
 	stance_panel.offset_bottom = -m
+	stance_panel.add_theme_constant_override("separation", 4)
+	stance_panel.alignment = BoxContainer.ALIGNMENT_END
+	stance_panel.add_child(_panel_header("PRIMARY STANCE"))
 	var combat_row := HBoxContainer.new()
+	combat_row.add_theme_constant_override("separation", 4)
 	stance_panel.add_child(combat_row)
-	_add_btn(combat_row, "Aggressive", func(): _send_combat(CB_AGGRESSIVE))
-	_add_btn(combat_row, "Hold", func(): _send_combat(CB_HOLD))
-	_add_btn(stance_panel, "Free", func(): _begin_movement(MV_FREE, 0, 0))
-	_add_btn(stance_panel, "Flee: on sight", func(): _begin_movement(MV_FLEE, FT_ON_SIGHT, 1))
-	_add_btn(stance_panel, "Flee: on hit", func(): _begin_movement(MV_FLEE, FT_ON_DAMAGE, 1))
-	_add_btn(stance_panel, "Flee: idle", func(): _begin_movement(MV_FLEE, FT_IDLE, 1))
-	_add_btn(stance_panel, "Patrol", func(): _begin_movement(MV_PATROL, 0, 2))
+	_add_btn(combat_row, "Aggressive", func(): _send_combat(CB_AGGRESSIVE), UIStyle.WOUND)
+	_add_btn(combat_row, "Hold", func(): _send_combat(CB_HOLD), UIStyle.HOLD_BLUE)
+	stance_panel.add_child(_panel_header("MOVEMENT BEHAVIOR"))
+	var moves := GridContainer.new()
+	moves.columns = 2
+	moves.add_theme_constant_override("h_separation", 4)
+	moves.add_theme_constant_override("v_separation", 4)
+	stance_panel.add_child(moves)
+	_add_btn(moves, "Free", func(): _begin_movement(MV_FREE, 0, 0), UIStyle.MOSS)
+	_add_btn(moves, "Patrol", func(): _begin_movement(MV_PATROL, 0, 2), UIStyle.PATROL_PURPLE)
+	_add_btn(moves, "Flee: sight", func(): _begin_movement(MV_FLEE, FT_ON_SIGHT, 1), UIStyle.LURE_YELLOW)
+	_add_btn(moves, "Flee: hit", func(): _begin_movement(MV_FLEE, FT_ON_DAMAGE, 1), UIStyle.LURE_YELLOW)
+	_add_btn(moves, "Flee: idle", func(): _begin_movement(MV_FLEE, FT_IDLE, 1), UIStyle.LURE_YELLOW)
 	overlay.add_child(stance_panel)
 	stance_panel.visible = false
 
@@ -596,20 +837,47 @@ func _recall_group(num: int) -> void:
 				z.set_selected(true)
 
 
+const RALLY_GOLD := Color(1.0, 0.84, 0.0)
+
+
 func _create_rally_button(overlay: Node) -> void:
 	var btn := Button.new()
 	btn.name = "RallyAllButton"
-	btn.text = "Rally All (G)"
+	btn.text = "RALLY ALL  [G]"
 	btn.anchor_top = 1.0
 	btn.anchor_bottom = 1.0
 	var m: float = Balance.MINIMAP.margin_px
 	var sz: float = Balance.MINIMAP.size_px
 	btn.offset_left = m
 	btn.offset_right = m + sz
-	btn.offset_top = -(sz + m + 30.0)
-	btn.offset_bottom = -(sz + m + 4.0)
+	btn.offset_top = -(sz + m + 46.0)
+	btn.offset_bottom = -(sz + m + 20.0)
+	btn.add_theme_font_size_override("font_size", 10)
+	btn.add_theme_stylebox_override("normal",
+		UIStyle.box(UIStyle.fade(UIStyle.PANEL_DARK, 0.9), UIStyle.fade(RALLY_GOLD, 0.5)))
+	var hot := UIStyle.box(
+		UIStyle.fade(RALLY_GOLD, 0.12), RALLY_GOLD, UIStyle.fade(RALLY_GOLD, 0.25), 5)
+	for state in ["hover", "pressed", "focus"]:
+		btn.add_theme_stylebox_override(state, hot)
+	btn.add_theme_color_override("font_color", UIStyle.fade(RALLY_GOLD, 0.85))
+	btn.add_theme_color_override("font_hover_color", RALLY_GOLD)
+	btn.add_theme_color_override("font_pressed_color", RALLY_GOLD)
 	btn.pressed.connect(_arm_rally)
 	overlay.add_child(btn)
+
+	# MINIMAP header strip just above the map (mockup screen 10).
+	var head := Label.new()
+	head.name = "MinimapHeader"
+	head.text = "MINIMAP"
+	head.theme_type_variation = "MicroLabel"
+	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	head.anchor_top = 1.0
+	head.anchor_bottom = 1.0
+	head.offset_left = m
+	head.offset_right = m + sz
+	head.offset_top = -(sz + m + 16.0)
+	head.offset_bottom = -(sz + m)
+	overlay.add_child(head)
 
 
 func _arm_rally() -> void:
@@ -664,7 +932,10 @@ func _show_ping(world_pos: Vector2, ping_color: Color = Color.GREEN, max_radius:
 	var ping := Node2D.new()
 	ping.set_script(preload("res://scripts/ping_visual.gd"))
 	ping.global_position = world_pos
-	ping.z_index = 50
+	# Above ZCFogRect (z_index 100) so the command feedback reads even when the
+	# target point lies in unexplored fog.
+	ping.z_index = 150
+	ping.z_as_relative = false
 	ping.color = ping_color
 	ping.max_radius = max_radius
 	get_tree().current_scene.add_child(ping)

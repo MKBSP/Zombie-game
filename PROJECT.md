@@ -19,6 +19,14 @@ headless and deployed (see `DEPLOY.md` / Railway). Implemented:
   per-shooter authority, friendly fire, random shooter spawns clear of the
   zombie, dead-shooter spectate, and last-man / master-death win conditions
   (Phase 7; owner multi-window playtest pending).
+- ✅ "ZOMBIE COMMAND" visual identity (Phase 8, code-complete): code-built theme
+  (`UITheme` autoload + `UIStyle` tokens, `docs/design_system.md`), restyled
+  main-menu flow (logo, role cards, lobby/join), new loading screen (now the
+  main scene) and settings screen (controls/HUD toggles/profile, persisted via
+  the `Settings` autoload), restyled pause modal, shooter HUD bottom bar
+  (health / weapon + ammo blocks / threat compass), zombie-commander overlay
+  (stance colors, MERGE OPS, gold rally, framed minimap with green blips),
+  game-over modal. Owner playtest pending.
 - ✅ Shooting model: per-weapon spread, focus aim, range→damage falloff, visible
   aim cursor.
 - ✅ Headshots: center-mass crit zone, 4× range-scaled damage.
@@ -62,7 +70,14 @@ weapon-visual, or lobby/shooter-selection logic.
 - `.claude/settings.local.json` holds local Claude Code settings.
 
 ## Next / backlog
-(Keep this list current.) Phase 7 RTS zombie experience landed (code-complete,
+(Keep this list current.) Phase 8 visual identity is code-complete across
+menus, loading, settings, pause, shooter HUD, zombie-commander overlay, and
+game over (owner playtest pending — flows should behave exactly as before;
+only visuals changed. Verify: solo both roles, host→lobby→start, join-by-code,
+ESC pause→settings→back, merge/stance/rally buttons still clickable, game-over
+buttons). Design ideas not yet built (from the mockup): selected-unit portraits
+with HP micro-bars + group stats in a ZC bottom panel, control-group slot bar,
+placement banner for patrol/flee point picking, shooter inventory slot cards. Phase 7 RTS zombie experience landed (code-complete,
 clean boot). **Owner playtest pending** to confirm behavior: discrete-hit damage
 chunks, no unit overlap, stance behaviors (hold ignores fire, patrol loops,
 skittish flees on sight), health bars on both views, minimap terrain/blips/ripples,

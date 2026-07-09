@@ -15,7 +15,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 [application]
 
 config/name="Zombie Game"
-run/main_scene="res://scenes/ui/main_menu.tscn"
+run/main_scene="res://scenes/ui/loading_screen.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 config/icon="res://icon.svg"
 
@@ -25,6 +25,8 @@ GameState="*res://scripts/game_state.gd"
 Net="*res://scripts/network.gd"
 _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 Balance="*res://scripts/balance.gd"
+UITheme="*res://scripts/ui_theme.gd"
+Settings="*res://scripts/settings.gd"
 
 [display]
 

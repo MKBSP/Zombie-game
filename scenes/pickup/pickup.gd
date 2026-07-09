@@ -78,8 +78,13 @@ func is_collectable() -> bool:
 	return _collectable
 
 
+## Widest a pickup sprite may render in world px — source PNGs vary wildly
+## (Medipack.png is 16px, bandage.png is 1600px), so normalize by scaling.
+const MAX_SPRITE_PX := 18.0
+
+
 func _refresh_color() -> void:
-	var s := get_node_or_null("Sprite2D")
+	var s: Sprite2D = get_node_or_null("Sprite2D")
 	if s == null:
 		return
 	if KIND_TO_WEAPON.has(kind):
@@ -91,6 +96,10 @@ func _refresh_color() -> void:
 	else:
 		s.texture = null
 		s.modulate = COLORS.get(kind, Color.WHITE)
+	if s.texture != null and s.texture.get_width() > MAX_SPRITE_PX:
+		s.scale = Vector2.ONE * (MAX_SPRITE_PX / s.texture.get_width())
+	else:
+		s.scale = Vector2.ONE
 
 
 ## Apply this pickup's effect to `body` (the shooter) and despawn. Server-only.

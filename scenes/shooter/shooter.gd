@@ -467,7 +467,8 @@ func _gather_interactables() -> Dictionary:
 		if n.weapon_id != -1:
 			cands.append({ "pos": n.global_position, "radius": Balance.LOOT.interact_take_px })
 			acts.append(["take", n])
-		elif held_special != -1 and "state" in n and n.state == 2:  # FOLLOWING
+		elif held_special != -1 and equipped == held_special \
+				and "state" in n and n.state == 2:  # FOLLOWING, special in hand
 			cands.append({ "pos": n.global_position, "radius": Balance.LOOT.interact_give_px })
 			acts.append(["give", n])
 	return { "cands": cands, "acts": acts }
@@ -503,7 +504,7 @@ func _interact_prompt_text(act: Array) -> String:
 		"box":
 			return "Press E to open crate"
 		"give":
-			return "Press E to arm NPC with " + Weapons.get_data(held_special).display_name
+			return "Press E to give " + Weapons.get_data(held_special).display_name + " to NPC"
 		"take":
 			return "Press E to equip " + Weapons.get_data(act[1].weapon_id).display_name
 	return ""

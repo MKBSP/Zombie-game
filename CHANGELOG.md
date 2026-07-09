@@ -3,6 +3,78 @@
 Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
+## Phase 8 — "ZOMBIE COMMAND" visual identity (in progress)
+- Playtest corrections (July 8):
+  - Menu back navigation: "‹ BACK" button on role select / multiplayer / lobby /
+    join panels + ESC steps back one screen. Backing out of multiplayer or the
+    lobby calls `Net.leave()` (lobby also RPCs `leave_room` first, like
+    `leave_to_menu`), so the connection resets cleanly.
+  - Giant bandage on the floor: pickup sprites are now normalized to ≤18 world
+    px wide (`pickup.gd MAX_SPRITE_PX`) — bandage.png is 1600px wide vs
+    Medipack.png's 16.
+  - Give-weapon-to-NPC was unreachable: `interact_give_px` was 22px ("stand on
+    top of the NPC") but followers hover 64±12px away and Phase 7's solid
+    bodies stop you overlapping them — raised to 90px. Prompt reworded to
+    "Press E to give {weapon} to NPC" and the offer now requires the special
+    to actually be in hand (`equipped == held_special`).
+  - Zombie command feedback: move/rally pings now render above the fog
+    (z_index 150 vs the fog rect's 100) — clicking into unexplored fog shows
+    the green ring. (Diagnosed via a synthetic in-game selfcheck: selection and
+    move commands themselves work in solo; a single zombie commanded out of the
+    middle of the packed spawn cluster can still RVO-gridlock — known quirk.)
+  - Zombie commander bottom command bar (mockup screen 10): SELECTED [n]
+    header, live type-colored unit portraits with HP micro-bars, group stats
+    (count · avg HP), the stance toolbar (movement buttons now a 2-column
+    grid) and MERGE OPS reparented in as sections. Clicks on the bar no longer
+    leak into map selection (`_pointer_on_ui`).
+Design source: Figma Make export (`~/Downloads/Game HUD for Zombie Strategy 2`),
+condensed into `docs/design_system.md`. Brutalist military-horror: acid green
+`#39ff14` on near-black, Share Tech Mono + Rajdhani, 0px corners, hairline
+borders. In-game HUDs (shooter + zombie commander) are the remaining phases.
+- Foundation: `scripts/ui_style.gd` (palette/border/font tokens + `hp_color`,
+  `box()` stylebox builder — the UI counterpart of `balance.gd`); `UITheme`
+  autoload (`scripts/ui_theme.gd`) builds the whole Theme in code and applies it
+  to the root window (Button/LineEdit/ProgressBar/Panel styles + type
+  variations `TitleLabel`/`HeadingLabel`/`MonoLabel`/`MicroLabel`/`BodyLabel`/
+  `MenuItemButton`/`DangerButton`/`CardPanel`/`ModalPanel`); OFL fonts in
+  `resources/fonts/`; reusable `GameBg` (grid + vignette) and `LogoLockup`
+  (code-drawn biohazard trefoil — the ☣ glyph falls back to an untintable color
+  emoji on macOS) in `scenes/ui/`.
+- Main menu flow restyled in place (`main_menu.gd::_apply_zc_style` +
+  `scenes/ui/menu_widgets.gd` builders) — logic and signal wiring untouched.
+  Main menu = logo + SINGLE PLAYER / MULTIPLAYER / SETTINGS rows (the old
+  PLAY → mode-select hop is gone; ModePanel is now unused); solo role select is
+  cyan/green role cards; MP hub/lobby/join get breadcrumbs, mono status lines,
+  styled code entry, and a primary START; lobby role buttons tint by
+  claimed/taken state instead of `modulate` hacks.
+- New loading screen (`scenes/ui/loading_screen.tscn` — now the **main scene**):
+  logo, progress bar, init checklist, then hands off to the menu. Time-driven
+  (a threaded world.tscn preload stalled mid-load — don't re-add without
+  verifying); `--server`/`--host`/`--join`/`--role`/`--autojoin` launches skip
+  it, so `run_local_mp.command` and the dedicated server are unaffected.
+- New settings screen (`scenes/ui/settings_menu.gd`, code-built, no .tscn):
+  CONTROLS (live from InputMap + static mouse bindings) / UI-HUD toggles /
+  PROFILE placeholder. Opens full-screen from the menu's SETTINGS row and as an
+  ESC-able overlay from the pause menu. Toggles persist via the new `Settings`
+  autoload (`scripts/settings.gd`, `user://settings.cfg`); `hud.gd` already
+  honors `show_debug_coords` + `show_pickup_toasts` (minimap/interact-prompt
+  toggles wire up with the HUD phases).
+- Pause menu restyled into the mockup's modal (PAUSED header, primary RESUME,
+  SETTINGS, red EXIT TO MENU) — same wiring, plus the settings overlay hook.
+- Shooter HUD (mockup screen 11): the scattered top-left labels are now a
+  bottom bar (`hud.gd::_apply_zc_style`, nodes reparented in place) —
+  HEALTH (bar + number recolored by the >60/30–60/<30% HP rule) | WEAPON
+  (icon, mono readout, per-round ammo-block grid driven by `mag_size`) |
+  THREAT (master-zombie compass). Toast is mono; debug coords stay top-right.
+- Zombie commander HUD (mockup screen 10): stance toolbar buttons restyled
+  with per-stance accent colors (aggressive red / hold blue / flee yellow /
+  patrol purple) + PRIMARY STANCE / MOVEMENT BEHAVIOR headers; merge panel is
+  now MERGE OPS (cyan "MERGE → FAST (2)", amber "MERGE → FAT (3)", red cancel);
+  rally button gold-framed; minimap gets a hairline frame + MINIMAP header,
+  zombie blips are uniform acid green (was dark red) and player shooters cyan
+  (NPCs stay yellow). Game-over screen restyled into the shared modal
+  (green message, primary PLAY AGAIN, red MAIN MENU).
+
 ## Phase 7 — RTS zombie experience (in progress)
 - Interact prompts — a small "Press E to …" label now floats over the nearest
   interactable when a shooter is in reach (`shooter.gd`), so players know what E

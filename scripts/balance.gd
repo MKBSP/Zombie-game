@@ -192,7 +192,10 @@ const LOOT := {
 	# Contextual-interact reach per target type (px).
 	interact_pickup_px = 56.0,
 	interact_box_px = 64.0,
-	interact_give_px = 22.0,   # tight: must be on top of the NPC to give
+	# Must cover NPC.follow_distance (64) + deadzone (12) — followers hover a
+	# tile behind, and solid bodies stop you overlapping them (22px was
+	# physically unreachable after that landed).
+	interact_give_px = 90.0,
 	interact_take_px = 56.0,   # take-back is non-destructive -> normal reach
 }
 

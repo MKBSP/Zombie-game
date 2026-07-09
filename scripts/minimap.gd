@@ -86,19 +86,21 @@ func _draw() -> void:
 		if b is Node2D and _tile_explored(b.global_position):
 			var bpos := MinimapMath.world_to_minimap(b.global_position, wpx, s)
 			draw_rect(Rect2(bpos - Vector2(2, 2), Vector2(4, 4)), Color(1.0, 0.84, 0.0))
-	# Own zombies (always blipped).
+	# Own zombies (always blipped) — uniform acid green per the design system.
 	for z in get_tree().get_nodes_in_group("zombies"):
 		if z is Node2D:
 			draw_circle(MinimapMath.world_to_minimap(z.global_position, wpx, s),
-				Balance.MINIMAP.zombie_blip, Color(0.6, 0.1, 0.1))
+				Balance.MINIMAP.zombie_blip, UIStyle.INFECTION)
 	# Enemies only where currently visible; remember last-seen for ghost blips.
+	# Player shooters cyan (their role color), NPC survivors yellow.
 	var now := Time.get_ticks_msec() / 1000.0
 	for grp in ["shooter", "npcs"]:
+		var blip_color: Color = UIStyle.FAST_CYAN if grp == "shooter" else Color(1, 1, 0.2)
 		for e in get_tree().get_nodes_in_group(grp):
 			if e is Node2D and _tile_visible(e.global_position):
 				_ghosts[e.get_instance_id()] = { "pos": e.global_position, "t": now }
 				draw_circle(MinimapMath.world_to_minimap(e.global_position, wpx, s),
-					Balance.MINIMAP.enemy_blip, Color(1, 1, 0.2))
+					Balance.MINIMAP.enemy_blip, blip_color)
 	# Fading grey ghost blips at last-seen positions.
 	for id in _ghosts.keys():
 		var g: Dictionary = _ghosts[id]
@@ -138,9 +140,11 @@ func _draw() -> void:
 		var mt: float = mage / 0.9
 		var mp: Vector2 = MinimapMath.world_to_minimap(_markers[mi]["pos"], wpx, s)
 		draw_arc(mp, 2.0 + mt * 9.0, 0.0, TAU, 20, Color(_markers[mi]["c"], 1.0 - mt), 1.5)
-	# Armed-rally border cue.
+	# Frame: hairline green normally, gold while a rally click is armed.
 	if rally_armed:
 		draw_rect(Rect2(Vector2.ZERO, Vector2(s, s)), Color(1, 0.84, 0, 0.9), false, 2.0)
+	else:
+		draw_rect(Rect2(Vector2.ZERO, Vector2(s, s)), UIStyle.BORDER, false, 1.0)
 
 func _tile_visible(world: Vector2) -> bool:
 	if fog_zc == null or ground_layer == null:

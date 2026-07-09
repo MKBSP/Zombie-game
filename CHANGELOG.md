@@ -4,6 +4,19 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 9 — Concurrent games (director + server pool)
+- **Fix — both players saw the zombie view in online matches.** Shooter
+  multiplayer authority is set on the server (`world.gd`) but authority is NOT
+  replicated by `MultiplayerSpawner`, so on clients every shooter arrived with
+  authority 1: the human client never matched its own shooter, `_apply_role()`
+  never ran, and the default-enabled ZCCamera showed the zombie commander view
+  on both windows. `shooter.gd` now re-derives root authority from its
+  `Shooter_<peer>` name in `_enter_tree()` on every peer, pins the
+  `MultiplayerSynchronizer` back to server authority (simulation and state
+  broadcast stay server-side), and `_muzzle_fx`/`_swing_fx` switched from
+  `@rpc("authority")` to `any_peer` + explicit server-sender check (the server
+  calls them, but the node's authority is now the owning player). Verified
+  end-to-end through the director: both clients ready with correct roles,
+  root auth = owning peer, sync auth = 1, zero script errors.
 - **Fix — pool slot leak that broke online host ("server unreachable").** A host
   whose connection ended without cleanly emptying its room (abandoned in the
   lobby, a web client that just drops the socket) pinned its pool slot forever,

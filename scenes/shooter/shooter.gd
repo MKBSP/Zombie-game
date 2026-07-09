@@ -101,6 +101,23 @@ signal pickup_collected(kind: int)
 signal headshot
 
 
+## The server names each shooter "Shooter_<peer>" and sets its multiplayer
+## authority before spawning. Authority is NOT replicated by MultiplayerSpawner,
+## so every peer re-derives it from the node name here — without this, remote
+## clients see authority 1 on all shooters, never find their own shooter, and
+## _apply_role() never runs (both windows showed the zombie commander view).
+func _enter_tree() -> void:
+	var parts := String(name).split("_")
+	if parts.size() >= 2 and parts[parts.size() - 1].is_valid_int():
+		set_multiplayer_authority(parts[parts.size() - 1].to_int())
+	# The peer authority above is only for input capture (_process) and for each
+	# client to identify its own shooter. Simulation stays on the server, so the
+	# synchronizer must keep broadcasting state (position/hp/ammo) FROM the
+	# server: pin it back to server authority (set_multiplayer_authority above
+	# is recursive and would otherwise hand it to the owning client).
+	$MultiplayerSynchronizer.set_multiplayer_authority(1)
+
+
 func _ready() -> void:
 	speed = Balance.SHOOTER.speed
 	max_hp = Balance.SHOOTER.max_hp
@@ -359,15 +376,22 @@ func _swing() -> void:
 
 ## Brief swing flash on every peer (placeholder until weapon visuals, Phase 5).
 ## Per-shot muzzle flash + brief light pulse at the gun tip, on every peer.
-@rpc("authority", "call_local", "unreliable")
+## any_peer + explicit server check: the caller is the server (which simulates
+## shooting), but the node's authority is the owning player, so @rpc("authority")
+## would make clients reject the server's call.
+@rpc("any_peer", "call_local", "unreliable")
 func _muzzle_fx() -> void:
+	if multiplayer.get_remote_sender_id() != 1:
+		return  # only the server triggers fx
 	var flash := MUZZLE_FLASH_SCENE.instantiate()
 	gun_tip.add_child(flash)
 	flash.play(Balance.FX.muzzle_light_energy)
 
 
-@rpc("authority", "call_local", "unreliable")
+@rpc("any_peer", "call_local", "unreliable")
 func _swing_fx() -> void:
+	if multiplayer.get_remote_sender_id() != 1:
+		return  # only the server triggers fx
 	var spr := get_node_or_null("Sprite2D")
 	if spr == null:
 		return

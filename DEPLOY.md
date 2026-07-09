@@ -17,8 +17,10 @@ into the **client** and publish it.
      version, e.g. `4.6.3-stable` (see the Godot title bar).
 4. Open the service → **Settings → Networking → Generate Domain**. You'll get
    something like `zombie-game-production.up.railway.app`.
-5. Check **Deployments → Logs**: you should see
-   `[server] listening on port <PORT> — waiting for two players`.
+5. Check **Deployments → Logs**: you should see the **director** boot, e.g.
+   `[director] listening on :<PORT> — pool cap 5, children from port 8911, ...`.
+   Each hosted game then spawns a child that logs `[server] listening on port
+   8911 …`. Multiple matches run at once (up to `MAX_GAMES`).
 
 ➡️ Your server URL is `wss://<that-domain>` — **no port** (Railway proxies 443 to
 the container). Note it: CORS / `FRONTEND_URL` is **not** needed (raw WebSocket).
@@ -59,6 +61,12 @@ the container). Note it: CORS / `FRONTEND_URL` is **not** needed (raw WebSocket)
 
 ## Notes / gotchas
 
+- **Concurrent games:** one Railway service now runs several matches at once via
+  the Go **director** (`server/director/`), which pools single-match Godot
+  children. Tunables (service **Variables**, all optional): `MAX_GAMES` (default
+  5), `INTERNAL_BASE_PORT` (8911), `IDLE_SPAWN_TIMEOUT_SEC` (20). The client URL
+  is unchanged — `network.gd` appends `?host`/`?join=CODE` itself. See
+  `ARCHITECTURE.md` → *Server topology*.
 - **Idle disconnects:** Railway drops idle WebSocket connections after ~15 min.
   Auto-reconnect is Phase D (not built yet) — fine for normal play sessions.
 - **Native download instead of web:** export a Windows/macOS/Linux build instead

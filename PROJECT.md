@@ -9,7 +9,9 @@ has a design spec + implementation plan in `docs/`.
 
 ## Current status (as of Phase 5)
 Single-player and **local multiplayer** both work; a dedicated server can be run
-headless and deployed (see `DEPLOY.md` / Railway). Implemented:
+headless and deployed (see `DEPLOY.md` / Railway). The Railway deployment runs
+**multiple concurrent matches** via the Go director (`server/director/`, Phase 9;
+see `ARCHITECTURE.md` → *Server topology*). Implemented:
 
 - ✅ Core loop: map, HUD, win/lose, props/scenery.
 - ✅ Zombie control + merging + variants (standard / fast / fat / master).

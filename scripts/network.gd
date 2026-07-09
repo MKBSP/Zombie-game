@@ -47,6 +47,10 @@ var _shooter_peers: Array[int] = []
 var _match_started: bool = false
 var _match_over: bool = false   # match finished; players choosing rematch/quit
 
+# Client-only: which action to fire once the intent-carrying connection opens.
+var _pending_host: bool = false
+var _pending_join_code: String = ""
+
 
 ## Which server a client connects to by default: localhost in the editor,
 ## the live server in any exported build.
@@ -65,10 +69,22 @@ func start_dedicated_server() -> Error:
 	# must not recreate the peer and drop every connection.
 	if GameState.is_dedicated_server and multiplayer.has_multiplayer_peer():
 		return OK
+	# The director launches each child with `--port=<internal> --room=<CODE>`,
+	# owning both the port and the room code. Fall back to $PORT then DEFAULT_PORT
+	# for a director-less local/dev launch; a missing --room means "generate the
+	# code when the host arrives" (see create_room).
+	var args := OS.get_cmdline_args()
+	args.append_array(OS.get_cmdline_user_args())
 	var port := DEFAULT_PORT
+	var arg_port := _arg_value(args, "--port=")
 	var env_port := OS.get_environment("PORT")
-	if env_port.is_valid_int():
+	if arg_port.is_valid_int():
+		port = arg_port.to_int()
+	elif env_port.is_valid_int():
 		port = env_port.to_int()
+	var arg_room := _arg_value(args, "--room=")
+	if arg_room != "":
+		_room_code = arg_room.to_upper()
 	var peer := WebSocketMultiplayerPeer.new()
 	var err := peer.create_server(port)
 	if err != OK:
@@ -105,32 +121,42 @@ func _handle_member_left(id: int) -> void:
 	_apply_lobby_state(LobbyModel.remove(_lobby_state(), id))
 	if _members.is_empty():
 		_close_room()
+		_quit_child_if_dedicated()
 		return
 	if _match_started or _match_over or was_host or was_zombie:
 		var remaining := _members.duplicate()
 		_close_room()
 		for m in remaining:
 			_room_closed.rpc_id(m, "The game ended (a required player left).")
+		_quit_child_if_dedicated()
 	else:
 		_broadcast_lobby()
 
 
-## Client -> server: create the room. Single-room server, so refuse if busy.
+## Client -> server: establish this child's room (director-injected code, or a
+## generated one for director-less local play).
 @rpc("any_peer", "reliable")
 func create_room() -> void:
 	if not multiplayer.is_server():
 		return
 	var sender := multiplayer.get_remote_sender_id()
-	if _room_code != "":
-		_room_error.rpc_id(sender, "A game is already running. Try Join instead.")
+	# One child = one room. Use the director-injected code if present, else
+	# generate one (director-less local/dev launch). Re-hosting an existing room
+	# just re-confirms the code to the same host.
+	if _room_code == "":
+		_room_code = _gen_code()
+	if _members.is_empty():
+		_members = [sender]
+		_zombie_peer = 0
+		_shooter_peers = []
+		_match_started = false
+		_match_over = false
+	elif sender not in _members:
+		# Already hosted by someone else on this child — shouldn't happen behind
+		# the director, which routes exactly one host per child.
+		_room_error.rpc_id(sender, "A game is already running here.")
 		return
-	_room_code = _gen_code()
-	_members = [sender]
-	_zombie_peer = 0
-	_shooter_peers = []
-	_match_started = false
-	_match_over = false
-	print("[server] room created: %s (host=%d)" % [_room_code, sender])
+	print("[server] room ready: %s (host=%d)" % [_room_code, sender])
 	_room_joined.rpc_id(sender, _room_code)
 	_broadcast_lobby()
 
@@ -142,7 +168,9 @@ func join_room(code: String) -> void:
 		return
 	var sender := multiplayer.get_remote_sender_id()
 	var c := code.strip_edges().to_upper()
-	if _room_code == "":
+	# The room code is pre-seeded at birth behind the director, so also require a
+	# host to have arrived before anyone can join.
+	if _room_code == "" or _members.is_empty():
 		_room_error.rpc_id(sender, "No game is being hosted. Click Host to start one.")
 		return
 	if c != _room_code:
@@ -258,7 +286,18 @@ func _close_room() -> void:
 	_shooter_peers = []
 	_match_started = false
 	_match_over = false
-	print("[server] room closed — waiting for a host")
+	print("[server] room closed")
+
+
+## One child = one room: once the room closes on the dedicated server, exit so
+## the director reaps this slot and spawns a fresh child for the next host. The
+## short delay lets any final _room_closed RPCs flush before the process dies.
+## No-op for host clients / local play (only real `--server` children exit).
+func _quit_child_if_dedicated() -> void:
+	if not GameState.is_dedicated_server:
+		return
+	await get_tree().create_timer(0.5).timeout
+	get_tree().quit()
 
 
 func _gen_code() -> String:
@@ -266,6 +305,14 @@ func _gen_code() -> String:
 	for _i in CODE_LENGTH:
 		s += CODE_CHARS[randi() % CODE_CHARS.length()]
 	return s
+
+
+## Value of a `--flag=value` launch arg, or "" if absent.
+func _arg_value(args: PackedStringArray, prefix: String) -> String:
+	for a in args:
+		if a.begins_with(prefix):
+			return a.substr(prefix.length())
+	return ""
 
 
 # ----------------------------------------------------------------------- Client
@@ -291,14 +338,31 @@ func connect_to_server(url: String = "") -> Error:
 	return OK
 
 
-## Client -> server: host a new game.
+## Client -> server: host a new game. Opens a fresh connection carrying the host
+## intent (?host=1) so the director can allocate a child; the create_room RPC
+## fires once that connection is up (see _on_connected).
 func request_host() -> void:
-	create_room.rpc_id(1)
+	if _connect_with_intent("host=1") == OK:
+		_pending_host = true
+		_pending_join_code = ""
 
 
-## Client -> server: join the game with `code`.
+## Client -> server: join the game with `code`. Opens a connection carrying the
+## join intent (?join=CODE) so the director routes it to the right child; the
+## join_room RPC fires once connected.
 func request_join(code: String) -> void:
-	join_room.rpc_id(1, code)
+	var c := code.strip_edges().to_upper()
+	if _connect_with_intent("join=" + c) == OK:
+		_pending_host = false
+		_pending_join_code = c
+
+
+## Open a connection to the default server with a routing query the director
+## reads (?host / ?join=CODE). Drops any stale peer first so retries are clean.
+func _connect_with_intent(query: String) -> Error:
+	if multiplayer.multiplayer_peer and not (multiplayer.multiplayer_peer is OfflineMultiplayerPeer):
+		leave()
+	return connect_to_server(default_server_url() + "/?" + query)
 
 
 ## Client -> server: take a role inside the room.
@@ -330,6 +394,15 @@ func leave_to_menu() -> void:
 
 func _on_connected() -> void:
 	connected_to_server.emit()
+	# The connection carried the host/join intent in its URL; now that the socket
+	# is up, fire the matching RPC to the child the director routed us to.
+	if _pending_host:
+		_pending_host = false
+		create_room.rpc_id(1)
+	elif _pending_join_code != "":
+		var c := _pending_join_code
+		_pending_join_code = ""
+		join_room.rpc_id(1, c)
 
 
 func _on_connection_failed() -> void:
@@ -394,6 +467,8 @@ func leave() -> void:
 	_shooter_peers = []
 	_match_started = false
 	_match_over = false
+	_pending_host = false
+	_pending_join_code = ""
 
 
 func _back_to_menu() -> void:

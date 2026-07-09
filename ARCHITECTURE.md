@@ -17,6 +17,22 @@ When a match starts, `scenes/world/world.tscn` (`world.gd`) loads and spawns one
 shooter per assigned peer (from `GameState.shooter_peers`), the zombies, NPCs and
 items, then runs the authoritative loop.
 
+## Server topology — concurrent games (Railway)
+The Railway container's entry point is the **director** (`server/director/`, Go),
+not Godot. It listens on `$PORT` and runs a pool of single-match Godot children
+(`godot --headless -- --server --port=<n> --room=<CODE>`) on internal ports —
+**one child = one match**, so none of the single-`SceneTree`, server-authoritative
+game code changes. Each client's WebSocket connect URL carries a routing query the
+director reads: `?host=1` (allocate a fresh child + room code) or `?join=CODE`
+(route to that child). The director rewrites the request line to `/` before
+forwarding, so every child sees a byte-identical handshake — web (itch.io) and
+native clients are identical to it. A child **exits when its room empties** and
+the director reaps the slot; the pool cap is `MAX_GAMES` (default 5). Local dev
+still works director-less: `--server` reads `$PORT`/`--port=`, and `create_room`
+generates a code when `--room=` is absent. The director is pure Go stdlib with
+unit + integration tests in `server/director/`; design spec in
+`docs/superpowers/specs/2026-07-09-concurrent-games-director-design.md`.
+
 ## Autoloads (singletons)
 Defined in `project.godot [autoload]`:
 - **GameState** (`scripts/game_state.gd`) — cross-scene state: `role`
@@ -24,8 +40,11 @@ Defined in `project.godot [autoload]`:
   `world_seed`, and `shooter_peers` (peer ids assigned to shooters, set by Net
   before the world loads). Set by the menu/Net, read by `world.gd` at match start.
 - **Net** (`scripts/network.gd`) — multiplayer transport: rooms, lobby, role
-  claiming, host-controlled start, rematch, dedicated `--server` mode. A room
-  holds one `_zombie_peer` + a `_shooter_peers` list (max 4; `MAX_MEMBERS` = 5).
+  claiming, host-controlled start, rematch, dedicated `--server` mode. `Host`/
+  `Join` open the connection with a `?host=1` / `?join=CODE` query so the director
+  can route it (see Server topology), then fire `create_room`/`join_room` once
+  connected. A room holds one `_zombie_peer` + a `_shooter_peers` list (max 4;
+  `MAX_MEMBERS` = 5).
   The host calls `request_start()` once `LobbyModel.can_start()` (zombie + ≥1
   shooter). Emits `connected_to_server`, `room_joined`,
   `lobby_updated(zombie_peer, shooter_peers, host_peer)`, `room_closed`, etc.

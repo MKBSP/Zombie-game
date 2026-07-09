@@ -3,6 +3,30 @@
 Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
+## Phase 9 — Concurrent games (director + server pool)
+- The Railway container now runs **multiple matches at once** instead of one.
+  Entry point is a new Go **director** (`server/director/`) that listens on
+  `$PORT` and manages a pool of single-match headless Godot children
+  (`--server --port=<n> --room=<CODE>`) on internal ports — one child per match,
+  so no server-authoritative game code changed.
+- Routing: each client's WebSocket connect URL carries `?host=1` (allocate a
+  fresh child + room code) or `?join=CODE` (route to that child). The director is
+  a raw TCP proxy — it reads the upgrade line, rewrites the request target to `/`
+  so children see a byte-identical handshake (web/itch.io and native unaffected),
+  and splices bytes. Pool cap `MAX_GAMES` (default 5); idle-spawn backstop; a
+  child exits when its room empties and the director reaps the slot.
+- Godot child (`scripts/network.gd`): `start_dedicated_server` reads `--port=`/
+  `--room=` (director-injected), `create_room` uses the injected code and no
+  longer refuses a "second" game, and the process exits on room close
+  (`_quit_child_if_dedicated`). Director-less local `--server`/`--host`/`--join`
+  dev flow still works.
+- Client + menu: `Host`/`Join` now open the intent-carrying connection themselves
+  (`_connect_with_intent`) and fire the RPC on connect; the old separate "connect"
+  step is gone. Connection-failure copy is intent-aware (bad code / busy server).
+- Deploy: multi-stage `Dockerfile` (Go build stage → Debian+Godot+director);
+  `CMD` runs the director. Design + tests in `server/director/`; spec in
+  `docs/superpowers/specs/2026-07-09-concurrent-games-director-design.md`.
+
 ## Phase 8 — "ZOMBIE COMMAND" visual identity (in progress)
 - Playtest corrections (July 8):
   - Menu back navigation: "‹ BACK" button on role select / multiplayer / lobby /

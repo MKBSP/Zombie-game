@@ -1,6 +1,19 @@
-# Headless Godot dedicated server for the zombie game (Railway).
-# Runs the project with --server; the server reads Railway's $PORT.
+# Headless Godot dedicated server for the zombie game (Railway), fronted by the
+# Go "director" so one container can run several concurrent matches.
+#
+# The director listens on Railway's $PORT and, per incoming client, routes the
+# WebSocket to a pooled single-match Godot child (spawned with --port/--room).
+# See docs/superpowers/specs/2026-07-09-concurrent-games-director-design.md.
 
+# ---- Stage 1: build the Go director -----------------------------------------
+FROM golang:1.26-bookworm AS director-build
+WORKDIR /src
+# The director module is self-contained (stdlib only), so the source is all we
+# need — no module download step.
+COPY server/director/ ./
+RUN CGO_ENABLED=0 go build -trimpath -o /out/director ./cmd/director
+
+# ---- Stage 2: headless Godot + director -------------------------------------
 FROM debian:bookworm-slim
 
 # MUST match the Godot version your project uses (see the editor title bar).
@@ -19,9 +32,12 @@ RUN wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERS
 
 WORKDIR /app
 COPY . /app
+COPY --from=director-build /out/director /usr/local/bin/director
 
-# Pre-import resources so the first boot is fast (re-imports at runtime if needed).
+# Pre-import resources so the first child boots fast (re-imports at runtime if needed).
 RUN godot --headless --import || true
 
-# Railway sets $PORT; scripts/network.gd reads it. WebSocket binds 0.0.0.0 by default.
-CMD ["godot", "--headless", "--path", ".", "--", "--server"]
+# The director reads $PORT (Railway sets it) and spawns Godot children on
+# internal ports 8911+. Tunables: MAX_GAMES (default 5), INTERNAL_BASE_PORT,
+# IDLE_SPAWN_TIMEOUT_SEC. GODOT_BIN defaults to "godot", PROJECT_PATH to "/app".
+CMD ["director"]

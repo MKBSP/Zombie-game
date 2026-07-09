@@ -37,6 +37,7 @@ var _room_code: String = ""
 var _auto_role: int = -1
 var _auto_host: bool = false
 var _auto_join_code: String = ""
+var _mp_intent: String = ""  # "host" | "join" — tailors connection-failure copy
 
 
 ## All launch args, whether after `--` (terminal) or plain (editor instances).
@@ -113,31 +114,38 @@ func _on_solo_role_chosen(role: GameState.Role) -> void:
 
 # ----------------------------------------------------------------------- Multiplayer
 
-## Entering multiplayer connects to the dedicated server; Host/Join unlock once
-## connected.
+## Entering multiplayer: Host and Join are available immediately. The connection
+## opens when one is chosen, carrying the host/join intent the director needs to
+## route (a connection with no intent would be refused).
 func _on_multi_pressed() -> void:
 	_show_panel(mp_panel)
-	host_button.disabled = true
-	join_choice_button.disabled = true
-	mp_status.text = "Connecting to server..."
-	if Net.connect_to_server() != OK:
-		mp_status.text = "Couldn't start a connection."
-
-
-func _on_connected_to_server() -> void:
 	host_button.disabled = false
 	join_choice_button.disabled = false
 	mp_status.text = "Host a game, or Join with a code."
 	if _auto_host:
-		Net.request_host()
+		_on_host_pressed()
 	elif _auto_join_code != "":
+		_mp_intent = "join"
 		Net.request_join(_auto_join_code)
 
 
+func _on_connected_to_server() -> void:
+	# Connected with intent already in hand; Net fires the host/join RPC itself.
+	# Room entry is confirmed by _on_room_joined.
+	mp_status.text = "Connected — setting up your game..."
+
+
 func _on_connection_failed() -> void:
-	mp_status.text = "Connection failed — server unreachable."
-	host_button.disabled = true
-	join_choice_button.disabled = true
+	# The director closes the socket for an unknown code or a full pool, so a
+	# failed join is most often a bad code or a busy server rather than an
+	# unreachable host. Re-enable the buttons so the player can retry.
+	if _mp_intent == "join":
+		join_status.text = "Couldn't join — check the code, or the game may be full."
+		join_confirm_button.disabled = false
+	else:
+		mp_status.text = "Couldn't host — the server may be busy. Try again."
+	host_button.disabled = false
+	join_choice_button.disabled = false
 
 
 func _on_server_disconnected() -> void:
@@ -146,6 +154,7 @@ func _on_server_disconnected() -> void:
 
 
 func _on_host_pressed() -> void:
+	_mp_intent = "host"
 	mp_status.text = "Creating game..."
 	Net.request_host()
 
@@ -168,6 +177,7 @@ func _on_join_confirm_pressed() -> void:
 		return
 	join_status.text = "Joining..."
 	join_confirm_button.disabled = true
+	_mp_intent = "join"
 	Net.request_join(code)
 
 

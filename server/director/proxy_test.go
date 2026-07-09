@@ -130,6 +130,93 @@ func TestProxy_HostRetriesDialUntilChildReady(t *testing.T) {
 	}
 }
 
+// Regression: a host that connects and then leaves without cleanly ending a
+// match (abandoned in the lobby, a web client that just drops the socket) must
+// not pin its pool slot forever. When the host's connection ends the director
+// kills the child so the pool reclaims the slot; otherwise MAX_GAMES abandoned
+// hosts exhaust the pool and every later host is refused ("server unreachable").
+func TestProxy_HostChildKilledWhenConnectionEnds(t *testing.T) {
+	backendAddr, firstLine := startEchoBackend(t)
+	p, rec := newTestPool(5)
+	s := NewServer(p)
+	s.dial = func(port int) (net.Conn, error) { return net.Dial("tcp", backendAddr) }
+
+	dirLn, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	t.Cleanup(func() { dirLn.Close() })
+	go s.Serve(dirLn)
+
+	c, err := net.Dial("tcp", dirLn.Addr().String())
+	if err != nil {
+		t.Fatalf("dial director: %v", err)
+	}
+	if _, err := io.WriteString(c, "GET /?host=1 HTTP/1.1\r\n\r\nHI"); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	// Once the backend has the request line, a child was handed out and spliced.
+	select {
+	case <-firstLine:
+	case <-time.After(2 * time.Second):
+		t.Fatal("backend never received the host request")
+	}
+	hosted := rec.get(0) // the first-spawned child is the one this host claimed
+
+	c.Close() // the host leaves
+
+	select {
+	case <-hosted.Done():
+		// killed and reaped — slot reclaimed
+	case <-time.After(2 * time.Second):
+		t.Fatal("host child was not killed when the connection ended (pool slot leaked)")
+	}
+}
+
+// A joiner leaving must NOT tear down the room: the host and any other players
+// are still connected to the same child, so only the host's departure kills it.
+func TestProxy_JoinerLeavingDoesNotKillChild(t *testing.T) {
+	backendAddr, firstLine := startEchoBackend(t)
+	p, rec := newTestPool(5)
+	_, code, err := p.Host() // a live room the joiner can enter
+	if err != nil {
+		t.Fatalf("Host: %v", err)
+	}
+	hosted := rec.get(0)
+
+	s := NewServer(p)
+	s.dial = func(port int) (net.Conn, error) { return net.Dial("tcp", backendAddr) }
+	dirLn, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	t.Cleanup(func() { dirLn.Close() })
+	go s.Serve(dirLn)
+
+	c, err := net.Dial("tcp", dirLn.Addr().String())
+	if err != nil {
+		t.Fatalf("dial director: %v", err)
+	}
+	if _, err := io.WriteString(c, "GET /?join="+code+" HTTP/1.1\r\n\r\nHI"); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	select {
+	case <-firstLine:
+	case <-time.After(2 * time.Second):
+		t.Fatal("backend never received the join request")
+	}
+
+	c.Close() // the joiner leaves
+
+	select {
+	case <-hosted.Done():
+		t.Fatal("a joiner leaving killed the host's child")
+	case <-time.After(300 * time.Millisecond):
+		// child stayed alive — correct
+	}
+}
+
 func TestProxy_JoinUnknownCodeClosesConnection(t *testing.T) {
 	backendAddr, _ := startEchoBackend(t)
 	s := newServerWithBackend(t, 5, backendAddr)

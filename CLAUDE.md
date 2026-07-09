@@ -31,6 +31,10 @@ every file each session. Keep them current as part of your work.
   AI edits via MCP → local folder updated → Mads playtests + edits in the Godot
   editor → **Mads** pushes the folder's latest to GitHub. Never edit game files by
   a path the editor won't see, and never push.
+- **When work is ready to push, suggest a commit message.** Mads still runs the
+  push himself, but whenever a unit of work is complete and push-ready, share a
+  short **1–2 phrase** suggested commit message (imperative mood, no attribution
+  trailer) so he can copy it. E.g. `Add concurrent-games director + server pool`.
 - Don't commit unless asked.
 - After meaningful changes, add a line to CHANGELOG.md and update
   ARCHITECTURE.md / PROJECT.md if structure or status changed.

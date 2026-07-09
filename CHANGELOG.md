@@ -4,6 +4,16 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 9 — Concurrent games (director + server pool)
+- **Fix — pool slot leak that broke online host ("server unreachable").** A host
+  whose connection ended without cleanly emptying its room (abandoned in the
+  lobby, a web client that just drops the socket) pinned its pool slot forever,
+  because a hosted child was only released when the child process exited. After
+  `MAX_GAMES` (5) such attempts the pool was permanently exhausted and every host
+  was refused with a fast 502 — reproduced end-to-end in the Railway image.
+  The director now `Kill`s a host's child when that host connection ends, so the
+  pool reaps the slot and refills the warm buffer (joiner disconnects don't kill;
+  this mirrors "host leaving closes the room"). See `proxy.go` + regression tests
+  `TestProxy_HostChildKilledWhenConnectionEnds` / `...JoinerLeavingDoesNotKillChild`.
 - The Railway container now runs **multiple matches at once** instead of one.
   Entry point is a new Go **director** (`server/director/`) that listens on
   `$PORT` and manages a pool of single-match headless Godot children

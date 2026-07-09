@@ -71,6 +71,14 @@ func (s *Server) handle(client net.Conn) {
 		if err != nil {
 			return // pool full or spawn failed → close the socket
 		}
+		// One child = one host session. When the host's connection ends — whether
+		// abandoned in the menu/lobby or closed after a finished match — kill the
+		// child so the pool reaps the slot and refills the warm buffer. Without
+		// this a host that never cleanly empties its room (an abandoned connection,
+		// a web client that just drops the socket) pins its slot forever, and after
+		// MAX_GAMES such attempts the pool is exhausted and every host is refused.
+		// This mirrors the game's own rule that the host leaving closes the room.
+		defer child.Kill()
 	case KindJoin:
 		var ok bool
 		child, ok = s.pool.Join(intent.Code)

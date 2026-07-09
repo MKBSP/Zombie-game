@@ -1,9 +1,6 @@
 package director
 
-import (
-	"testing"
-	"time"
-)
+import "testing"
 
 func TestLoadConfig_Defaults(t *testing.T) {
 	cfg := LoadConfig(func(string) string { return "" })
@@ -13,11 +10,11 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	if cfg.MaxGames != 5 {
 		t.Errorf("MaxGames = %d, want 5", cfg.MaxGames)
 	}
+	if cfg.WarmChildren != 1 {
+		t.Errorf("WarmChildren = %d, want 1", cfg.WarmChildren)
+	}
 	if cfg.BasePort != 8911 {
 		t.Errorf("BasePort = %d, want 8911", cfg.BasePort)
-	}
-	if cfg.IdleTimeout != 20*time.Second {
-		t.Errorf("IdleTimeout = %v, want 20s", cfg.IdleTimeout)
 	}
 	if cfg.GodotBin != "godot" {
 		t.Errorf("GodotBin = %q, want godot", cfg.GodotBin)
@@ -29,12 +26,12 @@ func TestLoadConfig_Defaults(t *testing.T) {
 
 func TestLoadConfig_OverridesFromEnv(t *testing.T) {
 	env := map[string]string{
-		"PORT":                   "4000",
-		"MAX_GAMES":              "3",
-		"INTERNAL_BASE_PORT":     "9000",
-		"IDLE_SPAWN_TIMEOUT_SEC": "45",
-		"GODOT_BIN":              "/usr/local/bin/godot",
-		"PROJECT_PATH":           "/srv/game",
+		"PORT":               "4000",
+		"MAX_GAMES":          "3",
+		"WARM_CHILDREN":      "2",
+		"INTERNAL_BASE_PORT": "9000",
+		"GODOT_BIN":          "/usr/local/bin/godot",
+		"PROJECT_PATH":       "/srv/game",
 	}
 	cfg := LoadConfig(func(k string) string { return env[k] })
 	if cfg.PublicPort != 4000 {
@@ -43,11 +40,11 @@ func TestLoadConfig_OverridesFromEnv(t *testing.T) {
 	if cfg.MaxGames != 3 {
 		t.Errorf("MaxGames = %d, want 3", cfg.MaxGames)
 	}
+	if cfg.WarmChildren != 2 {
+		t.Errorf("WarmChildren = %d, want 2", cfg.WarmChildren)
+	}
 	if cfg.BasePort != 9000 {
 		t.Errorf("BasePort = %d, want 9000", cfg.BasePort)
-	}
-	if cfg.IdleTimeout != 45*time.Second {
-		t.Errorf("IdleTimeout = %v, want 45s", cfg.IdleTimeout)
 	}
 	if cfg.GodotBin != "/usr/local/bin/godot" {
 		t.Errorf("GodotBin = %q", cfg.GodotBin)

@@ -1,8 +1,15 @@
 # Concurrent games via a director + pool of single-match servers
 
 **Date:** 2026-07-09
-**Status:** Approved design, pending implementation plan
+**Status:** Implemented (Phase 9).
 **Scope:** Let the Railway deployment run **2–5 games at once** instead of one.
+
+> **As-built refinement:** on-demand spawn + an idle-spawn timeout were replaced
+> by a **warm buffer** (`WARM_CHILDREN`, default 1) of pre-booted children plus
+> **dial-retry**. A freshly spawned Godot child needs a few seconds to bind its
+> port, so dialing it immediately failed and closed the client ("server
+> unreachable" on first host). Keeping a pre-booted child ready makes hosting
+> instant; dial-retry covers cold spawns during startup/refill.
 
 ---
 

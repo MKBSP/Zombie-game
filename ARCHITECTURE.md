@@ -26,8 +26,11 @@ game code changes. Each client's WebSocket connect URL carries a routing query t
 director reads: `?host=1` (allocate a fresh child + room code) or `?join=CODE`
 (route to that child). The director rewrites the request line to `/` before
 forwarding, so every child sees a byte-identical handshake — web (itch.io) and
-native clients are identical to it. A child **exits when its room empties** and
-the director reaps the slot; the pool cap is `MAX_GAMES` (default 5). Local dev
+native clients are identical to it. The director keeps a small **warm buffer** of
+pre-booted children (`WARM_CHILDREN`, default 1) so hosting connects instantly,
+and **dial-retries** a still-booting child. A child **exits when its room
+empties**; the director reaps the slot and refills the buffer. Pool cap
+`MAX_GAMES` (default 5). Local dev
 still works director-less: `--server` reads `$PORT`/`--port=`, and `create_room`
 generates a code when `--room=` is absent. The director is pure Go stdlib with
 unit + integration tests in `server/director/`; design spec in

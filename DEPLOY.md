@@ -63,9 +63,10 @@ the container). Note it: CORS / `FRONTEND_URL` is **not** needed (raw WebSocket)
 
 - **Concurrent games:** one Railway service now runs several matches at once via
   the Go **director** (`server/director/`), which pools single-match Godot
-  children. Tunables (service **Variables**, all optional): `MAX_GAMES` (default
-  5), `INTERNAL_BASE_PORT` (8911), `IDLE_SPAWN_TIMEOUT_SEC` (20). The client URL
-  is unchanged — `network.gd` appends `?host`/`?join=CODE` itself. See
+  children. It keeps a small **warm buffer** of pre-booted children so hosting is
+  instant. Tunables (service **Variables**, all optional): `MAX_GAMES` (default
+  5), `WARM_CHILDREN` (1), `INTERNAL_BASE_PORT` (8911). The client URL is
+  unchanged — `network.gd` appends `?host`/`?join=CODE` itself. See
   `ARCHITECTURE.md` → *Server topology*.
 - **Idle disconnects:** Railway drops idle WebSocket connections after ~15 min.
   Auto-reconnect is Phase D (not built yet) — fine for normal play sessions.

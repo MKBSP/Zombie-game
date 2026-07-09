@@ -2,8 +2,10 @@ package director
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"net"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -81,6 +83,50 @@ func TestProxy_HostRewritesAndSplices(t *testing.T) {
 	}
 	if string(buf) != "\r\nHELLO" {
 		t.Errorf("echoed payload = %q, want %q", string(buf), "\r\nHELLO")
+	}
+}
+
+// Regression: a freshly-spawned host child is still booting, so the first dials
+// fail. The director must retry until the child accepts, not close the client.
+func TestProxy_HostRetriesDialUntilChildReady(t *testing.T) {
+	backendAddr, firstLine := startEchoBackend(t)
+	p, _ := newTestPool(5)
+	s := NewServer(p)
+	s.dialTimeout = 3 * time.Second
+	var attempts int32
+	s.dial = func(port int) (net.Conn, error) {
+		if atomic.AddInt32(&attempts, 1) < 3 { // "booting" for the first two tries
+			return nil, fmt.Errorf("child still booting")
+		}
+		return net.Dial("tcp", backendAddr)
+	}
+
+	dirLn, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	t.Cleanup(func() { dirLn.Close() })
+	go s.Serve(dirLn)
+
+	c, err := net.Dial("tcp", dirLn.Addr().String())
+	if err != nil {
+		t.Fatalf("dial director: %v", err)
+	}
+	defer c.Close()
+	if _, err := io.WriteString(c, "GET /?host=1 HTTP/1.1\r\n\r\nHI"); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	select {
+	case line := <-firstLine:
+		if line != "GET / HTTP/1.1\r\n" {
+			t.Errorf("backend saw %q, want rewritten root path", line)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("director never reached the child after retrying")
+	}
+	if got := atomic.LoadInt32(&attempts); got < 3 {
+		t.Errorf("expected at least 3 dial attempts, got %d", got)
 	}
 }
 

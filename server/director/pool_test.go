@@ -2,6 +2,7 @@ package director
 
 import (
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 )
@@ -19,14 +20,10 @@ func (c *fakeChild) Code() string          { return c.code }
 func (c *fakeChild) Done() <-chan struct{} { return c.done }
 func (c *fakeChild) Kill() {
 	c.killed = true
-	select {
-	case <-c.done:
-	default:
-		close(c.done)
-	}
+	c.exit()
 }
 
-// exit simulates the process exiting on its own (room emptied).
+// exit simulates the process exiting on its own (room emptied / match ended).
 func (c *fakeChild) exit() {
 	select {
 	case <-c.done:
@@ -35,21 +32,71 @@ func (c *fakeChild) exit() {
 	}
 }
 
-func newTestPool(cap int) (*Pool, *[]*fakeChild) {
-	spawned := &[]*fakeChild{}
+// spawnRecorder records the children a pool spawns. Thread-safe because the
+// pool's reaper goroutine spawns replacements concurrently with test reads.
+type spawnRecorder struct {
+	mu       sync.Mutex
+	children []*fakeChild
+}
+
+func (r *spawnRecorder) add(c *fakeChild) {
+	r.mu.Lock()
+	r.children = append(r.children, c)
+	r.mu.Unlock()
+}
+func (r *spawnRecorder) len() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.children)
+}
+func (r *spawnRecorder) get(i int) *fakeChild {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.children[i]
+}
+func (r *spawnRecorder) last() *fakeChild {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.children[len(r.children)-1]
+}
+
+func newTestPool(cap int) (*Pool, *spawnRecorder) {
+	rec := &spawnRecorder{}
 	spawn := func(port int, code string) (Child, error) {
 		fc := &fakeChild{port: port, code: code, done: make(chan struct{})}
-		*spawned = append(*spawned, fc)
+		rec.add(fc)
 		return fc, nil
 	}
 	p := NewPool(Config{
 		Cap:      cap,
+		Warm:     1,
 		BasePort: 8911,
-		Idle:     time.Minute,
 		Spawn:    spawn,
 		Rng:      rand.New(rand.NewSource(1)),
 	})
-	return p, spawned
+	return p, rec
+}
+
+// waitFor polls cond until true or the deadline, to observe reaper goroutines.
+func waitFor(t *testing.T, cond func() bool, msg string) {
+	t.Helper()
+	deadline := time.Now().Add(time.Second)
+	for !cond() {
+		if time.Now().After(deadline) {
+			t.Fatal(msg)
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+func TestPool_StartSpawnsWarmBuffer(t *testing.T) {
+	p, _ := newTestPool(5)
+	if err := p.Start(); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	if p.Count() != 1 {
+		t.Errorf("warm buffer = %d children, want 1", p.Count())
+	}
 }
 
 func TestPool_HostAllocatesJoinableRoom(t *testing.T) {
@@ -61,15 +108,27 @@ func TestPool_HostAllocatesJoinableRoom(t *testing.T) {
 	if code == "" {
 		t.Fatal("Host returned an empty code")
 	}
-	if child.Port() != 8911 {
-		t.Errorf("first child port = %d, want 8911", child.Port())
-	}
 	got, ok := p.Join(code)
 	if !ok {
 		t.Fatal("Join failed for a freshly hosted code")
 	}
 	if got != child {
 		t.Error("Join returned a different child than Host")
+	}
+}
+
+func TestPool_HostUsesWarmChildInstantly(t *testing.T) {
+	p, rec := newTestPool(5)
+	if err := p.Start(); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	warm := rec.get(0)
+	child, _, err := p.Host()
+	if err != nil {
+		t.Fatalf("Host: %v", err)
+	}
+	if child != warm {
+		t.Error("Host did not hand out the pre-warmed child")
 	}
 }
 
@@ -80,12 +139,12 @@ func TestPool_JoinUnknownCode(t *testing.T) {
 	}
 }
 
-func TestPool_DistinctPortsPerChild(t *testing.T) {
+func TestPool_HostGivesDistinctPorts(t *testing.T) {
 	p, _ := newTestPool(5)
 	a, _, _ := p.Host()
 	b, _, _ := p.Host()
 	if a.Port() == b.Port() {
-		t.Errorf("two children share port %d", a.Port())
+		t.Errorf("two hosted children share port %d", a.Port())
 	}
 }
 
@@ -102,72 +161,30 @@ func TestPool_HostAtCapIsRefused(t *testing.T) {
 	}
 }
 
-func TestPool_ReapOnChildExit(t *testing.T) {
-	p, spawned := newTestPool(5)
-	_, code, _ := p.Host()
-	(*spawned)[0].exit()
+func TestPool_ReapOnExitRemovesAndRefills(t *testing.T) {
+	p, rec := newTestPool(5)
+	_, code, _ := p.Host() // spawns the hosted child + refills a warm one
+	rec.get(0).exit()      // the hosted child ends
 
-	// The reaper runs in a goroutine; wait briefly for the registry to clear.
-	deadline := time.Now().Add(time.Second)
-	for {
-		if _, ok := p.Join(code); !ok {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("child was not reaped after it exited")
-		}
-		time.Sleep(time.Millisecond)
-	}
+	waitFor(t, func() bool {
+		_, ok := p.Join(code)
+		return !ok
+	}, "hosted child was not reaped after it exited")
+
+	// The warm buffer is kept topped up after a reap.
+	waitFor(t, func() bool { return p.Count() >= 1 }, "warm buffer not refilled after reap")
 }
 
 func TestPool_PortReusedAfterReap(t *testing.T) {
-	p, spawned := newTestPool(5)
-	a, _, _ := p.Host()
-	firstPort := a.Port()
-	(*spawned)[0].exit()
-
-	deadline := time.Now().Add(time.Second)
-	for p.Count() != 0 {
-		if time.Now().After(deadline) {
-			t.Fatal("child not reaped")
-		}
-		time.Sleep(time.Millisecond)
+	p, rec := newTestPool(3)
+	if err := p.Start(); err != nil { // warm child on 8911
+		t.Fatalf("Start: %v", err)
 	}
-	b, _, _ := p.Host()
-	if b.Port() != firstPort {
-		t.Errorf("reused port = %d, want the freed %d", b.Port(), firstPort)
-	}
-}
+	firstPort := rec.get(0).Port()
+	rec.get(0).exit() // free 8911
 
-func TestPool_SweepKillsIdleUnmarkedChild(t *testing.T) {
-	p, spawned := newTestPool(5)
-	_, code, _ := p.Host()
-
-	now := time.Now()
-	p.now = func() time.Time { return now.Add(2 * time.Minute) } // past the 1m idle
-	p.Sweep()
-
-	if !(*spawned)[0].killed {
-		t.Error("idle unmarked child was not killed by Sweep")
-	}
-	if _, ok := p.Join(code); ok {
-		t.Error("idle child still joinable after Sweep")
-	}
-}
-
-func TestPool_SweepSparesActiveChild(t *testing.T) {
-	p, spawned := newTestPool(5)
-	_, code, _ := p.Host()
-	p.MarkActive(code)
-
-	now := time.Now()
-	p.now = func() time.Time { return now.Add(2 * time.Minute) }
-	p.Sweep()
-
-	if (*spawned)[0].killed {
-		t.Error("active child was killed by Sweep")
-	}
-	if _, ok := p.Join(code); !ok {
-		t.Error("active child no longer joinable after Sweep")
-	}
+	// The refill spawns a replacement, which should reuse the freed port.
+	waitFor(t, func() bool {
+		return rec.len() >= 2 && rec.last().Port() == firstPort
+	}, "freed port was not reused by the refill spawn")
 }

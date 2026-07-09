@@ -13,8 +13,11 @@ here as part of finishing any meaningful change.
   fresh child + room code) or `?join=CODE` (route to that child). The director is
   a raw TCP proxy — it reads the upgrade line, rewrites the request target to `/`
   so children see a byte-identical handshake (web/itch.io and native unaffected),
-  and splices bytes. Pool cap `MAX_GAMES` (default 5); idle-spawn backstop; a
-  child exits when its room empties and the director reaps the slot.
+  and splices bytes. A **warm buffer** (`WARM_CHILDREN`, default 1) keeps a
+  pre-booted child ready so hosting is instant; **dial-retry** covers a
+  still-booting child (fixes the cold-start "server unreachable" on first host).
+  Pool cap `MAX_GAMES` (default 5); a child exits when its room empties and the
+  director reaps + refills.
 - Godot child (`scripts/network.gd`): `start_dedicated_server` reads `--port=`/
   `--room=` (director-injected), `create_room` uses the injected code and no
   longer refuses a "second" game, and the process exits on room close

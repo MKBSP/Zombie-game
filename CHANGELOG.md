@@ -4,6 +4,11 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 9 — Concurrent games (director + server pool)
+- **Tuning: split smoothing rate for own shooter vs watched entities.** Stops
+  felt lingering (~0.2s coast) because one smooth_rate served everything. New
+  `Balance.NET.own_smooth_rate` (28/s, ~0.1s settle) applies to the player's
+  own shooter — responsiveness matters most there — while zombies/NPCs/remote
+  shooters keep the softer 14/s look. NetSmooth helpers take an optional rate.
 - **Online smoothness: client-side pose interpolation + local aim.** Entities
   jittered ("jumping all over") because synchronizers wrote raw
   `position`/`rotation` at whatever cadence packets arrived (bursty over

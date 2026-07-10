@@ -192,11 +192,13 @@ func _net_pose_step(delta: float) -> void:
 		sync_pos = position
 		sync_rot = rotation
 		return
-	NetSmooth.follow(self, sync_pos, delta)
 	if is_multiplayer_authority():
+		# Your own shooter: stiffer follow (crisper stops) + instant local aim.
+		NetSmooth.follow(self, sync_pos, delta, Balance.NET.own_smooth_rate)
 		if controls_enabled and not is_dead:
 			rotation = (get_global_mouse_position() - global_position).angle()
 	else:
+		NetSmooth.follow(self, sync_pos, delta)
 		NetSmooth.follow_rot(self, sync_rot, delta)
 
 

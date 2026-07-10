@@ -74,6 +74,9 @@ var _progress_bar: Node2D = null
 
 
 func _ready() -> void:
+	# Clients: adopt the spawn pose (see zombie.gd — sync_pos carries position).
+	if not multiplayer.is_server():
+		position = sync_pos
 	var b: Dictionary = Balance.NPC
 	speed = b.speed
 	max_hp = b.max_hp
@@ -107,8 +110,23 @@ func _ready() -> void:
 		_start_hidden(randf_range(1.0, 4.0))
 
 
+## Server-synced position (see NetSmooth): published here, eased on clients.
+## NPCs don't replicate rotation, so only the position is smoothed.
+var sync_pos: Vector2
+
+
+## Publish the spawn pose before the MultiplayerSpawner captures spawn state.
+func _enter_tree() -> void:
+	if multiplayer.is_server():
+		sync_pos = position
+
+
 ## Conversion visuals — every peer, driven by synced state/convert_progress.
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	if multiplayer.is_server():
+		sync_pos = position
+	else:
+		NetSmooth.follow(self, sync_pos, delta)
 	if state == State.CONVERTING and convert_progress >= 0.0:
 		if _progress_bar == null:
 			_progress_bar = ConversionProgressBar.new()

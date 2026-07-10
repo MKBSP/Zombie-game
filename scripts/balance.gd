@@ -10,6 +10,13 @@ extends Node
 ## ============================================================================
 
 # --- Player ----------------------------------------------------------------
+## Online smoothing: clients ease entities toward the server's synced pose
+## (sync_pos/sync_rot) instead of snapping, so internet jitter doesn't show.
+const NET := {
+	smooth_rate = 14.0,     # 1/s exponential ease toward the synced pose
+	snap_dist_px = 160.0,   # beyond this, teleport (merge completion, respawn)
+}
+
 const SHOOTER := {
 	speed = 210.0,
 	max_hp = 100,

@@ -27,6 +27,10 @@ signal took_damage(zombie: Node2D, amount: int)
 
 
 func _ready() -> void:
+	# Clients: adopt the spawn pose (see zombie.gd — sync_pos carries position).
+	if not multiplayer.is_server():
+		position = sync_pos
+		rotation = sync_rot
 	speed = Balance.MASTER.speed
 	max_hp = Balance.MASTER.max_hp
 	contact_dps = Balance.MASTER.contact_dps
@@ -113,7 +117,25 @@ func set_target(new_target: Node2D) -> void:
 	target = new_target
 
 
-func _process(_delta: float) -> void:
+## Server-synced pose (see NetSmooth): published here, eased on clients.
+var sync_pos: Vector2
+var sync_rot: float
+
+
+## Publish the spawn pose before the MultiplayerSpawner captures spawn state.
+func _enter_tree() -> void:
+	if multiplayer.is_server():
+		sync_pos = position
+		sync_rot = rotation
+
+
+func _process(delta: float) -> void:
+	if multiplayer.is_server():
+		sync_pos = position
+		sync_rot = rotation
+	else:
+		NetSmooth.follow(self, sync_pos, delta)
+		NetSmooth.follow_rot(self, sync_rot, delta)
 	if _health_bar and hp != _last_hp_seen:
 		_last_hp_seen = hp
 		_refresh_health_bar()

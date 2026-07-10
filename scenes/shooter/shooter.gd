@@ -14,6 +14,11 @@ var hp: int:
 		hp_changed.emit(hp)
 ## Set to false when this window's player isn't controlling the shooter.
 var controls_enabled: bool = true
+## Server-synced pose (see NetSmooth): published by the server, eased on
+## clients. The owning client aims locally instead of using sync_rot, so the
+## flashlight cone tracks the mouse instantly rather than lagging a round trip.
+var sync_pos: Vector2
+var sync_rot: float
 var can_shoot: bool = true
 var is_dead: bool = false
 var _damage_accumulator: float = 0.0
@@ -116,9 +121,17 @@ func _enter_tree() -> void:
 	# server: pin it back to server authority (set_multiplayer_authority above
 	# is recursive and would otherwise hand it to the owning client).
 	$MultiplayerSynchronizer.set_multiplayer_authority(1)
+	# Publish the spawn pose before the MultiplayerSpawner captures spawn state.
+	if multiplayer.is_server():
+		sync_pos = position
+		sync_rot = rotation
 
 
 func _ready() -> void:
+	# Clients: adopt the spawn pose (see zombie.gd — sync_pos carries position).
+	if not multiplayer.is_server():
+		position = sync_pos
+		rotation = sync_rot
 	speed = Balance.SHOOTER.speed
 	max_hp = Balance.SHOOTER.max_hp
 	contact_damage_per_second = Balance.SHOOTER.contact_dps
@@ -136,7 +149,8 @@ func _ready() -> void:
 ## Input capture — runs on whichever peer controls the shooter and forwards
 ## the input to the server. With call_local, solo and host-as-human use the
 ## exact same path.
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_net_pose_step(delta)
 	if not is_multiplayer_authority() or not controls_enabled or is_dead:
 		_hide_interact_prompt()
 		return
@@ -167,6 +181,23 @@ func _process(_delta: float) -> void:
 		_action_interact.rpc_id(1)
 
 	_update_interact_prompt()
+
+
+## Per-frame pose flow. Server publishes; clients ease toward the synced pose.
+## The owning client overrides rotation with its live mouse aim: the server's
+## rotation arrives a round trip late, which made the flashlight cone trail
+## behind the crosshair.
+func _net_pose_step(delta: float) -> void:
+	if multiplayer.is_server():
+		sync_pos = position
+		sync_rot = rotation
+		return
+	NetSmooth.follow(self, sync_pos, delta)
+	if is_multiplayer_authority():
+		if controls_enabled and not is_dead:
+			rotation = (get_global_mouse_position() - global_position).angle()
+	else:
+		NetSmooth.follow_rot(self, sync_rot, delta)
 
 
 @rpc("any_peer", "call_local", "unreliable_ordered")

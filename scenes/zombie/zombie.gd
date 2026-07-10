@@ -47,6 +47,11 @@ signal zombie_died(zombie: Node2D)
 signal took_damage(zombie: Node2D, amount: int)
 
 func _ready() -> void:
+	# Clients: adopt the spawn pose (position itself is no longer replicated —
+	# sync_pos carries it; without this the node sits at (0,0) for a frame).
+	if not multiplayer.is_server():
+		position = sync_pos
+		rotation = sync_rot
 	# Pick the stat block by group: standard / fast / fat all use this script.
 	var stats: Dictionary = Balance.ZOMBIE
 	if is_in_group("fast_zombie"):
@@ -82,7 +87,26 @@ func _ready() -> void:
 	nav_agent.target_position = global_position  # Stay put initially
 
 ## Merge visuals — runs on every peer from the synced merge_progress.
-func _process(_delta: float) -> void:
+## Server-synced pose (see NetSmooth): published here, eased on clients.
+var sync_pos: Vector2
+var sync_rot: float
+
+
+## Publish the spawn pose before the MultiplayerSpawner captures spawn state
+## (child_entered_tree fires right after _enter_tree, before _ready).
+func _enter_tree() -> void:
+	if multiplayer.is_server():
+		sync_pos = position
+		sync_rot = rotation
+
+
+func _process(delta: float) -> void:
+	if multiplayer.is_server():
+		sync_pos = position
+		sync_rot = rotation
+	else:
+		NetSmooth.follow(self, sync_pos, delta)
+		NetSmooth.follow_rot(self, sync_rot, delta)
 	if merge_progress >= 0.0:
 		if _merge_bar == null:
 			_merge_bar = MergeManager.MergeProgressBar.new()

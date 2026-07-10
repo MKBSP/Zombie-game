@@ -16,6 +16,10 @@ var from_player: bool = false
 var shooter_ref: Node = null
 
 func _ready() -> void:
+	# Clients: adopt the spawn pose (see zombie.gd — sync_pos carries position).
+	if not multiplayer.is_server():
+		position = sync_pos
+		rotation = sync_rot
 	# Simulation (movement, collisions, despawn) is server-only; clients just
 	# render the synced position. Server queue_free despawns replicas too.
 	set_physics_process(multiplayer.is_server())
@@ -26,6 +30,27 @@ func _ready() -> void:
 		var timer := get_tree().create_timer(lifetime)
 		timer.timeout.connect(queue_free)
 		body_entered.connect(_on_body_entered)
+
+## Server-synced pose (see NetSmooth): published here, eased on clients.
+var sync_pos: Vector2
+var sync_rot: float
+
+
+## Publish the spawn pose before the MultiplayerSpawner captures spawn state.
+func _enter_tree() -> void:
+	if multiplayer.is_server():
+		sync_pos = position
+		sync_rot = rotation
+
+
+func _process(delta: float) -> void:
+	if multiplayer.is_server():
+		sync_pos = position
+		sync_rot = rotation
+	else:
+		NetSmooth.follow(self, sync_pos, delta)
+		NetSmooth.follow_rot(self, sync_rot, delta)
+
 
 func _physics_process(delta: float) -> void:
 	position += direction * speed * delta

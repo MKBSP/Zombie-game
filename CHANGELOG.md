@@ -4,6 +4,18 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 9 — Concurrent games (director + server pool)
+- **Online smoothness: client-side pose interpolation + local aim.** Entities
+  jittered ("jumping all over") because synchronizers wrote raw
+  `position`/`rotation` at whatever cadence packets arrived (bursty over
+  TCP/TLS); merging zombies visibly bounced between converging positions, and
+  the flashlight cone trailed the crosshair by a full round trip (rotation was
+  server-computed and synced back). Replication configs now carry
+  `sync_pos`/`sync_rot` vars (zombie/fast/fat/master, NPC, bullet, shooter);
+  the server publishes them each frame and clients ease toward the pose
+  (`NetSmooth` helper, tunables in `Balance.NET`: smooth_rate, snap_dist_px)
+  with spawn-pose adoption in `_ready` so nothing flashes at (0,0). The owning
+  shooter client now aims locally from the live mouse, so the light cone tracks
+  the crosshair instantly; the server stays authoritative for shots and spread.
 - **Fix — both players saw the zombie view in online matches.** Shooter
   multiplayer authority is set on the server (`world.gd`) but authority is NOT
   replicated by `MultiplayerSpawner`, so on clients every shooter arrived with

@@ -4,6 +4,14 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 9 — Concurrent games (director + server pool)
+- **Fix — single player showed the zombie view after any online session.**
+  `GameState.shooter_peers` (set by `_assign_role_and_start` for online
+  matches) was never cleared by `Net.leave()`, so a later single-player game
+  spawned `Shooter_<old online id>` instead of `Shooter_1`; the local player
+  (id 1 offline) never matched it, `_apply_role()` bailed, and the default
+  ZCCamera showed the zombie view regardless of the chosen role. Fixed both
+  layers: `leave()` clears `shooter_peers`, and `world._spawn_shooters` ignores
+  `shooter_peers` entirely when `multiplayer_active` is false.
 - **Tuning: split smoothing rate for own shooter vs watched entities.** Stops
   felt lingering (~0.2s coast) because one smooth_rate served everything. New
   `Balance.NET.own_smooth_rate` (28/s, ~0.1s settle) applies to the player's

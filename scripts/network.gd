@@ -461,6 +461,10 @@ func leave() -> void:
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	GameState.multiplayer_active = false
 	GameState.is_dedicated_server = false
+	# Match-scoped state must not leak into the next session: stale shooter_peers
+	# made single player spawn Shooter_<old online id>, which the local player
+	# (id 1 offline) never matched — leaving the zombie camera as the view.
+	GameState.shooter_peers = []
 	_room_code = ""
 	_members = []
 	_zombie_peer = 0

@@ -152,8 +152,10 @@ func _spawn_shooters() -> void:
 	shooters.clear()
 	var walkable: Array[String] = ["road", "sidewalk", "grass", "parking"]
 	var peers: Array[int] = GameState.shooter_peers.duplicate()
-	# Solo / single-player fallback: no assigned peers -> one local shooter (id 1).
-	if peers.is_empty():
+	# Solo / single-player: always exactly one local shooter (id 1). Never trust
+	# shooter_peers outside an active multiplayer session — a stale list from a
+	# previous online match would spawn a shooter this window doesn't own.
+	if peers.is_empty() or not GameState.multiplayer_active:
 		peers = [1]
 	for peer in peers:
 		var pos := _random_shooter_spawn(walkable)

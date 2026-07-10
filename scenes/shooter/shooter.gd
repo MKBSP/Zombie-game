@@ -67,6 +67,8 @@ var headshot_seq: int = 0:
 
 # --- Latest input from the controlling player (consumed server-side) ---
 var _net_dir: Vector2 = Vector2.ZERO
+## Server: when the owner's last movement input arrived (speed-clamp window).
+var _last_input_ms: int = 0
 var _net_aim_target: Vector2 = Vector2.ZERO
 var _net_shooting: bool = false
 var _net_focus: bool = false
@@ -139,8 +141,9 @@ func _ready() -> void:
 	AIM_SHRINK_TAU = Balance.SHOOTER.aim_shrink_tau
 	PISTOL_DMG_REF = Balance.SHOOTER.pistol_dmg_ref
 	hp = max_hp
-	# Simulation runs on the server only (true in single player too)
-	set_physics_process(multiplayer.is_server())
+	# Combat simulation runs on the server; MOVEMENT is integrated by the body's
+	# owner (client-authoritative — see _physics_process). Both need physics.
+	set_physics_process(multiplayer.is_server() or is_multiplayer_authority())
 	shoot_cooldown.timeout.connect(_on_shoot_cooldown_timeout)
 	reload_timer.timeout.connect(_on_reload_timeout)
 	_weapon_sprite.texture = WeaponVisuals.texture(equipped)
@@ -166,7 +169,7 @@ func _process(delta: float) -> void:
 		or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	)
 	var focus: bool = Input.is_action_pressed("focus_aim")
-	_send_input.rpc_id(1, input_dir, aim_target, shooting, focus)
+	_send_input.rpc_id(1, global_position, input_dir, aim_target, shooting, focus)
 
 	# Discrete one-shot weapon actions
 	if Input.is_action_just_pressed("select_pistol"):
@@ -193,8 +196,12 @@ func _net_pose_step(delta: float) -> void:
 		sync_rot = rotation
 		return
 	if is_multiplayer_authority():
-		# Your own shooter: stiffer follow (crisper stops) + instant local aim.
-		NetSmooth.follow(self, sync_pos, delta, Balance.NET.own_smooth_rate)
+		# Client-authoritative movement: this client OWNS its position — no
+		# following, no smoothing lag. The server only wins if its adopted
+		# position diverged wildly (speed clamp kicked in: lag spike recovery
+		# or a tampered client) — then snap back to the server's truth.
+		if position.distance_to(sync_pos) > Balance.NET.reclaim_dist_px:
+			position = sync_pos
 		if controls_enabled and not is_dead:
 			rotation = (get_global_mouse_position() - global_position).angle()
 	else:
@@ -203,12 +210,23 @@ func _net_pose_step(delta: float) -> void:
 
 
 @rpc("any_peer", "call_local", "unreliable_ordered")
-func _send_input(dir: Vector2, aim_target: Vector2, shooting: bool, focus: bool) -> void:
+func _send_input(pos: Vector2, dir: Vector2, aim_target: Vector2, shooting: bool, focus: bool) -> void:
 	if not multiplayer.is_server():
 		return
 	if multiplayer.get_remote_sender_id() != get_multiplayer_authority():
 		return  # ignore input aimed at a shooter this peer doesn't own
+	# Client-authoritative movement: adopt the owner's reported position, clamped
+	# to plausible travel since its last input (x1.5 headroom for frame jitter and
+	# catch-up after a hiccup) so a tampered client can't teleport. Combat below
+	# stays server-authoritative and uses this adopted position.
+	var now := Time.get_ticks_msec()
+	var dt := clampf(float(now - _last_input_ms) / 1000.0, 1.0 / 60.0, 0.3)
+	_last_input_ms = now
+	position = position.move_toward(pos, speed * dt * 1.5)
 	_net_dir = dir.limit_length(1.0)
+	# Informational velocity (no server integration) — NPCs read it to lead
+	# their follow direction (npc_human.gd).
+	velocity = _net_dir * speed
 	_net_aim_target = aim_target
 	_net_shooting = shooting
 	_net_focus = focus
@@ -237,8 +255,23 @@ func _physics_process(delta: float) -> void:
 	if is_dead:
 		return
 
-	velocity = _net_dir * speed
-	move_and_slide()
+	# Movement is integrated by the body's OWNER: the player's client online
+	# (instant feel — no round trip), the server itself in single player where
+	# it is also the authority. The server adopts the reported position in
+	# _send_input (speed-clamped) and stays authoritative for combat below.
+	if is_multiplayer_authority() and controls_enabled:
+		var dir := Vector2(
+			Input.get_axis("move_left", "move_right"),
+			Input.get_axis("move_up", "move_down")
+		)
+		if dir.length() > 0:
+			dir = dir.normalized()
+		velocity = dir * speed
+		move_and_slide()
+
+	if not multiplayer.is_server():
+		return
+
 	if _net_aim_target != global_position:
 		rotation = (_net_aim_target - global_position).angle()
 

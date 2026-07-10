@@ -14,8 +14,11 @@ extends Node
 ## (sync_pos/sync_rot) instead of snapping, so internet jitter doesn't show.
 const NET := {
 	smooth_rate = 14.0,      # 1/s ease for entities you watch (zombies, NPCs, others)
-	own_smooth_rate = 28.0,  # stiffer ease for YOUR shooter — crisper stops/starts
 	snap_dist_px = 160.0,    # beyond this, teleport (merge completion, respawn)
+	# Your own shooter moves client-authoritatively (zero perceived lag). The
+	# server speed-clamps the reported position; if its adopted position ends up
+	# further than this from yours, the server wins and you snap back.
+	reclaim_dist_px = 240.0,
 }
 
 const SHOOTER := {

@@ -17,6 +17,22 @@ When a match starts, `scenes/world/world.tscn` (`world.gd`) loads and spawns one
 shooter per assigned peer (from `GameState.shooter_peers`), the zombies, NPCs and
 items, then runs the authoritative loop.
 
+## Netcode model (who owns what)
+- **Your own shooter's movement is client-authoritative** (Among Us model): the
+  owning client integrates movement locally in `_physics_process` (zero input
+  lag) and reports its position via `_send_input`; the server adopts it
+  **speed-clamped** and snaps the client back if divergence exceeds
+  `Balance.NET.reclaim_dist_px`. This is the hook that tightens into full
+  server prediction/reconciliation when ranked play arrives.
+- **Everything that decides outcomes is server-authoritative**: shooting,
+  damage, hp, ammo, pickups, merges, NPC/zombie simulation.
+- **Everything you watch is interpolated**: synchronizers replicate
+  `sync_pos`/`sync_rot` vars (not raw position) and clients ease toward them
+  (`NetSmooth`, tunables in `Balance.NET`). Shooter root authority = owning
+  peer (re-derived from the `Shooter_<peer>` name in `_enter_tree`; NOT
+  replicated by the spawner); its MultiplayerSynchronizer stays pinned to the
+  server, which broadcasts state.
+
 ## Server topology — concurrent games (Railway)
 The Railway container's entry point is the **director** (`server/director/`, Go),
 not Godot. It listens on `$PORT` and runs a pool of single-match Godot children

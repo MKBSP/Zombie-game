@@ -4,6 +4,17 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 9 — Concurrent games (director + server pool)
+- **Client-authoritative shooter movement (Among Us model).** Your own shooter
+  now integrates movement locally in `_physics_process` — zero perceived input
+  lag — and reports its position in `_send_input` (now `pos, dir, aim, shoot,
+  focus`). The server adopts the reported position speed-clamped (×1.5 headroom,
+  ≤0.3s window) so a tampered client can't teleport, keeps `velocity`
+  informational for NPC follow logic, and stays authoritative for ALL combat
+  (shooting, damage, hp, ammo, pickups, merges). If the server's adopted
+  position diverges past `Balance.NET.reclaim_dist_px` (240), the client snaps
+  back — the hook that later tightens into full server prediction/reconciliation
+  when rankings arrive. Replaces the own_smooth_rate elastic-band approach for
+  the local player; remote entities keep NetSmooth interpolation.
 - **Fix — single player showed the zombie view after any online session.**
   `GameState.shooter_peers` (set by `_assign_role_and_start` for online
   matches) was never cleared by `Net.leave()`, so a later single-player game

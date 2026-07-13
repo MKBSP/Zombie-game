@@ -97,6 +97,7 @@ func _ready() -> void:
 		nav_agent.target_desired_distance = 8.0
 		var sep: Dictionary = Balance.SEPARATION
 		nav_agent.avoidance_enabled = true
+		nav_agent.max_speed = speed  # RVO clamps to this (default 100 ate NPC's 160)
 		nav_agent.radius = sep.agent_radius
 		nav_agent.neighbor_distance = sep.neighbor_distance
 		nav_agent.max_neighbors = sep.max_neighbors
@@ -252,6 +253,9 @@ func _plan_relocation() -> void:
 	nav_agent.target_position = _waypoints.pop_front()
 
 
+## Travel: retrace the shooter's breadcrumb trail single-file (no corner
+## cutting, never in the way). Combat (zombie near the shooter): take a
+## formation slot behind the shooter, armed NPCs on the flanks.
 func _process_following() -> void:
 	if not is_instance_valid(shooter):
 		_start_hidden(randf_range(1.0, 3.0))
@@ -260,7 +264,29 @@ func _process_following() -> void:
 	if "velocity" in shooter and shooter.velocity.length() > 5.0:
 		_last_shooter_dir = shooter.velocity.normalized()
 
-	var follow_point: Vector2 = shooter.global_position - _last_shooter_dir * FOLLOW_DISTANCE
+	var order := _follower_order()
+	var slot := order.find(self)
+	if slot < 0:
+		slot = 0
+	var armed := 0
+	for n in order:
+		if n.weapon_id != -1:
+			armed += 1
+
+	var follow_point: Vector2
+	var threat := _threat_near_shooter()
+	if threat != null:
+		var dir := (threat.global_position - shooter.global_position).normalized()
+		follow_point = NpcFollow.formation_slot(shooter.global_position, dir,
+			slot, armed, Balance.NPC.formation_back_px, Balance.NPC.formation_side_px)
+	else:
+		var trail: PackedVector2Array = shooter.trail if "trail" in shooter \
+			else PackedVector2Array()
+		follow_point = NpcFollow.trail_point(
+			trail, Balance.NPC.slot_spacing_px * float(slot + 1))
+		if follow_point == Vector2.INF:
+			follow_point = shooter.global_position - _last_shooter_dir * FOLLOW_DISTANCE
+
 	if global_position.distance_to(follow_point) < FOLLOW_DEADZONE:
 		velocity = Vector2.ZERO
 		return
@@ -270,6 +296,35 @@ func _process_following() -> void:
 		_nav_move()
 	else:
 		velocity = Vector2.ZERO
+
+
+## Followers of my shooter in stable slot order: armed first, then by name.
+func _follower_order() -> Array:
+	var out: Array = []
+	for n in get_tree().get_nodes_in_group("npcs"):
+		if n is Node2D and is_instance_valid(n) \
+			and n.state == State.FOLLOWING and n.shooter == shooter:
+			out.append(n)
+	out.sort_custom(func(a, b):
+		var a_armed: bool = a.weapon_id != -1
+		var b_armed: bool = b.weapon_id != -1
+		if a_armed != b_armed:
+			return a_armed
+		return String(a.name) < String(b.name))
+	return out
+
+
+## Nearest zombie within threat range of the SHOOTER (not of this NPC).
+func _threat_near_shooter() -> Node2D:
+	var best: Node2D = null
+	var best_d: float = Balance.NPC.threat_radius_px
+	for z in get_tree().get_nodes_in_group("zombies"):
+		if z is Node2D and is_instance_valid(z):
+			var d: float = shooter.global_position.distance_to(z.global_position)
+			if d < best_d:
+				best_d = d
+				best = z
+	return best
 
 
 ## Called by the shooter when handing over its special weapon (server-side).

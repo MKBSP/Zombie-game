@@ -106,6 +106,13 @@ const NPC := {
 	recoil_recover_factor = 2.0,   # seconds-per-damage-unit to recover
 	dmg_ref = 35.0,                # damage unit for recoil scaling (pistol = 1)
 	min_shot_interval = 0.667,     # 1.5 shots/sec cap
+	# --- Follow: breadcrumb trail + combat formation ---
+	breadcrumb_px = 24.0,        # min distance between recorded trail points
+	trail_max = 64,              # trail ring-buffer cap (~1500 px of path)
+	slot_spacing_px = 64.0,      # trail arc-length per follower slot (1 tile)
+	threat_radius_px = 384.0,    # zombie within this of the shooter -> formation
+	formation_back_px = 56.0,    # armed slot depth behind the shooter
+	formation_side_px = 48.0,    # armed slot lateral offset
 }
 
 # --- Bullet (per-weapon values below override damage/speed on spawn) --------
@@ -235,10 +242,16 @@ const FOG_SHOOTER := {
 	halo_tex_size = 256,               # generated halo texture resolution
 }
 
-# --- Fog: zombie-controller explored map -----------------------------------
+# --- Fog: zombie-controller explored map + shooter-style lighting ----------
 const FOG_ZC := {
 	grid_w = 47, grid_h = 47,
-	vis_unexplored = 0.0, vis_explored = 0.35, vis_visible = 1.0,
+	# Shader mask: only unexplored tiles stay opaque black; explored/visible
+	# are transparent — dimming comes from ambient_darkness + vision lights.
+	vis_unexplored = 0.0, vis_explored = 1.0, vis_visible = 1.0,
+	ambient_darkness = Color(0.16, 0.16, 0.19, 1.0),
+	light_energy = 1.2,       # per-zombie vision light
+	light_tex_size = 256,     # generated radial texture resolution
+	shadows_enabled = true,   # LOS shadows on vision lights
 }
 
 # --- Combat juice / effects (all cosmetic; no gameplay impact) --------------

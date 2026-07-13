@@ -37,8 +37,13 @@ see `ARCHITECTURE.md` → *Server topology*). Implemented:
 - ✅ Weapon visuals: PNG sprites on player, NPCs, floor pickups, and HUD icon.
 - ✅ Shooter fog-of-war: 2D-lighting flashlight cone + personal halo with real
   straight-line shadows from buildings, props, and moving entities
-  (`ShooterLighting`). Zombie-controller fog unchanged. Tunables in
-  `Balance.FOG_SHOOTER`.
+  (`ShooterLighting`). Tunables in `Balance.FOG_SHOOTER`.
+- ✅ Zombie-commander fog: same lighting treatment — ambient darkness +
+  per-zombie LOS vision lights (`ZombieLighting`), with the tile grid kept as
+  unexplored-black explored memory (LOS-honest reveal). Tunables in
+  `Balance.FOG_ZC`. Right-click **attack targeting** (red ping, chase while
+  seen) and NPC breadcrumb-follow + combat formation (`NpcFollow`) landed
+  2026-07-10 — owner playtest pending.
 - ✅ Loot boxes: 8 closed crates scatter on walkable ground; `E` to open; 1–3
   items burst out onto validated tiles; sprite swaps to opened; fully replicated.
 - ✅ RTS zombie experience (Phase 7): discrete cooldown attacks (zombies *hit*),
@@ -72,7 +77,10 @@ weapon-visual, or lobby/shooter-selection logic.
 - `.claude/settings.local.json` holds local Claude Code settings.
 
 ## Next / backlog
-(Keep this list current.) Phase 8 visual identity is code-complete across
+**The organized open-work list lives in [docs/BACKLOG.md](docs/BACKLOG.md)** —
+keep that file current. Status notes below:
+
+Phase 8 visual identity is code-complete across
 menus, loading, settings, pause, shooter HUD, zombie-commander overlay, and
 game over (owner playtest pending — flows should behave exactly as before;
 only visuals changed. Verify: solo both roles, host→lobby→start, join-by-code,

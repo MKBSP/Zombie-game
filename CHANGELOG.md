@@ -4,6 +4,54 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 9 — Concurrent games (director + server pool)
+- **Fix — fast zombies and NPCs were speed-capped at 100 px/s.** Nobody set
+  `NavigationAgent2D.max_speed` (default 100), and the RVO avoidance solver
+  clamps requested velocity to it: FAST's 220 and the NPC's 160 were silently
+  squashed to ~100 while standard (85), fat (76.5) and master (60) fit under
+  the cap — so fast zombies barely outpaced standards and follower NPCs lagged
+  the shooter. All three agents now set `nav_agent.max_speed = speed` from
+  their Balance stats. Balance values were always correct.
+- **Fullscreen toggle.** F11 toggles fullscreen anywhere (handled by the
+  `Settings` autoload), plus a "Fullscreen (F11)" row in the settings screen's
+  toggle list. Persisted to `settings.cfg`; restored at boot on desktop only —
+  browsers require a user gesture to enter fullscreen, so on the web build it
+  applies when you press F11 or click the toggle. Pairs with itch's
+  "click to launch in fullscreen" embed option.
+- **NPC followers retrace your path and form up in combat.** The shooter
+  records a server-side breadcrumb trail (`shooter.trail`, every 24 px, capped
+  at 64 points); following NPCs walk the trail single-file at 1-tile spacing
+  (`NpcFollow.trail_point`) instead of beelining to a point behind you — no
+  more corner-cutting into your lap. When a zombie comes within
+  `Balance.NPC.threat_radius_px` of the shooter, they switch to formation
+  (`NpcFollow.formation_slot`): 1 armed NPC behind-and-to-a-side, 2 armed one
+  per flank, unarmed in a column straight behind — never between you and the
+  threat. Slot order is stable (armed first, then name). Pure math in
+  `scripts/npc_follow.gd` + `test/test_npc_follow.gd`; knobs in `Balance.NPC`.
+- **Zombie fog reworked to shooter-style lighting.** The ZC view now gets the
+  same treatment as the shooter: `CanvasModulate` ambient darkness + a soft
+  radial `PointLight2D` per zombie (radius = vision × 64 px) with real
+  building/prop shadows (`ZombieLighting`, reusing `ShooterLighting` helpers).
+  The 47×47 tile grid stays as the *explored memory*, now painting only
+  unexplored tiles opaque black (`FOG_ZC.vis_explored/visible = 1.0`); tile
+  reveal is LOS-honest via `FogZombieController.tile_line_clear` (Bresenham
+  through building tiles), so rooms behind walls stay black until a zombie
+  actually rounds the corner. Occluder masks: statics cast for both fogs
+  (`occluder_light_mask = 3`), entities only for the shooter's flashlight —
+  zombies never blot out vision (`shadow_item_cull_mask = 2`). Tunables in
+  `Balance.FOG_ZC`; minimap tile states untouched.
+- **Right-click attack targeting (zombie commander).** Right-clicking an NPC or
+  shooter now snaps the selected zombies onto that target: a new
+  `attack_target` state on `zombie.gd`/`master_zombie.gd` (set via
+  `world.rpc_command_attack`) chases the target's live position and outranks
+  stance/move orders. The lock holds only while *any* zombie still sees the
+  target (`Targeting.visible_to_any`/`watchers_from`, vision × 64 px); on
+  escape it degrades to a move order to the last-seen spot. Cleared by target
+  death/conversion or any newer order. Attack orders ping **red** (move stays
+  green), with a red minimap marker.
+- Cleared the two editor warnings: hoisted the duplicate `var w` declaration in
+  `bullet.gd _on_body_entered` (confusable-declaration), and annotated the
+  intended integer division in `blood_canvas.gd setup` with `@warning_ignore`.
+  No behavior change.
 - **Client-authoritative shooter movement (Among Us model).** Your own shooter
   now integrates movement locally in `_physics_process` — zero perceived input
   lag — and reports its position in `_send_input` (now `pos, dir, aim, shoot,

@@ -48,7 +48,9 @@ func _ready() -> void:
 ## zombies_data: Array of Dictionaries, each with:
 ##   "tile": Vector2i — the zombie's current tile
 ##   "vision": int — vision range in tiles (Manhattan distance)
-func update_visibility(zombies_data: Array[Dictionary]) -> void:
+## blocked: Dictionary keyed by Vector2i — tiles that block line of sight
+##   (buildings), so areas behind walls stay unexplored until actually seen.
+func update_visibility(zombies_data: Array[Dictionary], blocked: Dictionary) -> void:
 	# Step 1: Downgrade all "currently visible" tiles to "previously explored"
 	for i in range(tile_states.size()):
 		if tile_states[i] == STATE_VISIBLE:
@@ -58,7 +60,7 @@ func update_visibility(zombies_data: Array[Dictionary]) -> void:
 	for zdata in zombies_data:
 		var ztile: Vector2i = zdata["tile"]
 		var vision: int = zdata["vision"]
-		_reveal_diamond(ztile, vision)
+		_reveal_diamond(ztile, vision, blocked)
 
 	# Step 3: Write tile states into the image
 	for x in range(GRID_W):
@@ -77,11 +79,40 @@ func update_visibility(zombies_data: Array[Dictionary]) -> void:
 			visibility_image.set_pixel(x, y, Color(vis, 0.0, 0.0, 1.0))
 
 
-## Marks all tiles within Manhattan distance of center as currently visible.
-func _reveal_diamond(center: Vector2i, radius: int) -> void:
+## Marks all tiles within Manhattan distance of center as currently visible,
+## if the straight line from the center is not blocked (LOS-honest memory).
+func _reveal_diamond(center: Vector2i, radius: int, blocked: Dictionary) -> void:
 	for dx in range(-radius, radius + 1):
 		for dy in range(-radius, radius + 1):
 			if absi(dx) + absi(dy) <= radius:
 				var t := center + Vector2i(dx, dy)
-				if t.x >= 0 and t.x < GRID_W and t.y >= 0 and t.y < GRID_H:
+				if t.x >= 0 and t.x < GRID_W and t.y >= 0 and t.y < GRID_H \
+					and tile_line_clear(center, t, blocked):
 					tile_states[t.y * GRID_W + t.x] = STATE_VISIBLE
+
+
+## True when the straight tile line from `from` to `to` crosses no blocked
+## tile (Bresenham). Endpoints never count as blockers, so a zombie standing
+## next to a wall still reveals the wall tile itself.
+static func tile_line_clear(from: Vector2i, to: Vector2i, blocked: Dictionary) -> bool:
+	var x0 := from.x
+	var y0 := from.y
+	var dx := absi(to.x - x0)
+	var dy := -absi(to.y - y0)
+	var sx := 1 if x0 < to.x else -1
+	var sy := 1 if y0 < to.y else -1
+	var err := dx + dy
+	while true:
+		var cur := Vector2i(x0, y0)
+		if cur != from and cur != to and blocked.has(cur):
+			return false
+		if x0 == to.x and y0 == to.y:
+			break
+		var e2 := 2 * err
+		if e2 >= dy:
+			err += dy
+			x0 += sx
+		if e2 <= dx:
+			err += dx
+			y0 += sy
+	return true

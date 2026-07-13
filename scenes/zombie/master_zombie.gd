@@ -18,6 +18,8 @@ var target: Node2D = null
 
 var command_mode: bool = false
 var command_target: Vector2 = Vector2.ZERO
+## Explicit attack order (right-click on an enemy); see zombie.gd.
+var attack_target: Node2D = null
 var is_selected: bool = false
 
 @onready var nav_agent: NavigationAgent2D = $NavigationAgent2D
@@ -50,6 +52,7 @@ func _ready() -> void:
 	set_physics_process(multiplayer.is_server())
 	var sep: Dictionary = Balance.SEPARATION
 	nav_agent.avoidance_enabled = true
+	nav_agent.max_speed = speed  # RVO clamps to this (default 100)
 	nav_agent.radius = sep.agent_radius
 	nav_agent.neighbor_distance = sep.neighbor_distance
 	nav_agent.max_neighbors = sep.max_neighbors
@@ -65,7 +68,19 @@ func _physics_process(delta: float) -> void:
 	if is_dead:
 		return
 
-	if command_mode:
+	if attack_target != null and (not is_instance_valid(attack_target) \
+		or ("is_dead" in attack_target and attack_target.is_dead)):
+		attack_target = null
+
+	if attack_target != null:
+		var watchers := Targeting.watchers_from(get_tree().get_nodes_in_group("zombies"))
+		if Targeting.visible_to_any(attack_target.global_position, watchers):
+			target = attack_target
+			nav_agent.target_position = attack_target.global_position
+		else:
+			# Lost sight: degrade to a move order to the last-seen spot.
+			set_command(attack_target.global_position)
+	elif command_mode:
 		nav_agent.target_position = command_target
 		if nav_agent.is_navigation_finished():
 			command_mode = false
@@ -109,8 +124,14 @@ func _draw() -> void:
 
 
 func set_command(destination: Vector2) -> void:
+	attack_target = null
 	command_mode = true
 	command_target = destination
+
+
+func set_attack_target(t: Node2D) -> void:
+	attack_target = t
+	command_mode = false
 
 
 func set_target(new_target: Node2D) -> void:

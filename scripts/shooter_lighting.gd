@@ -87,6 +87,7 @@ static func build_static_occluders(parent: Node, positions: Array[Vector2], tile
 	for pos in positions:
 		var occ := LightOccluder2D.new()
 		occ.occluder = poly
+		occ.occluder_light_mask = 3  # casts for shooter lights (1) + ZC vision lights (2)
 		parent.add_child(occ)
 		occ.global_position = pos
 	return positions.size()

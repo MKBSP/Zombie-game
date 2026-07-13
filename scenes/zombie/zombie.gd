@@ -29,6 +29,9 @@ var _merge_target: Vector2 = Vector2.ZERO
 
 var command_mode: bool = false
 var command_target: Vector2 = Vector2.ZERO
+## Explicit attack order (right-click on an enemy). Overrides stance and
+## command_mode; cleared on target death/escape or any newer order.
+var attack_target: Node2D = null
 var is_selected: bool = false
 var hp: int
 var is_dead: bool = false
@@ -76,6 +79,7 @@ func _ready() -> void:
 	set_physics_process(multiplayer.is_server())
 	var sep: Dictionary = Balance.SEPARATION
 	nav_agent.avoidance_enabled = true
+	nav_agent.max_speed = speed  # RVO clamps to this (default 100 ate FAST's 220)
 	nav_agent.radius = sep.agent_radius
 	nav_agent.neighbor_distance = sep.neighbor_distance
 	nav_agent.max_neighbors = sep.max_neighbors
@@ -139,6 +143,20 @@ func _physics_process(delta: float) -> void:
 		nav_agent.target_position = _merge_target
 		_move_along_path()
 		return
+
+	# Explicit attack order: chase while any zombie still sees the target.
+	if attack_target != null and (not is_instance_valid(attack_target) \
+		or ("is_dead" in attack_target and attack_target.is_dead)):
+		attack_target = null
+	if attack_target != null:
+		var watchers := Targeting.watchers_from(get_tree().get_nodes_in_group("zombies"))
+		if Targeting.visible_to_any(attack_target.global_position, watchers):
+			target = attack_target
+			nav_agent.target_position = attack_target.global_position
+			_move_along_path()
+			return
+		# Lost sight: degrade to a move order to the last-seen spot.
+		set_command(attack_target.global_position)
 
 	# One-shot right-click move overrides the stance until it arrives.
 	if command_mode:
@@ -274,6 +292,7 @@ func _move_along_path() -> void:
 ## Enter/leave merge mode. While merging, avoidance is off (so zombies can
 ## touch) and the stance machine is bypassed (so they don't wander off).
 func set_merging(value: bool, dest: Vector2 = Vector2.ZERO) -> void:
+	attack_target = null
 	_merging = value
 	command_mode = false
 	nav_agent.avoidance_enabled = not value
@@ -292,12 +311,14 @@ func alert_to(world_pos: Vector2) -> void:
 
 
 func set_combat(new_combat: int) -> void:
+	attack_target = null
 	combat_stance = new_combat
 	command_mode = false
 	queue_redraw()
 
 
 func set_movement(mode: int, trigger: int, p1: Vector2, p2: Vector2) -> void:
+	attack_target = null
 	movement_mode = mode
 	command_mode = false
 	_fled = false
@@ -334,8 +355,14 @@ func _stance_color() -> Color:
 	return Color.RED if combat_stance == Combat.AGGRESSIVE else Color.GRAY
 
 func set_command(destination: Vector2) -> void:
+	attack_target = null
 	command_mode = true
 	command_target = destination
+
+
+func set_attack_target(t: Node2D) -> void:
+	attack_target = t
+	command_mode = false
 
 func set_target(new_target: Node2D) -> void:
 	target = new_target

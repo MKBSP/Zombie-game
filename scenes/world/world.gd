@@ -135,13 +135,14 @@ func _apply_role() -> void:
 func _setup_fog() -> void:
 	if not fog_enabled:
 		return  # testing: fog disabled
-	if GameState.role != GameState.Role.HUMAN or shooter == null:
-		return  # only the shooter view gets the flashlight fog
 	var props: Array[Node2D] = []
 	for node in get_tree().get_nodes_in_group("occluders"):
 		if node is Node2D:
 			props.append(node)
-	ShooterLighting.setup(self, shooter, ground_layer, building_layer, props)
+	if GameState.role == GameState.Role.HUMAN and shooter != null:
+		ShooterLighting.setup(self, shooter, ground_layer, building_layer, props)
+	elif GameState.role == GameState.Role.ZOMBIE:
+		ZombieLighting.setup(self, ground_layer, building_layer, props)
 
 func _create_grid() -> void:
 	var grid := GridDrawer.new()
@@ -405,6 +406,18 @@ func rpc_command_move(zombie_names: Array, world_pos: Vector2) -> void:
 		var z := entities.get_node_or_null(NodePath(String(n)))
 		if z and z.has_method("set_command"):
 			z.set_command(world_pos)
+
+@rpc("any_peer", "call_local", "reliable")
+func rpc_command_attack(zombie_names: Array, target_name: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var t := entities.get_node_or_null(NodePath(target_name))
+	if t == null:
+		return
+	for n in zombie_names:
+		var z := entities.get_node_or_null(NodePath(String(n)))
+		if z and z.has_method("set_attack_target"):
+			z.set_attack_target(t)
 
 signal noise_event(world_pos: Vector2, strength: float)
 

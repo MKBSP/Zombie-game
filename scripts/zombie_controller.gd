@@ -27,6 +27,9 @@ const ZOOM_STEP: float = 0.1
 # Fog system
 var fog_zc: FogZombieController
 var fog_texture: ImageTexture
+# Building tiles that block fog reveal (static map) + vision-light texture.
+var _fog_blocked: Dictionary = {}
+var _zc_radial_tex: Texture2D = null
 
 # Whether this controller is active (receiving input)
 var is_active: bool = true
@@ -76,6 +79,7 @@ func _ready() -> void:
 		fog_rect.texture = fog_texture
 		fog_rect.stretch_mode = TextureRect.STRETCH_SCALE
 		fog_rect.z_index = 100
+	_build_fog_blockers()
 
 	# Minimap (runtime child of ZCOverlay so it inherits zombie-only visibility).
 	var MinimapScript = load("res://scripts/minimap.gd")
@@ -258,6 +262,11 @@ func _process(delta: float) -> void:
 		else:
 			selection_drawer.draw_rect_active = false
 	_update_fog()
+	# Shooter-style vision lights on every zombie (ZC view only, cosmetic).
+	if Balance.WORLD.fog_enabled and GameState.role == GameState.Role.ZOMBIE:
+		if _zc_radial_tex == null:
+			_zc_radial_tex = ShooterLighting.make_radial_texture(Balance.FOG_ZC.light_tex_size)
+		ZombieLighting.refresh_lights(get_tree(), _zc_radial_tex)
 		# Update merge button states
 	_update_merge_buttons()
 	if stance_panel:
@@ -384,11 +393,15 @@ func _input(event: InputEvent) -> void:
 				if event.position.distance_to(_drag_start) > _drag_threshold:
 					_is_dragging = true
 
-	# --- Right click: move command ---
+	# --- Right click: attack an enemy under the cursor, else move ---
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		if event.pressed and selected_zombies.size() > 0 and not _pointer_on_ui():
 			var world_pos: Vector2 = _screen_to_world(event.position)
-			_command_move(world_pos)
+			var enemy := _get_enemy_at_position(world_pos)
+			if enemy:
+				_command_attack(enemy)
+			else:
+				_command_move(world_pos)
 
 
 ## True when the mouse is over interactive UI (a button, the minimap, or the
@@ -492,8 +505,21 @@ func _update_fog() -> void:
 			# Fast and Fat zombies also have vision 2 (same as standard)
 			zombies_data.append({"tile": tile, "vision": vision})
 
-	fog_zc.update_visibility(zombies_data)
+	fog_zc.update_visibility(zombies_data, _fog_blocked)
 	fog_texture.update(fog_zc.visibility_image)
+
+
+## Cache the building tiles that block line-of-sight reveal (static map).
+func _build_fog_blockers() -> void:
+	var bl: TileMapLayer = get_node_or_null("../BuildingLayer")
+	if bl == null:
+		return
+	var used: Rect2i = bl.get_used_rect()
+	for x in range(used.position.x, used.position.x + used.size.x):
+		for y in range(used.position.y, used.position.y + used.size.y):
+			var c := Vector2i(x, y)
+			if bl.get_cell_tile_data(c) != null:
+				_fog_blocked[c] = true
 
 ## Deselect all zombies.
 func _deselect_all() -> void:
@@ -918,6 +944,29 @@ func _on_noise(pos: Vector2, _strength: float) -> void:
 		rip.global_position = MinimapMath.fuzz(pos, 30.0, _ripple_rng)
 		rip.z_index = 40
 		get_tree().current_scene.add_child(rip)
+
+## Try to find a living enemy (shooter or NPC) under the given world position.
+func _get_enemy_at_position(world_pos: Vector2) -> Node2D:
+	for grp in ["shooter", "npcs"]:
+		for e in get_tree().get_nodes_in_group(grp):
+			if e is Node2D and is_instance_valid(e):
+				if "is_dead" in e and e.is_dead:
+					continue
+				if e.global_position.distance_to(world_pos) < 20.0:
+					return e
+	return null
+
+
+## Issue an attack order on a specific enemy (executed on the server).
+func _command_attack(enemy: Node2D) -> void:
+	var names := _selected_names()
+	if names.is_empty():
+		return
+	get_tree().current_scene.rpc_command_attack.rpc_id(1, names, String(enemy.name))
+	_show_ping(enemy.global_position, Color.RED, 40.0)
+	if minimap:
+		minimap.register_move_marker(enemy.global_position, Color.RED)
+
 
 ## Try to find a zombie under the given world position.
 func _get_zombie_at_position(world_pos: Vector2) -> Node2D:

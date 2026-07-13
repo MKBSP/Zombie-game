@@ -34,6 +34,7 @@ const ZOMBIE_CONTROLS := [
 ]
 
 const HUD_TOGGLES := [
+	["Fullscreen  (F11)", "fullscreen"],
 	["Show minimap", "show_minimap"],
 	["Show interact prompts", "show_interact_prompts"],
 	["Show pickup toasts", "show_pickup_toasts"],

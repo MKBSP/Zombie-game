@@ -250,6 +250,11 @@ func _action_interact() -> void:
 		_interact()
 
 
+## Breadcrumb trail for follower NPCs (server-side; see NpcFollow.trail_point).
+## Oldest point first; capped ring buffer.
+var trail := PackedVector2Array()
+
+
 ## Server-side simulation.
 func _physics_process(delta: float) -> void:
 	if is_dead:
@@ -271,6 +276,13 @@ func _physics_process(delta: float) -> void:
 
 	if not multiplayer.is_server():
 		return
+
+	# Record the walked path for follower NPCs (see NpcFollow.trail_point).
+	if trail.is_empty() \
+		or trail[trail.size() - 1].distance_to(global_position) >= Balance.NPC.breadcrumb_px:
+		trail.append(global_position)
+		if trail.size() > Balance.NPC.trail_max:
+			trail.remove_at(0)
 
 	if _net_aim_target != global_position:
 		rotation = (_net_aim_target - global_position).angle()

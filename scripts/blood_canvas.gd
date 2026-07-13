@@ -16,6 +16,7 @@ func setup(world_origin: Vector2, world_size_px: Vector2) -> void:
 	_world_size_px = world_size_px
 	var ds: int = max(1, int(Balance.FX.canvas_downscale))
 	# Integer division intended: image dimensions are whole pixels.
+	@warning_ignore("integer_division")
 	_img_size = Vector2i(int(world_size_px.x) / ds, int(world_size_px.y) / ds)
 	_image = Image.create(_img_size.x, _img_size.y, false, Image.FORMAT_RGBA8)
 	_image.fill(Color(0, 0, 0, 0))

@@ -4,6 +4,39 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 9 — Concurrent games (director + server pool)
+- **Fix — NPC follower jiggle.** Three interacting oscillators: (1) the
+  formation threat was re-picked (nearest zombie) and its direction re-read
+  every frame, so slots teleported/swept; now the threat is sticky (enter
+  384px / exit 500px hysteresis, ≥1s between switches) and the formation
+  axis eases over `form_dir_tau`. (2) NPCs were hard-solid vs each other
+  *and* RVO-avoiding each other inside 80px — push-correct oscillation; the
+  NPC↔NPC collision mask bit is gone, RVO owns spacing. (3) Full-speed
+  approach into a 12px deadzone with per-frame re-pathing; now an arrive
+  slowdown (`arrive_slow_px`), a 20px deadzone, and re-path only when the
+  goal moves >`retarget_px`. Tunables in `Balance.NPC`.
+- **Commander view no longer hides under the HUD.** The bottom command bar
+  is fully opaque, the camera centers on the band *above* the bar
+  (zoom-corrected `camera.offset`), edge-pan treats the bar's top edge as
+  the screen bottom and ignores the mouse over UI, and full pan-down brings
+  the map's last rows clear of the bar.
+- **Rally + minimap orders moved to right-click.** After RALLY ALL \[G], the
+  rally point is placed with *right* click (left cancels), matching move/
+  attack orders. Right-clicking the minimap sends the current selection to
+  the corresponding world position (armed rally: places the rally there);
+  left click/drag still jumps the camera.
+- **Fix — props never cast fog shadows (both fogs).** Only `prop_statue.tscn`
+  was in the `occluders` group, so trees/cars/dumpsters/fences blocked neither
+  the shooter flashlight nor the new zombie vision lights. All five prop
+  scenes now share `scenes/props/prop_occluder.gd`, which builds a
+  correctly-sized `LightOccluder2D` from the prop's visual footprint at
+  runtime (inset 25% so the prop stays lit, `occluder_light_mask = 3` → casts
+  for both fogs; rotates with cars). **Fences are special:** striped occluder
+  segments with gaps, so light shines through in a picket/chain-link shadow
+  pattern instead of blocking. The statue's stale `occluders` group tag was
+  removed (the old 64px-square path is superseded). Tunables in
+  `Balance.PROP_OCCLUDER`. Note: this hides a shooter behind a tree/car from
+  the *commander's view*; AI zombie auto-detection is still distance-based
+  (LOS-aware aggro would be a separate change).
 - **Fix — fast zombies and NPCs were speed-capped at 100 px/s.** Nobody set
   `NavigationAgent2D.max_speed` (default 100), and the RVO avoidance solver
   clamps requested velocity to it: FAST's 220 and the NPC's 160 were silently

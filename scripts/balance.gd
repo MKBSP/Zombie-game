@@ -93,7 +93,7 @@ const NPC := {
 	hide_radius = 12,         # tiles searched for the next hiding spot
 	convert_duration = 5.0,
 	follow_distance = 64.0,   # 1 tile behind the shooter
-	follow_deadzone = 12.0,
+	follow_deadzone = 20.0,   # must exceed RVO agent_radius wobble (16px)
 	vision_px = 384.0,        # 6 tiles
 	muzzle_offset = 40.0,     # spawn bullets past the NPC's own body
 	# --- Armed-NPC accuracy (Phase 3), separate from the player ---
@@ -111,6 +111,11 @@ const NPC := {
 	trail_max = 64,              # trail ring-buffer cap (~1500 px of path)
 	slot_spacing_px = 64.0,      # trail arc-length per follower slot (1 tile)
 	threat_radius_px = 384.0,    # zombie within this of the shooter -> formation
+	threat_exit_px = 500.0,      # formation mode ends only past this (hysteresis)
+	threat_hold_s = 1.0,         # min seconds before switching to another threat
+	form_dir_tau = 0.25,         # s, easing of the shooter->threat formation axis
+	arrive_slow_px = 64.0,       # ease-off radius approaching the follow point
+	retarget_px = 12.0,          # re-path only when the goal moved this far
 	formation_back_px = 56.0,    # armed slot depth behind the shooter
 	formation_side_px = 48.0,    # armed slot lateral offset
 }
@@ -240,6 +245,14 @@ const FOG_SHOOTER := {
 	dynamic_occluder_radius = 14.0,    # px, body-sized occluder for entities; NOTE: also hand-set in entity .tscn Occluder polygons (±this); keep in sync
 	cone_tex_size = 512,               # generated cone texture resolution
 	halo_tex_size = 256,               # generated halo texture resolution
+}
+
+# --- Prop fog occluders (see scenes/props/prop_occluder.gd) ----------------
+const PROP_OCCLUDER := {
+	inset_frac = 0.25,        # shrink the occluder vs the visual so props stay lit
+	fence_segment_px = 6.0,   # solid picket width
+	fence_gap_px = 7.0,       # gap letting light bleed through
+	fence_thickness_px = 6.0, # occluder depth across the fence line
 }
 
 # --- Fog: zombie-controller explored map + shooter-style lighting ----------

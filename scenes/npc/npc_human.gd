@@ -104,7 +104,9 @@ func _ready() -> void:
 		nav_agent.time_horizon_agents = sep.time_horizon
 		nav_agent.velocity_computed.connect(_on_velocity_computed)
 		set_collision_mask_value(2, true)  # solid body vs zombies
-		set_collision_mask_value(4, true)  # solid body vs other NPCs
+		# NPCs are deliberately NOT solid vs each other: RVO avoidance owns the
+		# spacing, and hard bodies inside each other's avoidance radius caused a
+		# push-correct oscillation (the follower jiggle).
 		conversion_zone.body_entered.connect(_on_zone_body_entered)
 		npc_shoot_cooldown.timeout.connect(_on_npc_shoot_cooldown_timeout)
 		# Short randomized first wait so NPCs don't all move at once
@@ -159,14 +161,14 @@ func _physics_process(delta: float) -> void:
 			else:
 				_nav_move()
 		State.FOLLOWING:
-			_process_following()
+			_process_following(delta)
 			if weapon_id != -1:
 				_process_shooting(delta)
 
 
-func _nav_move() -> void:
+func _nav_move(speed_scale: float = 1.0) -> void:
 	var next_pos: Vector2 = nav_agent.get_next_path_position()
-	nav_agent.set_velocity((next_pos - global_position).normalized() * speed)
+	nav_agent.set_velocity((next_pos - global_position).normalized() * speed * speed_scale)
 	# velocity applied in _on_velocity_computed (RVO avoidance)
 
 
@@ -253,10 +255,36 @@ func _plan_relocation() -> void:
 	nav_agent.target_position = _waypoints.pop_front()
 
 
+## Sticky threat pick with hysteresis (anti-jiggle): enter formation mode when
+## a zombie comes within threat_radius_px of the shooter, but only leave it
+## when the held threat dies or gets past the wider threat_exit_px — and only
+## switch to a different zombie at most once per threat_hold_s. Without this,
+## two zombies trading places as "nearest" teleported the formation every
+## frame, and one loitering at the radius toggled trail/formation mode.
+var _threat: Node2D = null
+var _threat_lock: float = 0.0
+# Smoothed shooter->threat axis the formation slots hang off.
+var _form_dir: Vector2 = Vector2.ZERO
+
+
+func _update_threat(delta: float) -> Node2D:
+	_threat_lock = maxf(0.0, _threat_lock - delta)
+	if _threat != null and (not is_instance_valid(_threat)
+			or shooter.global_position.distance_to(_threat.global_position)
+				> Balance.NPC.threat_exit_px):
+		_threat = null
+	if _threat_lock <= 0.0:
+		var nearest := _threat_near_shooter()
+		if nearest != null and nearest != _threat:
+			_threat = nearest
+			_threat_lock = Balance.NPC.threat_hold_s
+	return _threat
+
+
 ## Travel: retrace the shooter's breadcrumb trail single-file (no corner
 ## cutting, never in the way). Combat (zombie near the shooter): take a
 ## formation slot behind the shooter, armed NPCs on the flanks.
-func _process_following() -> void:
+func _process_following(delta: float) -> void:
 	if not is_instance_valid(shooter):
 		_start_hidden(randf_range(1.0, 3.0))
 		return
@@ -274,12 +302,21 @@ func _process_following() -> void:
 			armed += 1
 
 	var follow_point: Vector2
-	var threat := _threat_near_shooter()
+	var threat := _update_threat(delta)
 	if threat != null:
 		var dir := (threat.global_position - shooter.global_position).normalized()
-		follow_point = NpcFollow.formation_slot(shooter.global_position, dir,
+		# Ease the formation axis so a strafing zombie swings the slots
+		# smoothly instead of snapping them across the shooter.
+		if _form_dir == Vector2.ZERO:
+			_form_dir = dir
+		else:
+			var turn: float = _form_dir.angle_to(dir) \
+				* (1.0 - exp(-delta / Balance.NPC.form_dir_tau))
+			_form_dir = _form_dir.rotated(turn).normalized()
+		follow_point = NpcFollow.formation_slot(shooter.global_position, _form_dir,
 			slot, armed, Balance.NPC.formation_back_px, Balance.NPC.formation_side_px)
 	else:
+		_form_dir = Vector2.ZERO
 		var trail: PackedVector2Array = shooter.trail if "trail" in shooter \
 			else PackedVector2Array()
 		follow_point = NpcFollow.trail_point(
@@ -287,13 +324,18 @@ func _process_following() -> void:
 		if follow_point == Vector2.INF:
 			follow_point = shooter.global_position - _last_shooter_dir * FOLLOW_DISTANCE
 
-	if global_position.distance_to(follow_point) < FOLLOW_DEADZONE:
+	var dist := global_position.distance_to(follow_point)
+	if dist < FOLLOW_DEADZONE:
 		velocity = Vector2.ZERO
 		return
 
-	nav_agent.target_position = follow_point
+	# Re-path only when the goal actually moved: a per-frame retarget left the
+	# applied avoidance velocity one frame stale vs a fresh path every frame.
+	if nav_agent.target_position.distance_to(follow_point) > Balance.NPC.retarget_px:
+		nav_agent.target_position = follow_point
 	if not nav_agent.is_navigation_finished():
-		_nav_move()
+		# Arrive behavior: ease off near the goal instead of full-speed overshoot.
+		_nav_move(clampf(dist / Balance.NPC.arrive_slow_px, 0.3, 1.0))
 	else:
 		velocity = Vector2.ZERO
 

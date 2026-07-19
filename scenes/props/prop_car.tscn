@@ -1,10 +1,13 @@
 [gd_scene format=3 uid="uid://c6ybd5e8xxkoe"]
 
+[ext_resource type="Script" uid="uid://drxigk2o5tupe" path="res://scenes/props/prop_occluder.gd" id="1_teajn"]
+
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_jiffc"]
 size = Vector2(48, 24)
 
 [node name="PropCar" type="StaticBody2D" unique_id=1145335606 groups=["props"]]
 collision_mask = 0
+script = ExtResource("1_teajn")
 
 [node name="ColorRect" type="ColorRect" parent="." unique_id=2071460962]
 offset_left = -24.0

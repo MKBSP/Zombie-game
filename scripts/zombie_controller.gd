@@ -20,6 +20,10 @@ class_name ZombieController
 const PAN_SPEED_KEYS: float = 400.0
 const PAN_SPEED_MOUSE: float = 300.0
 const EDGE_THRESHOLD: float = 30.0  # pixels from screen edge
+# Height of the opaque bottom command bar. The world view is treated as the
+# band above it: the camera centers there (offset) and edge-pan/pan-clamp
+# use the bar's top edge as the bottom of the screen.
+const BAR_H: float = 152.0
 const ZOOM_MIN: float = 0.25
 const ZOOM_MAX: float = 4.0
 const ZOOM_STEP: float = 0.1
@@ -101,6 +105,7 @@ func _ready() -> void:
 		minimap.ground_layer = ground_layer
 		minimap.building_layer = get_node_or_null("../BuildingLayer")
 		minimap.rally_point_picked.connect(_rally_all)
+		minimap.move_ordered.connect(_command_move)
 		_create_rally_button(overlay)
 		var world_node := get_parent()
 		if world_node and world_node.has_signal("noise_event"):
@@ -335,15 +340,19 @@ func _input(event: InputEvent) -> void:
 			_pending_points.clear()
 		return
 
-	# --- Rally placement: a world click (while armed) rallies the whole horde ---
+	# --- Rally placement: a world RIGHT-click (while armed) rallies the whole
+	# horde, consistent with every other order. A left world click cancels. ---
 	if minimap and minimap.rally_armed and event is InputEventMouseButton \
-		and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		var hovered := get_viewport().gui_get_hovered_control()
-		if hovered is Button or hovered == minimap:
+		and event.pressed:
+		if _pointer_on_ui():
 			return  # let the rally button / minimap handle their own click
-		minimap.rally_armed = false
-		_rally_all(_screen_to_world(event.position))
-		return
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			minimap.rally_armed = false
+			_rally_all(_screen_to_world(event.position))
+			return
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			minimap.rally_armed = false  # cancel: back to normal selection
+			return
 
 	# --- Zoom ---
 	if event is InputEventMouseButton:
@@ -459,18 +468,21 @@ func _handle_camera_pan(delta: float) -> void:
 		camera.global_position += pan.normalized() * PAN_SPEED_KEYS * delta
 		return  # Prioritize key input over mouse edge
 
-	# Mouse edge panning
+	# Mouse edge panning. The bar's top edge is the effective screen bottom,
+	# and hovering the HUD itself never pans.
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 	var mouse_pos: Vector2 = get_viewport().get_mouse_position()
+	var world_bottom: float = viewport_size.y - BAR_H
 
-	if mouse_pos.x < EDGE_THRESHOLD:
-		pan.x -= 1.0
-	elif mouse_pos.x > viewport_size.x - EDGE_THRESHOLD:
-		pan.x += 1.0
-	if mouse_pos.y < EDGE_THRESHOLD:
-		pan.y -= 1.0
-	elif mouse_pos.y > viewport_size.y - EDGE_THRESHOLD:
-		pan.y += 1.0
+	if not _pointer_on_ui():
+		if mouse_pos.x < EDGE_THRESHOLD:
+			pan.x -= 1.0
+		elif mouse_pos.x > viewport_size.x - EDGE_THRESHOLD:
+			pan.x += 1.0
+		if mouse_pos.y < EDGE_THRESHOLD:
+			pan.y -= 1.0
+		elif mouse_pos.y > world_bottom - EDGE_THRESHOLD:
+			pan.y += 1.0
 
 	if pan != Vector2.ZERO:
 		camera.global_position += pan.normalized() * PAN_SPEED_MOUSE * delta
@@ -479,6 +491,11 @@ func _handle_camera_pan(delta: float) -> void:
 	camera.global_position = camera.global_position.clamp(
 		Vector2.ZERO, Vector2(3008, 3008)
 	)
+	# Center the view in the band above the opaque command bar, not the full
+	# window: push the look-at point down by half the bar height (screen px ->
+	# world px, so zoom-corrected). Camera clamp excludes offset, which lets
+	# the map's bottom rows clear the bar at full pan-down.
+	camera.offset.y = BAR_H * 0.5 / camera.zoom.y
 
 
 func _zoom_camera(amount: float) -> void:
@@ -617,7 +634,9 @@ func _build_bottom_panel(overlay: Node) -> void:
 
 	var bar := PanelContainer.new()
 	bar.name = "ZCBottomBar"
-	var bar_sb := UIStyle.box(UIStyle.fade(UIStyle.BAR_BG, 0.88), Color.TRANSPARENT)
+	# Fully opaque: the world must read as ending at the bar, not running
+	# underneath it (the 0.88 fade let entities ghost through).
+	var bar_sb := UIStyle.box(UIStyle.BAR_BG, Color.TRANSPARENT)
 	bar_sb.border_color = UIStyle.BORDER
 	bar_sb.border_width_top = 1
 	bar_sb.border_width_left = 1
@@ -628,7 +647,7 @@ func _build_bottom_panel(overlay: Node) -> void:
 	bar.anchor_bottom = 1.0
 	bar.offset_left = m + sz + 12.0
 	bar.offset_right = -0.0
-	bar.offset_top = -152.0
+	bar.offset_top = -BAR_H
 	bar.offset_bottom = 0.0
 	# STOP so _pointer_on_ui() can tell bar clicks from map clicks.
 	bar.mouse_filter = Control.MOUSE_FILTER_STOP

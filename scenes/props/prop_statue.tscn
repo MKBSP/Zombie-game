@@ -1,10 +1,13 @@
 [gd_scene format=3 uid="uid://iwyenmim4kk8"]
 
+[ext_resource type="Script" uid="uid://drxigk2o5tupe" path="res://scenes/props/prop_occluder.gd" id="1_wgxra"]
+
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_rw8e2"]
 size = Vector2(32, 32)
 
-[node name="PropStatue" type="StaticBody2D" unique_id=1557478503 groups=["occluders", "props"]]
+[node name="PropStatue" type="StaticBody2D" unique_id=1557478503 groups=["props"]]
 collision_mask = 0
+script = ExtResource("1_wgxra")
 
 [node name="ColorRect" type="ColorRect" parent="." unique_id=1214997472]
 offset_left = -16.0

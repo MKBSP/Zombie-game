@@ -11,6 +11,8 @@ var building_layer: TileMapLayer
 
 var rally_armed: bool = false
 signal rally_point_picked(world_pos: Vector2)
+## Right-click on the map: send the current selection to that world position.
+signal move_ordered(world_pos: Vector2)
 
 var _terrain_colors: PackedColorArray = PackedColorArray()
 var _ghosts: Dictionary = {}          # instance_id -> { pos: Vector2, t: float }
@@ -179,16 +181,21 @@ func _build_terrain_cache() -> void:
 					ttype = td.get_custom_data("tile_type")
 			_terrain_colors[y * gw + x] = MinimapMath.terrain_color(ttype, has_bld)
 
+## Left click/drag: jump the camera. Right click: place the armed rally, else
+## order the selected zombies to the matching world position (like RMB in the
+## world view).
 func _gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		if rally_armed:
-			rally_armed = false
-			rally_point_picked.emit(_local_to_world(event.position))
-		else:
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			if rally_armed:
+				rally_armed = false
+				rally_point_picked.emit(_local_to_world(event.position))
+			else:
+				move_ordered.emit(_local_to_world(event.position))
+		elif event.button_index == MOUSE_BUTTON_LEFT:
 			_jump_camera(event.position)
 	elif event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-		if not rally_armed:
-			_jump_camera(event.position)
+		_jump_camera(event.position)
 
 func _local_to_world(local_pos: Vector2) -> Vector2:
 	return MinimapMath.minimap_to_world(local_pos, Balance.MINIMAP.world_px, Balance.MINIMAP.size_px)

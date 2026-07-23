@@ -135,6 +135,7 @@ func _ready() -> void:
 		position = sync_pos
 		rotation = sync_rot
 	speed = Balance.SHOOTER.speed
+	scale = Vector2(Balance.SHOOTER.scale, Balance.SHOOTER.scale)
 	max_hp = Balance.SHOOTER.max_hp
 	contact_damage_per_second = Balance.SHOOTER.contact_dps
 	FOCUS_TIME = Balance.SHOOTER.focus_time

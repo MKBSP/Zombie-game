@@ -22,7 +22,8 @@ const NET := {
 }
 
 const SHOOTER := {
-	speed = 210.0,
+	speed = 105.0,
+	scale = 0.5,
 	max_hp = 100,
 	contact_dps = 12.0,            # legacy field on the shooter
 	focus_time = 5.0,             # seconds of held still-aim for full focus
@@ -41,10 +42,10 @@ const SHOOTER := {
 }
 
 # --- Zombies (variant chosen by group in zombie.gd) ------------------------
-const ZOMBIE := { speed = 85.0,  max_hp = 150, contact_dps = 12.0, vision = 2, contact_px = 38.0, scale = 1.0, damage_per_hit = 15, attack_interval = 1.0 }
-const FAST   := { speed = 220.0, max_hp = 150, contact_dps = 18.0, vision = 2, contact_px = 38.0, scale = 1.0, damage_per_hit = 12, attack_interval = 0.7 }
-const FAT    := { speed = 76.5,  max_hp = 750, contact_dps = 60.0, vision = 2, contact_px = 38.0, scale = 1.5, damage_per_hit = 45, attack_interval = 1.3 }
-const MASTER := { speed = 60.0,  max_hp = 450, contact_dps = 12.0, vision = 3, contact_px = 48.0, scale = 1.8, damage_per_hit = 20, attack_interval = 1.2 }
+const ZOMBIE := { speed = 42.5,  max_hp = 150, contact_dps = 12.0, vision = 2, contact_px = 38.0, scale = 0.5,  damage_per_hit = 15, attack_interval = 1.0 }
+const FAST   := { speed = 110.0, max_hp = 150, contact_dps = 18.0, vision = 2, contact_px = 38.0, scale = 0.5,  damage_per_hit = 12, attack_interval = 0.7 }
+const FAT    := { speed = 38.25, max_hp = 750, contact_dps = 60.0, vision = 2, contact_px = 38.0, scale = 0.75, damage_per_hit = 45, attack_interval = 1.3 }
+const MASTER := { speed = 30.0,  max_hp = 450, contact_dps = 12.0, vision = 3, contact_px = 48.0, scale = 0.9,  damage_per_hit = 20, attack_interval = 1.2 }
 
 # --- Unit separation (RVO avoidance) ---------------------------------------
 const SEPARATION := {
@@ -86,7 +87,8 @@ const AGGRO := {
 
 # --- NPC -------------------------------------------------------------------
 const NPC := {
-	speed = 160.0,            # 10% slower than the shooter
+	speed = 80.0,             # 10% slower than the shooter, both halved
+	scale = 0.5,
 	max_hp = 50,
 	hide_min = 10.0,
 	hide_max = 20.0,
@@ -197,13 +199,13 @@ const LOOT := {
 	chance_two = 0.20,
 	chance_three = 0.01,
 	# Relative spawn weights per item kind (tune freely; need not sum to 100).
-	weight_ammo_mag = 25,
-	weight_bandage = 30,
-	weight_medipack = 10,
-	weight_melee = 10,
-	weight_shotgun = 10,
-	weight_machinegun = 10,
-	weight_rifle = 5,
+	weight_ammo_mag = 20,
+	weight_bandage = 25,
+	weight_medipack = 15,
+	weight_melee = 15,
+	weight_shotgun = 12,
+	weight_machinegun = 12,
+	weight_rifle = 12,
 	# Heal amounts.
 	heal_bandage = 10,
 	heal_medipack = 50,

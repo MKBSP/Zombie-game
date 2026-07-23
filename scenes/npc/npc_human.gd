@@ -79,6 +79,7 @@ func _ready() -> void:
 		position = sync_pos
 	var b: Dictionary = Balance.NPC
 	speed = b.speed
+	scale = Vector2(b.scale, b.scale)
 	max_hp = b.max_hp
 	hide_min = b.hide_min
 	hide_max = b.hide_max
@@ -490,6 +491,14 @@ func _on_zone_body_entered(body: Node2D) -> void:
 		_start_conversion()
 	elif body.is_in_group("shooter") and state != State.FOLLOWING:
 		state = State.FOLLOWING
+
+
+## Called by an attacking zombie (see zombie.gd _check_contact_damage) so a
+## bite always converts rather than racing the ConversionZone touch.
+func force_convert() -> void:
+	if state == State.CONVERTING:
+		return
+	_start_conversion()
 
 
 func _start_conversion() -> void:

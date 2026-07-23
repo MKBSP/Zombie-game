@@ -303,6 +303,7 @@ func _spawn_npcs() -> void:
 ## Scatter closed loot boxes on walkable tiles, clear of buildings, props, the
 ## shooter spawn, and each other. Server-only; boxes replicate via the spawner.
 func _spawn_loot_boxes() -> void:
+	var boxes: Array[Node2D] = []
 	for _i in range(Balance.LOOT.box_count):
 		var pos := _find_box_spawn()
 		if pos == Vector2.INF:
@@ -310,6 +311,11 @@ func _spawn_loot_boxes() -> void:
 		var b: Node2D = loot_box_scene.instantiate()
 		b.position = pos
 		entities.add_child(b, true)
+		boxes.append(b)
+	# Guarantee at least one weapon is findable on the map, independent of how
+	# the per-box weighted rolls land.
+	if boxes.size() > 0:
+		boxes[randi() % boxes.size()].guarantee_weapon = true
 
 
 ## A walkable tile clear of the shooter spawn and of already-placed boxes.

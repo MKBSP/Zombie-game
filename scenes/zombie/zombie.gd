@@ -358,6 +358,10 @@ func set_command(destination: Vector2) -> void:
 	attack_target = null
 	command_mode = true
 	command_target = destination
+	# A manual move order cancels any standing autonomous behavior (patrol,
+	# flee) instead of just pausing it for one trip.
+	movement_mode = Movement.FREE
+	_fled = false
 
 
 func set_attack_target(t: Node2D) -> void:
@@ -388,12 +392,16 @@ func _check_contact_damage(delta: float) -> void:
 		return
 	var distance := global_position.distance_to(target.global_position)
 	if CombatMath.can_attack(distance, _attack_range(), _attack_cooldown):
-		if target.has_method("take_damage"):
+		var w := get_tree().current_scene
+		if target.is_in_group("npcs") and target.has_method("force_convert"):
+			# NPCs are never bitten to death — a zombie's attack always starts
+			# the inevitable conversion instead of dealing lethal hp damage.
+			target.force_convert()
+		elif target.has_method("take_damage"):
 			target.take_damage(damage_per_hit)
-			var w := get_tree().current_scene
-			if w.has_method("spawn_hit_fx"):
-				var dir := (target.global_position - global_position).normalized()
-				w.spawn_hit_fx(FxPresets.RED_BLOOD, target.global_position, dir)
+		if w.has_method("spawn_hit_fx"):
+			var dir := (target.global_position - global_position).normalized()
+			w.spawn_hit_fx(FxPresets.RED_BLOOD, target.global_position, dir)
 		_attack_cooldown = attack_interval
 		_lunge_toward(target.global_position)
 

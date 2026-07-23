@@ -183,7 +183,11 @@ func _check_contact_damage(delta: float) -> void:
 		return
 	var distance := global_position.distance_to(target.global_position)
 	if CombatMath.can_attack(distance, _contact_px, _attack_cooldown):
-		if target.has_method("take_damage"):
+		if target.is_in_group("npcs") and target.has_method("force_convert"):
+			# NPCs are never bitten to death — a zombie's attack always starts
+			# the inevitable conversion instead of dealing lethal hp damage.
+			target.force_convert()
+		elif target.has_method("take_damage"):
 			target.take_damage(damage_per_hit)
 		_attack_cooldown = attack_interval
 

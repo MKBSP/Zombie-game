@@ -14,6 +14,10 @@ const TEX_OPENED := preload("res://sprites/Crate_opened.png")
 		opened = value
 		_refresh_sprite()
 
+## Set by world.gd on exactly one spawned box per map, so a weapon is always
+## somewhere findable regardless of how the normal weighted rolls land.
+var guarantee_weapon: bool = false
+
 
 func _ready() -> void:
 	_refresh_sprite()
@@ -41,6 +45,18 @@ func _kind_weights() -> Dictionary:
 	}
 
 
+## Weapon-only subset of _kind_weights(), used to force a weapon roll on the
+## one box per map flagged guarantee_weapon.
+func _weapon_weights() -> Dictionary:
+	var l: Dictionary = Balance.LOOT
+	return {
+		Pickup.Kind.MELEE: l.weight_melee,
+		Pickup.Kind.SHOTGUN: l.weight_shotgun,
+		Pickup.Kind.MACHINEGUN: l.weight_machinegun,
+		Pickup.Kind.RIFLE: l.weight_rifle,
+	}
+
+
 ## Server-only: mark opened (replicates the sprite swap), then roll and spawn the loot.
 func open() -> void:
 	if opened or not multiplayer.is_server():
@@ -50,8 +66,12 @@ func open() -> void:
 	var count := LootTable.roll_item_count(randf(), Balance.LOOT.chance_two, Balance.LOOT.chance_three)
 	var weights := _kind_weights()
 	var placed: Array[Vector2] = []
-	for _i in range(count):
-		var k := LootTable.roll_kind(randf(), weights)
+	for i in range(count):
+		var k: int
+		if guarantee_weapon and i == 0:
+			k = LootTable.roll_kind(randf(), _weapon_weights())
+		else:
+			k = LootTable.roll_kind(randf(), weights)
 		var target: Vector2 = world.loot_landing_spot(global_position, placed)
 		placed.append(target)
 		var p: Pickup = PICKUP_SCENE.instantiate()

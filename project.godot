@@ -23,10 +23,10 @@ config/icon="res://icon.svg"
 
 GameState="*res://scripts/game_state.gd"
 Net="*res://scripts/network.gd"
-_mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 Balance="*res://scripts/balance.gd"
 UITheme="*res://scripts/ui_theme.gd"
 Settings="*res://scripts/settings.gd"
+_mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 
 [display]
 

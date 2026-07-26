@@ -48,6 +48,7 @@ static func refresh_lights(tree: SceneTree, radial_tex: Texture2D) -> void:
 		# Child of a scaled node (fat 1.5x, master 1.8x): divide the scale out.
 		light.texture_scale = radius_px / (float(b.light_tex_size) / 2.0) / maxf(z.scale.x, 0.01)
 		light.energy = b.light_energy
+		light.blend_mode = Light2D.BLEND_MODE_MIX
 		light.shadow_enabled = b.shadows_enabled
 		light.shadow_item_cull_mask = 2  # statics only — entities never block vision
 		z.add_child(light)

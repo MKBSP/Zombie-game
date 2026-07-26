@@ -36,7 +36,7 @@ func _word(text: String, font_size: int, color: Color) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_font_override("font", UIStyle.mono_spaced())
+	l.add_theme_font_override("font", UIStyle.font(UIStyle.FONT_DISPLAY))
 	l.add_theme_font_size_override("font_size", font_size)
 	l.add_theme_color_override("font_color", color)
 	return l

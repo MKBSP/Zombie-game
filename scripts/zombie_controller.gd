@@ -102,6 +102,33 @@ func _ready() -> void:
 	if overlay:
 		overlay.add_child(minimap)
 		minimap.setup(fog_zc, camera)
+
+		# Distress overlay on top of the live minimap — grain + a crack line,
+		# matching the mockup's <MinimapSample>. mouse_filter IGNORE keeps
+		# minimap click/drag panning working underneath.
+		var mm_grain := Grunge.grain_overlay(0.15)
+		mm_grain.anchor_left = 0.0
+		mm_grain.anchor_right = 0.0
+		mm_grain.anchor_top = 1.0
+		mm_grain.anchor_bottom = 1.0
+		mm_grain.offset_left = Balance.MINIMAP.margin_px
+		mm_grain.offset_top = -(Balance.MINIMAP.size_px + Balance.MINIMAP.margin_px)
+		mm_grain.offset_right = Balance.MINIMAP.margin_px + Balance.MINIMAP.size_px
+		mm_grain.offset_bottom = -Balance.MINIMAP.margin_px
+		mm_grain.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		overlay.add_child(mm_grain)
+
+		var mm_cracks := Grunge.CrackLines.new(0.08)
+		mm_cracks.anchor_left = 0.0
+		mm_cracks.anchor_right = 0.0
+		mm_cracks.anchor_top = 1.0
+		mm_cracks.anchor_bottom = 1.0
+		mm_cracks.offset_left = Balance.MINIMAP.margin_px
+		mm_cracks.offset_top = -(Balance.MINIMAP.size_px + Balance.MINIMAP.margin_px)
+		mm_cracks.offset_right = Balance.MINIMAP.margin_px + Balance.MINIMAP.size_px
+		mm_cracks.offset_bottom = -Balance.MINIMAP.margin_px
+		mm_cracks.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		overlay.add_child(mm_cracks)
 		minimap.ground_layer = ground_layer
 		minimap.building_layer = get_node_or_null("../BuildingLayer")
 		minimap.rally_point_picked.connect(_rally_all)
@@ -699,6 +726,44 @@ func _build_bottom_panel(overlay: Node) -> void:
 		if merge_panel is BoxContainer:
 			merge_panel.alignment = BoxContainer.ALIGNMENT_CENTER
 
+	# Distress overlay — grain + torn top edge + a hazard-tape divider just
+	# above the bar, ported from the mockup's <HUDSample>/<Section>. Added
+	# to `overlay` (a sibling of `bar`, not a child of `row`) so it can't
+	# disturb the HBoxContainer's button/label layout.
+	var grain := Grunge.grain_overlay(0.1)
+	grain.anchor_left = 0.0
+	grain.anchor_right = 1.0
+	grain.anchor_top = 1.0
+	grain.anchor_bottom = 1.0
+	grain.offset_left = m + sz + 12.0
+	grain.offset_right = -0.0
+	grain.offset_top = -BAR_H
+	grain.offset_bottom = 0.0
+	grain.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(grain)
+
+	var worn := Grunge.WornEdge.new("top")
+	worn.anchor_left = 0.0
+	worn.anchor_right = 1.0
+	worn.anchor_top = 1.0
+	worn.anchor_bottom = 1.0
+	worn.offset_left = m + sz + 12.0
+	worn.offset_right = -0.0
+	worn.offset_top = -BAR_H
+	worn.offset_bottom = -BAR_H + 8.0
+	overlay.add_child(worn)
+
+	var tape := Grunge.HazardTape.new()
+	tape.anchor_left = 0.0
+	tape.anchor_right = 1.0
+	tape.anchor_top = 1.0
+	tape.anchor_bottom = 1.0
+	tape.offset_left = m + sz + 12.0
+	tape.offset_right = -0.0
+	tape.offset_top = -BAR_H - 10.0
+	tape.offset_bottom = -BAR_H
+	overlay.add_child(tape)
+
 
 ## Keep the SELECTED header + group stats in sync with the live selection.
 func _update_selection_readout() -> void:
@@ -766,6 +831,11 @@ class PortraitStrip:
 			var box := Rect2(Vector2(x, 0), Vector2(BOX, BOX))
 			draw_rect(box, UIStyle.fade(accent, 0.08))
 			draw_rect(box, UIStyle.fade(accent, 0.7), false, 1.0)
+			# Weathering: a faint crack across the portrait frame.
+			draw_polyline(PackedVector2Array([
+				Vector2(x + BOX * 0.15, 0), Vector2(x + BOX * 0.22, BOX * 0.4),
+				Vector2(x + BOX * 0.18, BOX * 0.6), Vector2(x + BOX * 0.28, BOX)]),
+				UIStyle.fade(UIStyle.ASH, 0.14), 0.6)
 			# Simple silhouette: head + torso blocks.
 			draw_rect(Rect2(Vector2(x + BOX * 0.38, 7), Vector2(BOX * 0.24, BOX * 0.22)),
 				UIStyle.fade(accent, 0.55))
@@ -788,8 +858,8 @@ func _add_btn(parent: Node, text: String, cb: Callable, accent: Color = UIStyle.
 	b.add_theme_font_size_override("font_size", 11)
 	b.custom_minimum_size = Vector2(102, 25)
 	b.add_theme_stylebox_override("normal",
-		UIStyle.box(UIStyle.fade(UIStyle.PANEL_DARK, 0.9), UIStyle.BORDER_DIM))
-	var hot := UIStyle.box(
+		UIStyle.cut_box(UIStyle.fade(UIStyle.PANEL_DARK, 0.9), UIStyle.BORDER_DIM))
+	var hot := UIStyle.cut_box(
 		UIStyle.fade(accent, 0.10), accent, UIStyle.fade(accent, 0.20), 5)
 	for state in ["hover", "pressed", "focus"]:
 		b.add_theme_stylebox_override(state, hot)
@@ -814,13 +884,13 @@ func _style_merge_button(b: Button, accent: Color) -> void:
 	b.add_theme_font_size_override("font_size", 11)
 	b.custom_minimum_size = Vector2(0, 30)
 	b.add_theme_stylebox_override("normal",
-		UIStyle.box(UIStyle.fade(accent, 0.05), UIStyle.fade(accent, 0.6)))
-	var hot := UIStyle.box(
+		UIStyle.cut_box(UIStyle.fade(accent, 0.05), UIStyle.fade(accent, 0.6)))
+	var hot := UIStyle.cut_box(
 		UIStyle.fade(accent, 0.12), accent, UIStyle.fade(accent, 0.25), 6)
 	for state in ["hover", "pressed", "focus"]:
 		b.add_theme_stylebox_override(state, hot)
 	b.add_theme_stylebox_override("disabled",
-		UIStyle.box(Color.TRANSPARENT, UIStyle.BORDER_DIM))
+		UIStyle.cut_box(Color.TRANSPARENT, UIStyle.BORDER_DIM))
 	b.add_theme_color_override("font_color", accent)
 	b.add_theme_color_override("font_hover_color", accent)
 	b.add_theme_color_override("font_pressed_color", accent)
@@ -899,8 +969,8 @@ func _create_rally_button(overlay: Node) -> void:
 	btn.offset_bottom = -(sz + m + 20.0)
 	btn.add_theme_font_size_override("font_size", 10)
 	btn.add_theme_stylebox_override("normal",
-		UIStyle.box(UIStyle.fade(UIStyle.PANEL_DARK, 0.9), UIStyle.fade(RALLY_GOLD, 0.5)))
-	var hot := UIStyle.box(
+		UIStyle.cut_box(UIStyle.fade(UIStyle.PANEL_DARK, 0.9), UIStyle.fade(RALLY_GOLD, 0.5)))
+	var hot := UIStyle.cut_box(
 		UIStyle.fade(RALLY_GOLD, 0.12), RALLY_GOLD, UIStyle.fade(RALLY_GOLD, 0.25), 5)
 	for state in ["hover", "pressed", "focus"]:
 		btn.add_theme_stylebox_override(state, hot)

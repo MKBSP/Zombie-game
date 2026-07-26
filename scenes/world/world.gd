@@ -234,7 +234,7 @@ func _spawn_standard_zombies() -> void:
 	var attempts := 0
 	while spawned < zombie_count and attempts < zombie_count * 60 + 200:
 		attempts += 1
-		var offset := Vector2i(randi_range(-6, 6), randi_range(-6, 6))
+		var offset := Vector2i(randi_range(-4, 4), randi_range(-4, 4))
 		var tile := _find_clear_walkable_tile_near(master_tile + offset, used)
 		if tile == Vector2i(-1, -1):
 			continue

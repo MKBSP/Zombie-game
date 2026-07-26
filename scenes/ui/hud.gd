@@ -13,6 +13,7 @@ var master_zombie: Node2D = null
 var debug_visible: bool = true
 var _toast_tween: Tween = null
 var _ammo_blocks: AmmoBlocks = null
+var _hp_drip: Grunge.BloodDrip = null
 
 
 func _ready() -> void:
@@ -104,12 +105,14 @@ func _on_hp_changed(new_hp: int) -> void:
 	hp_bar.value = new_hp
 	hp_label.text = str(new_hp)
 	# HP color rule (>60% green / 30-60% warn / <30% crit) on bar + number.
-	var c := UIStyle.hp_color(new_hp / float(hp_bar.max_value))
-	var fill := StyleBoxFlat.new()
-	fill.bg_color = c
-	fill.set_corner_radius_all(0)
-	hp_bar.add_theme_stylebox_override("fill", fill)
+	var pct := new_hp / float(hp_bar.max_value)
+	var c := UIStyle.hp_color(pct)
+	hp_bar.add_theme_stylebox_override("fill", UIStyle.rough_fill(c))
 	hp_label.add_theme_color_override("font_color", c)
+	# Mockup rule: a blood drip appears below the bar once HP < 30%.
+	if _hp_drip != null:
+		_hp_drip.visible = pct < 0.3
+		_hp_drip.set_pct(pct)
 
 
 func _update_ammo() -> void:
@@ -192,7 +195,15 @@ func _apply_zc_style() -> void:
 	hp_bar.custom_minimum_size = Vector2(150, 12)
 	hp_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	hp_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hp_bar.add_theme_stylebox_override("background", UIStyle.box(UIStyle.PANEL_DARK, UIStyle.BORDER_DIM))
 	hp_label.reparent(hp_row)
+	# hp_section is a VBoxContainer (see _bar_section below), so adding the
+	# drip here — as a sibling *after* hp_row, not a child of it — stacks it
+	# directly below the HP bar instead of squeezing into the HBox layout.
+	_hp_drip = Grunge.BloodDrip.new(0.0, 14.0, 0.8)
+	_hp_drip.custom_minimum_size.x = 150
+	_hp_drip.visible = false
+	hp_section.add_child(_hp_drip)
 	hp_label.add_theme_font_override("font", UIStyle.mono_spaced())
 	hp_label.add_theme_font_size_override("font_size", 22)
 	_on_hp_changed(int(hp_bar.value))
@@ -235,6 +246,23 @@ func _apply_zc_style() -> void:
 	toast_label.offset_top = -170.0
 	toast_label.offset_bottom = -140.0
 	debug_coords.theme_type_variation = "MicroLabel"
+
+	# Distress overlay — grain + torn top edge across the bottom bar, ported
+	# from the mockup's <HUDSample>. Added last (drawn on top of `bar`) but
+	# before toast/debug labels stay on top since those were created earlier
+	# and are only repositioned here, not re-added.
+	var grain := Grunge.grain_overlay(0.12)
+	grain.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	grain.offset_top = -68.0
+	add_child(grain)
+	move_child(grain, bar.get_index() + 1)
+
+	var worn := Grunge.WornEdge.new("top")
+	worn.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	worn.offset_top = -68.0
+	worn.offset_bottom = -60.0
+	add_child(worn)
+	move_child(worn, grain.get_index() + 1)
 
 
 ## A titled section (micro header + content VBox) inside the bottom bar.

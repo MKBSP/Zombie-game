@@ -6,36 +6,39 @@ extends RefCounted
 ## Rules: 0px corners everywhere, mono font for data/labels, hairline borders.
 
 # ── Grounds ─────────────────────────────────────────────────────────────────
-const ABYSS := Color("0d0f0b")        # page / screen ground
-const BUNKER := Color("1a1e16")       # panel surface
-const TRENCH := Color("2a2e22")       # secondary surface
-const PANEL_DARK := Color("0a0c09")   # recessed panel
-const BAR_BG := Color("0b0d0a")       # HUD top/bottom bars, modals
+const ABYSS := Color("080603")        # page / screen ground
+const BUNKER := Color("0e0a06")       # panel surface
+const TRENCH := Color("1c1409")       # secondary surface
+const PANEL_DARK := Color("120d05")   # recessed panel
+const BAR_BG := Color("060402")       # HUD top/bottom bars, modals
 
 # ── Text ────────────────────────────────────────────────────────────────────
-const ASH := Color("c8d4b8")          # body text
-const MOSS := Color("6b7a5a")         # muted labels
-const DIM := Color("3a4a30")          # faint micro labels
+const ASH := Color("c4b48a")          # body text
+const MOSS := Color("7a6448")         # muted labels
+const DIM := Color("4a3820")          # faint micro labels
 
 # ── Accents ─────────────────────────────────────────────────────────────────
 const INFECTION := Color("39ff14")    # primary accent / interactive / selected
-const FAT_AMBER := Color("ff8c00")    # fat zombie / merge fat
-const FAST_CYAN := Color("00e5ff")    # fast zombie / shooter role
-const HEMORRHAGE := Color("b00020")   # damage / death / destructive
-const WOUND := Color("f87171")        # damage stat / aggressive stance
-const HOLD_BLUE := Color("60a5fa")    # hold-ground stance
-const LURE_YELLOW := Color("facc15")  # lure stance
-const PATROL_PURPLE := Color("c084fc")# patrol stance
-const WARN_YELLOW := Color("ffcc00")  # mid HP warning
+const FAT_AMBER := Color("d4780a")    # fat zombie / merge fat
+const FAST_CYAN := Color("00b4c8")    # fast zombie / shooter role
+const HEMORRHAGE := Color("c0141a")   # damage / death / destructive
+const WOUND := Color("c0141a")        # damage stat / aggressive stance
+const HOLD_BLUE := Color("5a9af0")    # hold-ground stance
+const LURE_YELLOW := Color("c8920a")  # lure stance
+const PATROL_PURPLE := Color("a070e0")# patrol stance
+const WARN_YELLOW := Color("c8920a")  # mid HP warning
+const BLOOD := Color("8b0000")        # deep blood — stains, splats, drips
+const RUST := Color("7a3010")         # rust accent
 
-# ── Borders (hairline green) ────────────────────────────────────────────────
-const BORDER := Color(0.224, 1.0, 0.078, 0.18)      # panel divider
-const BORDER_DIM := Color(0.224, 1.0, 0.078, 0.10)  # card edge
+# ── Borders (hairline rust) ─────────────────────────────────────────────────
+const BORDER := Color(0.627, 0.392, 0.118, 0.32)      # panel divider
+const BORDER_DIM := Color(0.627, 0.392, 0.118, 0.16)  # card edge
 
 # ── Fonts ───────────────────────────────────────────────────────────────────
 const FONT_MONO := "res://resources/fonts/ShareTechMono-Regular.ttf"
 const FONT_BODY := "res://resources/fonts/Rajdhani-Medium.ttf"
 const FONT_BODY_BOLD := "res://resources/fonts/Rajdhani-Bold.ttf"
+const FONT_DISPLAY := "res://resources/fonts/SpecialElite-Regular.ttf"
 
 
 static var _fonts: Dictionary = {}
@@ -102,4 +105,30 @@ static func box(bg: Color, border: Color, glow := Color.TRANSPARENT, glow_size :
 	if glow_size > 0:
 		sb.shadow_color = glow
 		sb.shadow_size = glow_size
+	return sb
+
+
+## Cut-corner ("clip-path octagon") panel background — the mockup's signature
+## button/portrait/badge shape. Same call signature as box(); `cut_size` is
+## the corner notch depth in px.
+static func cut_box(bg: Color, border: Color, glow := Color.TRANSPARENT, glow_size := 0, cut_size := 5.0) -> CutCornerStyleBox:
+	var sb := CutCornerStyleBox.new()
+	sb.bg_color = bg
+	sb.border_color = border
+	sb.border_width = 1.0
+	sb.cut = cut_size
+	sb.content_margin_left = 14.0
+	sb.content_margin_right = 14.0
+	sb.content_margin_top = 8.0
+	sb.content_margin_bottom = 8.0
+	if glow_size > 0:
+		sb.shadow_color = glow
+		sb.shadow_size = glow_size
+	return sb
+
+
+## Jagged-leading-edge fill for HP/ammo progress bars (mockup's RoughBar).
+static func rough_fill(color: Color) -> RoughFillStyleBox:
+	var sb := RoughFillStyleBox.new()
+	sb.bg_color = color
 	return sb

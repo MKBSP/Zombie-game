@@ -4,6 +4,28 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 9 — Concurrent games (director + server pool)
+- **HUD reskinned to the "v2" distressed blood/rust design system.** Ported
+  the latest Figma Make HUD mockup (new palette, Special Elite display font,
+  cut-corner panels) into the live game. `UIStyle` (single source of truth
+  for HUD colors/fonts) now carries the rust/blood palette in place of the
+  old cyberpunk green/cyan one, plus `BLOOD`/`RUST` tokens and `FONT_DISPLAY`.
+  Two new custom `StyleBox` classes replicate CSS effects Godot has no
+  built-in for: `CutCornerStyleBox` (the mockup's octagonal clip-path panels,
+  now used on mode/merge/rally buttons) and `RoughFillStyleBox` (jagged
+  leading-edge progress fill, now the HP bar's fill style). A new `Grunge`
+  helper (`scripts/ui/grunge.gd`) provides procedurally-drawn/generated
+  distress decorations — tileable noise grain, blood splats/stains/drips,
+  crack lines, torn edges, hazard tape — with no new image assets, wired
+  into the shooter bottom bar, the zombie-commander bottom bar + portraits,
+  the minimap frame, and the main-menu title. The HP bar now drips blood
+  below 30% HP, matching the mockup's rule.
+- **Fix — zombies spawned too far from the master zombie; zombie vision
+  lights blew out to white when zombies clustered.** Standard-zombie spawn
+  offset tightened from a ±6-tile scatter to ±4 around the master's tile
+  (`scenes/world/world.gd`). Zombie Controller vision lights now use
+  `Light2D.BLEND_MODE_MIX` instead of the default additive blend
+  (`scripts/zombie_lighting.gd`), so overlapping lights no longer stack into
+  a blinding white blob when several zombies stand close together.
 - **Fix — NPC follower jiggle.** Three interacting oscillators: (1) the
   formation threat was re-picked (nearest zombie) and its direction re-read
   every frame, so slots teleported/swept; now the threat is sticky (enter

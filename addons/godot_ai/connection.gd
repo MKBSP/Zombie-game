@@ -20,6 +20,14 @@ const OUTBOUND_BUFFER_LIMIT_BYTES := 4 * 1024 * 1024
 ## next frame; the cumulative spill counter is logged so flood patterns
 ## are observable in `logs_read`. See audit-v2 finding #12 (issue #356).
 const PACKET_DRAIN_CAP_PER_TICK := 32
+## Mirror of the server's application close code for a handshake carrying a
+## wrong auth token (#690; `websocket.py::_CLOSE_CODE_AUTH_TOKEN_MISMATCH`).
+const CLOSE_CODE_AUTH_TOKEN_MISMATCH := 4003
+## After this many consecutive post-OPEN token-mismatch rejections, drop the
+## token and handshake token-less (see `_note_post_open_close`). Two, not
+## one: a transient stale-record race during a server swap gets one chance
+## to resolve before the token is given up.
+const AUTH_MISMATCH_FALLBACK_CLOSES := 2
 const ClientConfigurator := preload("res://addons/godot_ai/client_configurator.gd")
 const ErrorCodes := preload("res://addons/godot_ai/utils/error_codes.gd")
 
@@ -31,15 +39,31 @@ const ErrorCodes := preload("res://addons/godot_ai/utils/error_codes.gd")
 signal connection_state_changed(is_open: bool)
 
 var _peer := WebSocketPeer.new()
-## Set by plugin.gd after resolving the configured WebSocket port once for the
-## server spawn. Reconnects reuse this cached value so they keep dialing the
-## same port the Python server was asked to bind.
+## Seeded by plugin.gd from the configured EditorSettings port before the
+## first dial, then republished with the fully resolved port once the
+## deferred startup walk (#678) finishes resolving/spawning. Each connect
+## attempt recomputes the URL from the latest value, so reconnects keep
+## dialing the port the Python server was asked to bind.
 var ws_port := ClientConfigurator.DEFAULT_WS_PORT
+## Per-launch handshake auth token (#690). Set by plugin.gd from the value
+## it generated for the server spawn (also persisted in the managed-server
+## editor-settings record so a reloaded plugin instance adopting the same
+## server keeps sending it). Empty means "don't send the field" — servers
+## we didn't spawn (dev servers, older servers) have no token to match.
+var auth_token := ""
 var _url := ""
 var _connected := false
 var _reconnect_attempt := 0
 var _reconnect_timer := 0.0
+## One pre-OPEN failure diagnostic per WebSocketPeer. Without this guard the
+## CLOSED state is polled every frame and would flood the editor log.
+var _preopen_failure_logged_for_peer := false
 var _session_id := ""
+## Consecutive post-OPEN closes with CLOSE_CODE_AUTH_TOKEN_MISMATCH. NOT
+## reset by `_clear_on_disconnect` — the streak is counted exactly at the
+## close events it exists to observe, across reconnect attempts. Reset on
+## any other close code and on a successful `handshake_ack`.
+var _auth_mismatch_closes := 0
 ## Godot-AI Python package version reported by the server in its `handshake_ack`
 ## reply. Empty until the ack lands. Older servers (pre-handshake_ack) leave
 ## this empty forever — callers that gate on it (the dock's mismatch banner)
@@ -48,6 +72,12 @@ var server_version := ""
 
 var dispatcher
 var log_buffer
+var surfaced_error_tracker
+## Set by plugin.gd. Lets the per-frame play-state poll end game-run
+## bookkeeping when the game exits on its own (self-quit, crash) — the
+## debugger session's stopped signal is not reliably connected, and no MCP
+## stop op runs in that path (#642).
+var debugger_plugin
 ## Set by plugin.gd when the HTTP port is occupied by an incompatible or
 ## unverified server. Keeping the Connection node alive lets handlers and the
 ## dock share one object, but no WebSocket is opened to the wrong server.
@@ -77,6 +107,12 @@ func _ready() -> void:
 	## Increase outbound buffer for large messages (e.g. screenshot base64).
 	## Default is 64 KB; screenshots can be several MB.
 	_peer.outbound_buffer_size = OUTBOUND_BUFFER_LIMIT_BYTES
+	## Symmetric inbound bump (#690): the server sends up to 4 MB
+	## (websocket.py max_size), but Godot's inbound default is 64 KB — a
+	## large script/text write or batch_execute payload used to overflow
+	## the peer buffer, drop the frame, and surface as an opaque 5s
+	## timeout + reconnect with no error naming the size.
+	_peer.inbound_buffer_size = OUTBOUND_BUFFER_LIMIT_BYTES
 	if connect_blocked:
 		_log_blocked_notice_once()
 		set_process(false)
@@ -89,6 +125,10 @@ func _process(delta: float) -> void:
 	if pause_processing:
 		return
 	_peer.poll()
+	## Run-stop bookkeeping must not wait behind the socket-state machine:
+	## if the game stops while disconnected, the first command drained on
+	## reconnect would still observe stale "live" state (PR #642 review).
+	_check_game_run_play_state(EditorInterface.is_playing_scene())
 
 	match _peer.get_ready_state():
 		WebSocketPeer.STATE_OPEN:
@@ -97,6 +137,12 @@ func _process(delta: float) -> void:
 				_reconnect_attempt = 0
 				log_buffer.log("connected to server")
 				_send_handshake()
+				## Reset the edge detectors so the next _check_state_changes
+				## tick re-emits any non-default scene/play state — the
+				## handshake carries readiness only, so without this a
+				## (re)connected server never learns the current scene.
+				_last_scene_path = ""
+				_last_play_state = false
 				connection_state_changed.emit(true)
 
 			_drain_inbound_packets(_peer)
@@ -110,10 +156,30 @@ func _process(delta: float) -> void:
 		WebSocketPeer.STATE_CLOSED:
 			if _connected:
 				_connected = false
+				## This peer reached OPEN, so its one close diagnostic is the
+				## post-OPEN line below. Mark the peer consumed; otherwise a
+				## stale reconnect delay leaves it in CLOSED for another frame
+				## and the pre-OPEN branch emits a mislabeled duplicate.
+				_preopen_failure_logged_for_peer = true
 				_clear_on_disconnect()
 				var code := _peer.get_close_code()
-				log_buffer.log("disconnected (code %d)" % code)
+				var reason := _peer.get_close_reason()
+				log_buffer.log(_close_diagnostic(true, code, reason, _url))
+				_note_post_open_close(code)
 				connection_state_changed.emit(false)
+			elif not _preopen_failure_logged_for_peer:
+				_preopen_failure_logged_for_peer = true
+				## Initial failure is attempt 1 for diagnostics. Later failures
+				## follow the same first-five/each-tenth throttle as reconnect
+				## progress so a missing listener stays observable but bounded.
+				var failed_attempt := maxi(1, _reconnect_attempt)
+				if _should_log_reconnect_attempt(failed_attempt):
+					log_buffer.log(_close_diagnostic(
+						false,
+						_peer.get_close_code(),
+						_peer.get_close_reason(),
+						_url
+					))
 			_reconnect_timer -= delta
 			if _reconnect_timer <= 0.0:
 				_attempt_reconnect()
@@ -165,6 +231,14 @@ func disconnect_from_server() -> void:
 	if _connected:
 		_peer.close(1000, "Plugin unloading")
 		_connected = false
+		## This peer reached OPEN and is being closed deliberately, so neither
+		## the post-OPEN nor pre-OPEN close diagnostic applies. Consume its one
+		## diagnostic before the CLOSED tick observes the pre-cleared flag.
+		_preopen_failure_logged_for_peer = true
+		## Pre-clearing _connected makes the STATE_CLOSED branch skip its
+		## _clear_on_disconnect() — run it here so deliberate closes don't
+		## leak the old server's version/deferred state into the next one.
+		_clear_on_disconnect()
 		connection_state_changed.emit(false)
 
 
@@ -180,6 +254,11 @@ func _clear_on_disconnect() -> void:
 	_packet_spillover_total = 0
 	if dispatcher:
 		dispatcher.clear_deferred_responses()
+		## Queued-but-unexecuted commands from the dead connection must not
+		## run under the next one (#712): their requester's futures were
+		## already failed server-side, so executing them after reconnect is
+		## an uncorrelatable surprise write.
+		dispatcher.clear_command_queue()
 
 
 ## Full pre-free cleanup for plugin unload: stop _process, close the
@@ -217,7 +296,10 @@ func _attempt_reconnect() -> void:
 	## reached STATE_CLOSED is terminal; reusing it can leave the editor stuck in
 	## a quiet reconnect loop after the Python server restarts.
 	_peer = WebSocketPeer.new()
+	_preopen_failure_logged_for_peer = false
 	_peer.outbound_buffer_size = OUTBOUND_BUFFER_LIMIT_BYTES
+	## Keep the reconnect peer symmetric with _ready()'s (#690).
+	_peer.inbound_buffer_size = OUTBOUND_BUFFER_LIMIT_BYTES
 	_connect_to_server()
 
 
@@ -247,6 +329,49 @@ static func _should_log_reconnect_attempt(attempt_number: int) -> bool:
 	)
 
 
+static func _close_diagnostic(
+	reached_open: bool,
+	code: int,
+	reason: String,
+	url: String
+) -> String:
+	var phase := "disconnected after OPEN" if reached_open else "connection failed before OPEN"
+	var reason_label := reason.strip_edges()
+	if reason_label.is_empty():
+		reason_label = "<none>"
+	else:
+		reason_label = reason_label.replace("\r", "\\r").replace("\n", "\\n")
+	return "%s (code %d, reason %s, url %s)" % [phase, code, reason_label, url]
+
+
+## Token-mismatch fallback (#690 follow-up). The server's auth token is
+## fixed for its whole launch, so redialing with the same wrong token can
+## never succeed — without this the reconnect loop 4003s forever. The
+## reproduced multi-editor failure: a duplicate spawn overwrites the shared
+## managed-server record with its fresh token, dies unable to bind, and
+## this editor is left holding a token the surviving server never saw.
+## After AUTH_MISMATCH_FALLBACK_CLOSES consecutive rejections, drop to a
+## token-less handshake, which the server accepts by design (older plugins
+## and adopted servers have no token, and the field is attacker-omittable —
+## see websocket.py; omitting it gives up no security). Scope note: only
+## this connection's copy of the token is dropped — the plugin static and
+## the persisted record heal via the startup walk's adoption arms.
+func _note_post_open_close(code: int) -> void:
+	if code != CLOSE_CODE_AUTH_TOKEN_MISMATCH or auth_token.is_empty():
+		_auth_mismatch_closes = 0
+		return
+	_auth_mismatch_closes += 1
+	if _auth_mismatch_closes < AUTH_MISMATCH_FALLBACK_CLOSES:
+		return
+	auth_token = ""
+	_auth_mismatch_closes = 0
+	if log_buffer:
+		log_buffer.log(
+			"auth token rejected %d times (close code %d) — retrying with a token-less handshake"
+			% [AUTH_MISMATCH_FALLBACK_CLOSES, CLOSE_CODE_AUTH_TOKEN_MISMATCH]
+		)
+
+
 func _log_blocked_notice_once() -> void:
 	if _blocked_notice_logged:
 		return
@@ -257,7 +382,13 @@ func _log_blocked_notice_once() -> void:
 
 func _send_handshake() -> void:
 	_last_readiness = get_readiness()
-	_send_json({
+	_send_json(_build_handshake())
+
+
+## Split from _send_handshake so tests can assert the payload shape
+## without a live WebSocket peer.
+func _build_handshake() -> Dictionary:
+	var payload := {
 		"type": "handshake",
 		"session_id": _session_id,
 		"godot_version": Engine.get_version_info().get("string", "unknown"),
@@ -267,7 +398,12 @@ func _send_handshake() -> void:
 		"readiness": _last_readiness,
 		"editor_pid": OS.get_process_id(),
 		"server_launch_mode": ClientConfigurator.get_server_launch_mode(),
-	})
+	}
+	## Omit rather than send "" — the server treats an ABSENT token as a
+	## compat-accepted older plugin, but a PRESENT wrong one as hostile.
+	if not auth_token.is_empty():
+		payload["auth_token"] = auth_token
+	return payload
 
 
 func _handle_message(raw: String) -> void:
@@ -279,10 +415,35 @@ func _handle_message(raw: String) -> void:
 		return
 	if parsed.get("type", "") == "handshake_ack":
 		server_version = str(parsed.get("server_version", ""))
+		## The server accepted our handshake — any token-mismatch streak is
+		## over; a later unrelated 4003 starts a fresh one.
+		_auth_mismatch_closes = 0
 		return
 	if parsed.has("request_id") and parsed.has("command"):
-		if dispatcher:
-			dispatcher.enqueue(parsed)
+		if (
+			parsed.get("request_id") is String
+			and parsed.get("command") is String
+			and (not parsed.has("params") or parsed.get("params") is Dictionary)
+		):
+			if dispatcher:
+				dispatcher.enqueue(parsed)
+			return
+		## Never enqueue a malformed command frame: the dispatcher's typed
+		## casts would error on the queue head every tick, wedging every
+		## later command behind it. Reply with an error when the request_id
+		## is usable so the server's pending future resolves instead of
+		## waiting out the full command timeout.
+		push_warning("MCP: dropping malformed command frame (request_id/command must be String, params a Dictionary)")
+		var rid: Variant = parsed.get("request_id")
+		if rid is String and not String(rid).is_empty():
+			var response := ErrorCodes.make(
+				ErrorCodes.INVALID_PARAMS,
+				"Malformed command frame: request_id/command must be strings and params a dict"
+			)
+			response["request_id"] = rid
+			response["readiness"] = get_readiness()
+			_stamp_error_watermark(response)
+			_send_json(response)
 
 
 ## Send a state event to the server (not a command response).
@@ -309,6 +470,8 @@ func send_deferred_response(request_id: String, payload: Dictionary) -> void:
 	## `readiness_after` payload field were ever dropped.
 	if not response.has("readiness"):
 		response["readiness"] = get_readiness()
+	if not response.has("error_watermark"):
+		_stamp_error_watermark(response)
 	if _send_json(response) and dispatcher != null:
 		dispatcher.complete_deferred_response(request_id)
 
@@ -319,10 +482,15 @@ func _hook_editor_signals() -> void:
 	EditorInterface.get_editor_settings()  # ensure interface is ready
 	_last_scene_path = _get_current_scene_path()
 	_last_play_state = EditorInterface.is_playing_scene()
+	_last_play_state_for_run = _last_play_state
 
 
 var _last_scene_path := ""
 var _last_play_state := false
+## Separate edge tracker for game-run bookkeeping: _last_play_state only
+## advances when the play_state_changed event sends successfully, but ending
+## run tracking must not depend on the websocket being up.
+var _last_play_state_for_run := false
 var _last_readiness := ""
 
 
@@ -359,7 +527,22 @@ func _check_state_changes() -> void:
 		if send_event("readiness_changed", {"readiness": readiness}):
 			_last_readiness = readiness
 			if log_buffer:
-				log_buffer.log("[event] readiness -> %s" % readiness)
+				## echo=false: readiness flips on every filesystem scan
+				## (each import cycles importing -> ready), so echoing to
+				## console spams every install during normal editing (#626).
+				## The line stays in the ring for the dock's log panel.
+				log_buffer.log("[event] readiness -> %s" % readiness, false)
+
+
+## Playing→stopped edge for game-run bookkeeping. Runs every process tick
+## (any socket state) so a self-quit game's run ends even while the
+## transport is down or reconnecting.
+func _check_game_run_play_state(playing: bool) -> void:
+	if playing == _last_play_state_for_run:
+		return
+	if not playing and debugger_plugin != null:
+		debugger_plugin.note_editor_play_stopped()
+	_last_play_state_for_run = playing
 
 
 func _get_current_scene_path() -> String:
@@ -403,6 +586,7 @@ func _handle_outbound_backpressure(
 		return false
 
 	var err_response := _make_backpressure_error(request_id, buffered_bytes, message_bytes)
+	_stamp_error_watermark(err_response)
 	var err_text := JSON.stringify(err_response)
 	var err_bytes := err_text.to_utf8_buffer().size()
 	if _would_exceed_outbound_backpressure(buffered_bytes, err_bytes):
@@ -455,6 +639,10 @@ static func _make_backpressure_error(
 			},
 		},
 	}
+
+
+func _stamp_error_watermark(response: Dictionary) -> void:
+	McpSurfacedErrorTracker.stamp_watermark(response, surfaced_error_tracker)
 
 
 ## Build a human-readable session ID of form "<slug>@<4hex>" from the project path.

@@ -57,8 +57,17 @@ static func has_worker_alive(state: int) -> bool:
 	return state == RUNNING or state == RUNNING_TIMED_OUT
 
 
+## True while the status worker is still within its healthy budget. Once a
+## refresh has timed out, the dock keeps the warning badge but must let users
+## retry Configure / Configure all instead of stranding the controls behind an
+## orphaned, uninterruptible worker.
+static func should_disable_client_actions(state: int) -> bool:
+	return state == RUNNING
+
+
 ## True when the dock should reject new refresh spawns. Used by the
-## focus-in / manual button / cooldown-timer entrypoints.
+## dock's two refresh-spawn guards (the deferred refresh entrypoint and
+## the status-refresh scheduler).
 static func is_blocked_for_spawn(state: int) -> bool:
 	return state == SHUTTING_DOWN
 

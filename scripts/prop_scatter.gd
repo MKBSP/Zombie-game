@@ -9,6 +9,10 @@ extends Node
 @export var fence_scene: PackedScene
 @export var dumpster_scene: PackedScene
 @export var statue_scene: PackedScene
+@export var lightpost_scene: PackedScene
+@export var rat_scene: PackedScene
+@export var bug_scene: PackedScene
+@export var firefly_scene: PackedScene
 
 # Spawn counts
 @export var car_count: int = 10
@@ -41,12 +45,18 @@ func scatter() -> void:
 	var road_tiles := _get_tiles_of_type(["road", "parking"])
 	_scatter_props(car_scene, road_tiles, car_count, 128.0)
 
-	# 4. Scatter dumpsters on sidewalk tiles
-	var sidewalk_tiles := _get_tiles_of_type(["sidewalk"])
-	_scatter_props(dumpster_scene, sidewalk_tiles, dumpster_count, 96.0)
+	# 4. Scatter dumpsters against buildings or on the street
+	var dumpster_tiles := _get_dumpster_tiles()
+	_scatter_props(dumpster_scene, dumpster_tiles, dumpster_count, 96.0)
 
 	# 5. Scatter trees within the two defined grass zones only
 	_scatter_trees()
+
+	# 6. Scatter lightposts on sidewalks bordering the street
+	_scatter_lightposts()
+
+	# 7. Scatter ambient critters (after dumpsters, since bugs cluster around them)
+	_scatter_critters()
 
 
 ## Places fences at fixed tile positions around both parking lots.
@@ -180,6 +190,130 @@ func _get_tiles_of_type(types: Array[String]) -> Array[Vector2i]:
 			if tile_data.get_custom_data("tile_type") in types:
 				result.append(coords)
 	return result
+
+
+## True if any orthogonal neighbor of `coords` is a building tile (checked on
+## building_layer) or, when `ground_type` is non-empty, a `ground_type` tile
+## on ground_layer.
+func _adjacent_to(coords: Vector2i, ground_type: String = "", check_building: bool = false) -> bool:
+	var neighbors: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	for n in neighbors:
+		var npos: Vector2i = coords + n
+		if check_building and building_layer and building_layer.get_cell_tile_data(npos) != null:
+			return true
+		if ground_type != "":
+			var td: TileData = ground_layer.get_cell_tile_data(npos)
+			if td != null and td.get_custom_data("tile_type") == ground_type:
+				return true
+	return false
+
+
+## Sidewalk tiles next to the street — valid lightpost spots.
+func _get_lightpost_tiles() -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	for coords in _get_tiles_of_type(["sidewalk"]):
+		if _adjacent_to(coords, "road", false):
+			result.append(coords)
+	return result
+
+
+## Direction (unit vector, tile-grid axis) from a lightpost tile toward its
+## adjacent road tile, so the lamp head can face the street. Vector2.ZERO if
+## none found (shouldn't happen for tiles _get_lightpost_tiles returned).
+func _road_facing(coords: Vector2i) -> Vector2:
+	var neighbors: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	for n in neighbors:
+		var td: TileData = ground_layer.get_cell_tile_data(coords + n)
+		if td != null and td.get_custom_data("tile_type") == "road":
+			return Vector2(n)
+	return Vector2.ZERO
+
+
+## Sidewalk tiles against a building wall, or any road tile — valid dumpster spots.
+func _get_dumpster_tiles() -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	for coords in _get_tiles_of_type(["sidewalk"]):
+		if _adjacent_to(coords, "", true):
+			result.append(coords)
+	result.append_array(_get_tiles_of_type(["road"]))
+	return result
+
+
+## Scatters lightposts on sidewalk tiles that border the street, facing the road.
+func _scatter_lightposts() -> void:
+	if lightpost_scene == null:
+		return
+	var tiles := _get_lightpost_tiles()
+	tiles.shuffle()
+	var count: int = Balance.AMBIENT_LIFE.lightpost_count
+	var placed := 0
+	for coords in tiles:
+		if placed >= count:
+			break
+		var world_pos: Vector2 = ground_layer.map_to_local(coords)
+		if _is_too_close(world_pos, 200.0):
+			continue
+		var prop: Node2D = lightpost_scene.instantiate()
+		prop.global_position = world_pos
+		var dir := _road_facing(coords)
+		if dir != Vector2.ZERO:
+			prop.rotation = dir.angle()
+		get_parent().add_child(prop)
+		_placed_positions.append(world_pos)
+		placed += 1
+
+
+## Scatters the three critter types per their placement rules (design spec §5):
+## rats anywhere walkable, bugs near a scattered dumpster, fireflies on grass.
+func _scatter_critters() -> void:
+	var c: Dictionary = Balance.AMBIENT_LIFE.critters
+	var walkable := _get_tiles_of_type(["road", "sidewalk", "grass", "parking"])
+
+	if rat_scene:
+		var rat_tiles := walkable.duplicate()
+		rat_tiles.shuffle()
+		var placed := 0
+		for coords in rat_tiles:
+			if placed >= c.rat_count:
+				break
+			var prop: Node2D = rat_scene.instantiate()
+			prop.global_position = ground_layer.map_to_local(coords)
+			get_parent().add_child(prop)
+			placed += 1
+
+	if bug_scene:
+		var dumpster_positions: Array[Vector2] = []
+		for d in get_tree().get_nodes_in_group("dumpsters"):
+			if d is Node2D:
+				dumpster_positions.append(d.global_position)
+		var placed := 0
+		var attempts := 0
+		while placed < c.bug_count and attempts < c.bug_count * 20 and not dumpster_positions.is_empty():
+			attempts += 1
+			var origin: Vector2 = dumpster_positions[randi() % dumpster_positions.size()]
+			var radius: float = c.bug_dumpster_radius_px
+			var offset: Vector2 = Vector2.RIGHT.rotated(randf() * TAU) * randf() * radius
+			var world_pos: Vector2 = origin + offset
+			var tile: Vector2i = ground_layer.local_to_map(ground_layer.to_local(world_pos))
+			var td: TileData = ground_layer.get_cell_tile_data(tile)
+			if td == null or not td.get_custom_data("tile_type") in ["road", "sidewalk", "grass", "parking"]:
+				continue
+			var prop: Node2D = bug_scene.instantiate()
+			prop.global_position = world_pos
+			get_parent().add_child(prop)
+			placed += 1
+
+	if firefly_scene:
+		var grass_tiles := _get_tiles_of_type(["grass"])
+		grass_tiles.shuffle()
+		var placed := 0
+		for coords in grass_tiles:
+			if placed >= c.firefly_count:
+				break
+			var prop: Node2D = firefly_scene.instantiate()
+			prop.global_position = ground_layer.map_to_local(coords)
+			get_parent().add_child(prop)
+			placed += 1
 
 
 ## Places a number of props randomly on valid tile positions, respecting minimum distance.

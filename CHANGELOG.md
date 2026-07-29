@@ -4,6 +4,29 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 9 — Concurrent games (director + server pool)
+- **Ambient lighting & life: lightposts, burning dumpster, critters, cross-role
+  flashlight fog, grass.** Three lightposts + three dumpsters now scatter with
+  real placement rules (dumpster: sidewalk against a building or on the
+  street; lightpost: sidewalk bordering the street, lamp head facing the
+  road) via new `StaticLightSource` (`scripts/props/static_light_source.gd`) —
+  a steady or flickering `Light2D` that also feeds `FogZombieController` as a
+  permanent full-visibility source, so both roles can see through the fog near
+  one. The burning dumpster additionally dampens nearby gunshots (~20% shorter
+  effective alert radius, `world.gd`'s `emit_noise`) without attracting
+  zombies itself. New mechanic: the zombie-commander can now sense the
+  shooter's flashlight through their own fog — a transient cone reveal
+  (`FogZombieController._reveal_cone`, never written to persistent memory)
+  gives a dim ambient glow at range, jumping to full brightness the instant a
+  zombie is caught in the beam (`FlashlightGlow.zombie_caught` +
+  `zombie_controller.gd`'s `_update_flashlight_glow`) — a real risk for the
+  shooter in shining a light at a cluster of zombies. Three critter types
+  (`scripts/critters/critter_base.gd`): rats and bugs wander and flee the
+  flashlight/gunshots, lightning bugs drift over grass and never flee (just a
+  slight nudge aside). Grass tiles get a sparse dappled light-occluder scatter
+  on the shooter's flashlight (`ShooterLighting.collect_grass_dapple_positions`)
+  and slightly dim any character standing on them
+  (`world.gd`'s `_apply_grass_dimming`). Everything ships as placeholder
+  shapes — no new art yet, mechanics-first per plan.
 - **HUD reskinned to the "v2" distressed blood/rust design system.** Ported
   the latest Figma Make HUD mockup (new palette, Special Elite display font,
   cut-corner panels) into the live game. `UIStyle` (single source of truth

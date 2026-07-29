@@ -1,0 +1,14 @@
+[gd_scene format=3 uid="uid://u5e4o0x638m3"]
+
+[ext_resource type="Script" path="res://scripts/critters/critter_base.gd" id="1_050ay"]
+
+[node name="CritterRat" type="Node2D" unique_id=48738191]
+script = ExtResource("1_050ay")
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=1743246588]
+offset_left = -5.0
+offset_top = -3.0
+offset_right = 5.0
+offset_bottom = 3.0
+mouse_filter = 2
+color = Color(0.35, 0.32, 0.3, 1)

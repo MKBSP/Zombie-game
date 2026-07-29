@@ -13,10 +13,14 @@
 [ext_resource type="PackedScene" uid="uid://d25x7v3pwjerr" path="res://scenes/props/prop_dumpster.tscn" id="10_srmg5"]
 [ext_resource type="Shader" uid="uid://bslv6qdsbm2d7" path="res://shader/fog_zc.gdshader" id="12_dlabj"]
 [ext_resource type="Script" uid="uid://cfqikqgle2ibo" path="res://scripts/zombie_controller.gd" id="13_srmg5"]
+[ext_resource type="PackedScene" uid="uid://dmaee3ijfc0gr" path="res://scenes/props/prop_lightpost.tscn" id="14_tytul"]
 [ext_resource type="Script" uid="uid://c7x2ta8buayow" path="res://scenes/world/selectrion_drawer.gd" id="14_umvgx"]
 [ext_resource type="Script" uid="uid://73kxgnr2wka6" path="res://scripts/merge_manager.gd" id="15_71ii3"]
+[ext_resource type="PackedScene" uid="uid://u5e4o0x638m3" path="res://scenes/props/critter_rat.tscn" id="15_ues17"]
 [ext_resource type="PackedScene" uid="uid://dt4qweg6brm4d" path="res://scenes/zombie/fast_zombie.tscn" id="16_bt7bg"]
+[ext_resource type="PackedScene" uid="uid://c2ay88kdt384g" path="res://scenes/props/critter_bug.tscn" id="16_xq18t"]
 [ext_resource type="PackedScene" uid="uid://bg0cosb6sd0sx" path="res://scenes/zombie/fat_zombie.tscn" id="17_wbwoo"]
+[ext_resource type="PackedScene" uid="uid://bej352q0anpnh" path="res://scenes/props/critter_firefly.tscn" id="17_x0nq1"]
 [ext_resource type="PackedScene" uid="uid://bcmoows3wxra3" path="res://scenes/ui/pause_menu.tscn" id="20_pausemenu"]
 [ext_resource type="PackedScene" uid="uid://csojts6e6k441" path="res://scenes/ui/aim_cursor.tscn" id="21_aimcursor"]
 
@@ -138,6 +142,10 @@ tree_scene = ExtResource("7_gb53w")
 fence_scene = ExtResource("8_5qq27")
 dumpster_scene = ExtResource("10_srmg5")
 statue_scene = ExtResource("9_dlabj")
+lightpost_scene = ExtResource("14_tytul")
+rat_scene = ExtResource("15_ues17")
+bug_scene = ExtResource("16_xq18t")
+firefly_scene = ExtResource("17_x0nq1")
 ground_layer = NodePath("../GroundLayer")
 building_layer = NodePath("../BuildingLayer")
 

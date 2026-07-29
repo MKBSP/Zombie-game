@@ -122,8 +122,8 @@ static func cut_box(bg: Color, border: Color, glow := Color.TRANSPARENT, glow_si
 	sb.content_margin_top = 8.0
 	sb.content_margin_bottom = 8.0
 	if glow_size > 0:
-		sb.shadow_color = glow
-		sb.shadow_size = glow_size
+		sb.glow_color = glow
+		sb.glow_size = glow_size
 	return sb
 
 

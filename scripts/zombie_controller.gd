@@ -65,6 +65,7 @@ var _points_needed: int = 0
 var _control_groups: Dictionary = {}
 var minimap: Control = null
 var _ripple_rng := RandomNumberGenerator.new()
+var _flashlight_glow: PointLight2D = null
 
 func _ready() -> void:
 	# Set up fog
@@ -549,8 +550,83 @@ func _update_fog() -> void:
 			# Fast and Fat zombies also have vision 2 (same as standard)
 			zombies_data.append({"tile": tile, "vision": vision})
 
-	fog_zc.update_visibility(zombies_data, _fog_blocked)
+	# Lightposts + burning dumpsters: always show as a lit landmark (terrain
+	# visible), but — per design correction — computed transiently each frame,
+	# never persisted. They must not grant free permanent full-visibility of
+	# whoever's standing there; only a real nearby zombie's own vision does.
+	var light_radius_tiles: int = int(Balance.AMBIENT_LIFE.static_light.radius_tiles)
+	var transient_lights: Array[Dictionary] = []
+	for light in get_tree().get_nodes_in_group("static_lights"):
+		if light is Node2D:
+			var ltile: Vector2i = ground_layer.local_to_map(
+				ground_layer.to_local(light.global_position)
+			)
+			transient_lights.append({"tile": ltile, "vision": light_radius_tiles})
+
+	# Shooter's flashlight: transient ambient-glow reveal (never persisted —
+	# see design spec §4). Single shooter per match today.
+	var cone: Variant = null
+	for s in get_tree().get_nodes_in_group("shooter"):
+		if s is Node2D:
+			var origin: Vector2i = ground_layer.local_to_map(ground_layer.to_local(s.global_position))
+			cone = {
+				"origin": origin,
+				"dir": Vector2.RIGHT.rotated(s.rotation),
+				"half_angle_rad": deg_to_rad(Balance.FOG_SHOOTER.flashlight_half_angle_deg),
+				"range_tiles": int(Balance.FOG_SHOOTER.flashlight_range / 64.0),
+			}
+			break
+
+	fog_zc.update_visibility(zombies_data, _fog_blocked, cone, transient_lights)
 	fog_texture.update(fog_zc.visibility_image)
+	_update_flashlight_glow()
+
+
+## Maintains a local, dim Light2D standing in for "the shooter's flashlight,
+## as sensed through the fog" — the shooter's own flashlight Light2D is built
+## client-side-only (never replicated), so this is a separate light, reusing
+## the same cone texture for a consistent look. Energy jumps to full brightness
+## when a zombie is caught in the beam (design spec §4's risk/reward promotion).
+func _update_flashlight_glow() -> void:
+	var shooter_node: Node2D = null
+	for s in get_tree().get_nodes_in_group("shooter"):
+		if s is Node2D:
+			shooter_node = s
+			break
+
+	if shooter_node == null:
+		if _flashlight_glow:
+			_flashlight_glow.visible = false
+		return
+
+	var b: Dictionary = Balance.AMBIENT_LIFE.flashlight_glow
+	if _flashlight_glow == null:
+		_flashlight_glow = PointLight2D.new()
+		_flashlight_glow.texture = ShooterLighting.make_cone_texture(
+			int(b.cone_tex_size), deg_to_rad(Balance.FOG_SHOOTER.flashlight_half_angle_deg)
+		)
+		_flashlight_glow.texture_scale = (
+			Balance.FOG_SHOOTER.flashlight_range / (float(b.cone_tex_size) / 2.0)
+		)
+		_flashlight_glow.color = Balance.FOG_SHOOTER.flashlight_color
+		_flashlight_glow.shadow_enabled = true
+		get_parent().add_child(_flashlight_glow)
+
+	_flashlight_glow.visible = true
+	_flashlight_glow.global_position = shooter_node.global_position
+	_flashlight_glow.rotation = shooter_node.rotation
+
+	var zombie_in_beam := false
+	for zombie in get_tree().get_nodes_in_group("zombies"):
+		if zombie is Node2D and FlashlightGlow.zombie_caught(
+			shooter_node.global_position, shooter_node.rotation, zombie.global_position,
+			Balance.FOG_SHOOTER.flashlight_range,
+			deg_to_rad(Balance.FOG_SHOOTER.flashlight_half_angle_deg),
+			ground_layer, _fog_blocked
+		):
+			zombie_in_beam = true
+			break
+	_flashlight_glow.energy = b.full_energy if zombie_in_beam else b.dim_energy
 
 
 ## Cache the building tiles that block line-of-sight reveal (static map).

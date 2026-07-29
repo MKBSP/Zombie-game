@@ -1,0 +1,31 @@
+[gd_scene format=3 uid="uid://dmaee3ijfc0gr"]
+
+[ext_resource type="Script" uid="uid://drxigk2o5tupe" path="res://scenes/props/prop_occluder.gd" id="1_06n38"]
+[ext_resource type="Script" uid="uid://cvfbnmlkxv6he" path="res://scripts/props/static_light_source.gd" id="2_y1w8t"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_hf5rl"]
+size = Vector2(8, 48)
+
+[node name="PropLightpost" type="StaticBody2D" unique_id=756732275]
+script = ExtResource("1_06n38")
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=2094320750]
+offset_left = -3.0
+offset_top = -48.0
+offset_right = 3.0
+color = Color(0.23, 0.23, 0.23, 1)
+
+[node name="LampHead" type="ColorRect" parent="." unique_id=1957208317]
+offset_left = -7.0
+offset_top = -56.0
+offset_right = 7.0
+offset_bottom = -46.0
+color = Color(1, 0.95, 0.76, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1896865415]
+position = Vector2(0, -24)
+shape = SubResource("RectangleShape2D_hf5rl")
+
+[node name="LightSource" type="Node2D" parent="." unique_id=1947294151]
+position = Vector2(0, -51)
+script = ExtResource("2_y1w8t")

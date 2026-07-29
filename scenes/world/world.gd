@@ -49,6 +49,9 @@ func nearest_shooter(from: Vector2) -> Node:
 	return shooters[idx] if idx >= 0 else null
 
 func _ready() -> void:
+	# Lets any node (e.g. ambient critters) find the world node/noise_event
+	# signal without a fragile relative NodePath.
+	add_to_group("world")
 	# zombie_count / npc_count are computed from the shooter count on the server
 	# (see _apply_population_scaling), after shooters spawn.
 	fog_enabled = Balance.WORLD.fog_enabled
@@ -427,13 +430,21 @@ func rpc_command_attack(zombie_names: Array, target_name: String) -> void:
 
 signal noise_event(world_pos: Vector2, strength: float)
 
-## Server-side: broadcast a noise (e.g. a gunshot) to every peer.
+## Server-side: broadcast a noise (e.g. a gunshot) to every peer. A burning
+## dumpster within its masking radius muffles the sound, cutting the
+## effective alert radius (not attracting zombies itself — see design spec §3).
 func emit_noise(world_pos: Vector2, strength: float) -> void:
 	if not multiplayer.is_server():
 		return
+	var alert_radius: float = Balance.AGGRO.alert_radius_px
+	var mask: Dictionary = Balance.AMBIENT_LIFE.dumpster_noise_mask
+	for d in get_tree().get_nodes_in_group("dumpsters"):
+		if d is Node2D and d.global_position.distance_to(world_pos) <= mask.radius_px:
+			alert_radius *= mask.alert_radius_mult
+			break
 	for z in get_tree().get_nodes_in_group("zombies"):
 		if z is Node2D and z.has_method("alert_to") \
-			and z.global_position.distance_to(world_pos) <= Balance.AGGRO.alert_radius_px:
+			and z.global_position.distance_to(world_pos) <= alert_radius:
 			z.alert_to(world_pos)
 	rpc_noise_event.rpc(world_pos, strength)
 

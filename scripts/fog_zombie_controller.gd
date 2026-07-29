@@ -50,7 +50,18 @@ func _ready() -> void:
 ##   "vision": int — vision range in tiles (Manhattan distance)
 ## blocked: Dictionary keyed by Vector2i — tiles that block line of sight
 ##   (buildings), so areas behind walls stay unexplored until actually seen.
-func update_visibility(zombies_data: Array[Dictionary], blocked: Dictionary) -> void:
+## `transient_cone`, if non-null, is a Dictionary:
+##   {"origin": Vector2i, "dir": Vector2, "half_angle_rad": float, "range_tiles": int}
+## `transient_lights`: Array of {"tile": Vector2i, "vision": int} — static
+## lights (lightposts/dumpsters). Both inputs only unlock VIS_EXPLORED in the
+## OUTPUT image, never written into the persistent tile_states array, so
+## neither becomes permanent zombie memory nor grants free full-visibility of
+## entities standing there — only a real nearby zombie's own vision (fed via
+## zombies_data) does that (see design correction, 2026-07-29).
+func update_visibility(
+	zombies_data: Array[Dictionary], blocked: Dictionary,
+	transient_cone: Variant = null, transient_lights: Array[Dictionary] = []
+) -> void:
 	# Step 1: Downgrade all "currently visible" tiles to "previously explored"
 	for i in range(tile_states.size()):
 		if tile_states[i] == STATE_VISIBLE:
@@ -61,6 +72,17 @@ func update_visibility(zombies_data: Array[Dictionary], blocked: Dictionary) -> 
 		var ztile: Vector2i = zdata["tile"]
 		var vision: int = zdata["vision"]
 		_reveal_diamond(ztile, vision, blocked)
+
+	# Step 2.5: transient reveals — shooter's flashlight cone + static lights
+	# (lightposts/dumpsters) — computed fresh each call, never persisted.
+	var transient: Dictionary = {}
+	if transient_cone != null:
+		_reveal_cone(
+			transient_cone.origin, transient_cone.dir, transient_cone.half_angle_rad,
+			transient_cone.range_tiles, blocked, transient
+		)
+	for light in transient_lights:
+		_reveal_diamond_transient(light["tile"], light["vision"], blocked, transient)
 
 	# Step 3: Write tile states into the image
 	for x in range(GRID_W):
@@ -76,7 +98,34 @@ func update_visibility(zombies_data: Array[Dictionary], blocked: Dictionary) -> 
 					vis = VIS_VISIBLE
 				_:
 					vis = VIS_UNEXPLORED
+			if transient.has(Vector2i(x, y)):
+				vis = maxf(vis, VIS_EXPLORED)
 			visibility_image.set_pixel(x, y, Color(vis, 0.0, 0.0, 1.0))
+
+
+## Fills `out[Vector2i] = true` for every tile within `range_tiles` of `origin`
+## that's inside the cone (angle from `dir` <= half_angle_rad) with clear LOS.
+## Mirrors _reveal_diamond's LOS-honesty (same tile_line_clear check) but keyed
+## by angle+distance instead of Manhattan radius, and writes to a caller-owned
+## dict instead of tile_states — the caller decides whether that's transient
+## (see update_visibility above) or permanent.
+func _reveal_cone(
+	origin: Vector2i, dir: Vector2, half_angle_rad: float, range_tiles: int,
+	blocked: Dictionary, out: Dictionary
+) -> void:
+	for dx in range(-range_tiles, range_tiles + 1):
+		for dy in range(-range_tiles, range_tiles + 1):
+			if dx == 0 and dy == 0:
+				continue
+			var offset := Vector2i(dx, dy)
+			if Vector2(offset).length() > float(range_tiles):
+				continue
+			if absf(Vector2(offset).normalized().angle_to(dir)) > half_angle_rad:
+				continue
+			var t := origin + offset
+			if t.x >= 0 and t.x < GRID_W and t.y >= 0 and t.y < GRID_H \
+				and tile_line_clear(origin, t, blocked):
+				out[t] = true
 
 
 ## Marks all tiles within Manhattan distance of center as currently visible,
@@ -89,6 +138,21 @@ func _reveal_diamond(center: Vector2i, radius: int, blocked: Dictionary) -> void
 				if t.x >= 0 and t.x < GRID_W and t.y >= 0 and t.y < GRID_H \
 					and tile_line_clear(center, t, blocked):
 					tile_states[t.y * GRID_W + t.x] = STATE_VISIBLE
+
+
+## Same LOS-honest diamond reveal as _reveal_diamond, but writes to a
+## caller-owned dict instead of tile_states — used for static lights
+## (lightposts/dumpsters), which always show as a lit landmark (terrain
+## visible) but must not grant permanent, unconditional full visibility of
+## entities standing there.
+func _reveal_diamond_transient(center: Vector2i, radius: int, blocked: Dictionary, out: Dictionary) -> void:
+	for dx in range(-radius, radius + 1):
+		for dy in range(-radius, radius + 1):
+			if absi(dx) + absi(dy) <= radius:
+				var t := center + Vector2i(dx, dy)
+				if t.x >= 0 and t.x < GRID_W and t.y >= 0 and t.y < GRID_H \
+					and tile_line_clear(center, t, blocked):
+					out[t] = true
 
 
 ## True when the straight tile line from `from` to `to` crosses no blocked

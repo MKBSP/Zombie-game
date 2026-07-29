@@ -269,6 +269,41 @@ const FOG_ZC := {
 	shadows_enabled = true,   # LOS shadows on vision lights
 }
 
+# --- Ambient life: lightposts, burning dumpster, critters, grass -----------
+const AMBIENT_LIFE := {
+	lightpost_count = 3,
+	static_light = {
+		radius_tiles = 4.0,          # ~ a Fat/Master zombie's vision range
+		light_tex_size = 256,
+		steady_energy = 1.1,         # lightpost
+		steady_color = Color(1.0, 0.92, 0.75, 1.0),
+		flicker_energy = 1.0,        # dumpster base, jittered around this each frame
+		flicker_jitter = 0.25,
+		flicker_color = Color(1.0, 0.55, 0.2, 1.0),
+	},
+	dumpster_noise_mask = {
+		radius_px = 220.0,           # gunshots inside this radius of a dumpster are muffled
+		alert_radius_mult = 0.8,     # 20% less far
+	},
+	flashlight_glow = {
+		dim_energy = 0.35,           # ambient "there's light over there" glow, zombie side
+		full_energy = 1.4,           # promoted brightness when a zombie is caught in the beam
+		cone_tex_size = 512,
+	},
+	critters = {
+		rat_count = 20,
+		bug_count = 20,
+		firefly_count = 30,
+		rat_speed = 90.0,
+		bug_speed = 55.0,
+		firefly_speed = 24.0,
+		flee_trigger_px = 160.0,         # distance from flashlight/noise that triggers fleeing
+		nudge_trigger_px = 28.0,         # fireflies only: distance to nudge away from a character
+		bug_dumpster_radius_px = 160.0,  # spawn radius around a scattered dumpster
+		wander_change_seconds = 2.5,     # how often idle wander picks a new direction
+	},
+}
+
 # --- Combat juice / effects (all cosmetic; no gameplay impact) --------------
 const FX := {
 	# One-shot hit bursts (CPUParticles2D). Colors are Color(r,g,b).

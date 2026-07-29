@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://bej352q0anpnh"]
+
+[ext_resource type="Script" path="res://scripts/critters/critter_base.gd" id="1_s5dj7"]
+
+[node name="CritterFirefly" type="Node2D" unique_id=1348121009]
+script = ExtResource("1_s5dj7")
+kind = 2
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=296893900]
+offset_left = -1.5
+offset_top = -1.5
+offset_right = 1.5
+offset_bottom = 1.5
+mouse_filter = 2
+color = Color(1, 0.95, 0.55, 1)

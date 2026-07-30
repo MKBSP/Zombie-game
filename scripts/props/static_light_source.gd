@@ -18,6 +18,15 @@ var _base_energy: float
 
 
 func _ready() -> void:
+	# Temporarily off — code/assets stay in place, just not spawned/active.
+	var enabled: bool = (
+		Balance.AMBIENT_LIFE.dumpster_fire_enabled if flicker
+		else Balance.AMBIENT_LIFE.lightposts_enabled
+	)
+	if not enabled:
+		set_process(false)
+		return
+
 	var b: Dictionary = Balance.AMBIENT_LIFE.static_light
 	radius_px = b.radius_tiles * 64.0
 	_base_energy = b.flicker_energy if flicker else b.steady_energy

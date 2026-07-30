@@ -272,6 +272,9 @@ const FOG_ZC := {
 # --- Ambient life: lightposts, burning dumpster, critters, grass -----------
 const AMBIENT_LIFE := {
 	lightpost_count = 3,
+	# Temporarily off — code/assets stay in place, just not spawned/active.
+	lightposts_enabled = false,
+	dumpster_fire_enabled = false,
 	static_light = {
 		radius_tiles = 4.0,          # ~ a Fat/Master zombie's vision range
 		light_tex_size = 256,

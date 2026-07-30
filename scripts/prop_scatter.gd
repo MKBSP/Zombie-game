@@ -241,7 +241,7 @@ func _get_dumpster_tiles() -> Array[Vector2i]:
 
 ## Scatters lightposts on sidewalk tiles that border the street, facing the road.
 func _scatter_lightposts() -> void:
-	if lightpost_scene == null:
+	if lightpost_scene == null or not Balance.AMBIENT_LIFE.lightposts_enabled:
 		return
 	var tiles := _get_lightpost_tiles()
 	tiles.shuffle()

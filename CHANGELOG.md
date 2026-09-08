@@ -3,6 +3,86 @@
 Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
+## Phase 10 — 3D conversion (in progress)
+- **3D camera test scene (Brief 11).** Standalone measuring instrument for the
+  one open question behind the 2D→3D move: *what FOV/height makes a real
+  Copenhagen street read as a canyon you are inside rather than a map you are
+  looking at?* `scenes/test/camera_test_3d.tscn` (run with F6; nothing else in
+  the project references it) drops a capsule onto the
+  `assets/city/copenhagen_greybox.glb` greybox under a `Camera3D` pitched a
+  fixed −90° — straight down, never tilted. The lean-in that fills the frame
+  with facade comes from FOV alone, not pitch.
+  `scripts/test/camera_rig.gd` exposes five `@export_range` knobs re-read every
+  frame, so they retune live from the remote inspector without a restart:
+  `fov`, `height`, `player_screen_offset`, `camera_yaw`, `follow_smoothing`.
+  Keys **1/2/3** hard-cut between 70°/28.6 m (splay 3.34×), 60°/34.6 m (2.37×)
+  and 50°/42.9 m (1.87×) — all three show identical ground coverage (40 m along
+  the view axis), so only the splay changes and the A/B is legible. A debug HUD
+  prints coverage, ahead/behind split, and the splay factor live, and warns
+  instead of printing a number once `height` drops below the 20 m rooftops.
+  `scripts/test/test_player.gd` is a locomotion stand-in only: 5 m/s, gravity,
+  WASD rotated by `camera_yaw` so W is always up-screen, mouse-cursor facing via
+  an analytic ray/ground-plane intersection. New input actions `move_forward`
+  (W) / `move_back` (S); existing 2D actions untouched. Nothing in the existing
+  2D game is touched by any of this.
+  Measured on the greybox, not assumed: the player spawns at (−70, −30), inside
+  an 86 m corridor 10.8 m facade-to-facade — Købmagergade proper. The street
+  bearing there is **95° from −Z**, so the rig ships at `camera_yaw = -95`,
+  which projects the street exactly vertically on screen (verified: 0.0 px of
+  horizontal drift over a 24 m span). The brief's ~21° figure is pre-glTF-axis-
+  conversion and does not apply directly. Yaw is per-street, not global.
+- **Round 1: preset 1 + GTA5 aim mode.** Playtest loop is now one view angle at
+  a time, each shipped *with* aiming, rather than one scene of sliders. Round 1
+  is preset 1 (70° / 28.6 m, splay 3.34×). Holding **RMB** switches control
+  schemes (Brief 8.1, third option): hip-fire keeps the absolute world-space
+  cursor and screen-relative WASD; aim mode captures the mouse, locks the
+  reticle to screen centre, drives yaw from relative mouse X and vertical aim
+  from mouse Y, turns body and camera together, and slows movement — awareness
+  vs commitment. The camera drops from 28.6 m straight-down to an
+  over-the-shoulder rig (`aim_height`/`aim_distance`/`aim_shoulder`/`aim_pitch`),
+  blended over `aim_transition`. The brief's entry-jump gotcha does not apply:
+  `aim_yaw` already tracks the cursor every frame while hip-firing, so entering
+  aim just switches the input source. *Leaving* is the side that jumps — the OS
+  cursor reappears wherever it was parked — so the cursor is warped onto the
+  current aim point on release.
+  Reticle follows Brief 8.2's two-part model: the **sphere** is the reticle
+  volume (0.95 m hip → 0.28 m aimed, later driven by weapon/skill/stats), the
+  **cone** is the bullet path from muzzle through it. In aim mode the sphere
+  sits where the camera's centre ray actually meets the world, not at a fixed
+  distance along it — the latter buries it underground the moment the camera
+  pitches down.
+  Two things the brief defers had to be built anyway, because aim mode is
+  untestable without them, both behind exports and inert during hip-fire:
+  **camera collision** (a 4.5 m pullback inside a 10.8 m street puts the camera
+  through a facade constantly — it now pulls in toward a shoulder pivot) and
+  **vertical aim** (without mouse Y the centre ray is pinned at the rest pitch
+  and you can only aim at the ground).
+- **Four view models, four scenes, one script.** V1 was worth keeping, so
+  rather than mutate it the rig grew a `view_mode` enum and the scene was
+  duplicated three ways — switch version by opening a different scene, and a
+  fix to the shared aim layer lands in all four:
+  | Scene | Default view | Aiming |
+  |---|---|---|
+  | `camera_test_3d.tscn` | V1 top-down 70°/28.6 m, street-locked | absolute cursor; RMB → over-the-shoulder |
+  | `camera_test_v2_over_shoulder.tscn` | V2 over-the-shoulder always | relative mouse always; RMB pulls to 2.6 m + 45° FOV |
+  | `camera_test_v3_hostile_process.tscn` | V3 top-down, **rig yaw IS the mouse** | no cursor; character locked facing up-screen; RMB drops the camera 8 m rather than tilting |
+  | `camera_test_v4_first_person.tscn` | V4 eye height 1.65 m, capsule hidden | relative mouse; RMB → 45° iron sights |
+  V2/V3/V4 capture the mouse on load — **ESC** frees it, left-click grabs it
+  back. The reticle picks its anchor from the camera's actual pitch rather than
+  from the mode, so it sits ahead of the player under a straight-down camera
+  (where the centre ray would just point at the player's own feet) and hands
+  over to the true screen-centre ray as the camera pitches toward the horizon —
+  correct in all four modes and throughout V1's transition, with no per-mode
+  special cases.
+- **Fix — the spawn faced a dead end.** Both the player and V1's `camera_yaw`
+  were oriented down the 6.2 m stub of Købmagergade rather than its 95 m open
+  run; yaw is now +85° in all four scenes (verified: 95 m clear up-screen, 6.2 m
+  behind, and the street still projects perfectly vertically at 0.0 px drift).
+- Added `CREDITS.md` — the greybox is OpenStreetMap data under **ODbL 1.0**,
+  which requires attribution on distribution (an itch.io page counts). The
+  `asset_*` glTF extras carrying that credit are intact on every building; do
+  not strip them.
+
 ## Phase 9 — Concurrent games (director + server pool)
 - **Ambient lighting & life: lightposts, burning dumpster, critters, cross-role
   flashlight fog, grass.** Three lightposts + three dumpsters now scatter with

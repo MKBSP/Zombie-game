@@ -1,0 +1,94 @@
+[gd_scene format=3 uid="uid://cuwj0bl1fa8nq"]
+
+[ext_resource type="PackedScene" uid="uid://c7nf6vdmaxjka" path="res://assets/city/copenhagen_greybox.glb" id="1_53guf"]
+[ext_resource type="Script" path="res://scripts/test/test_player.gd" id="2_884ud"]
+[ext_resource type="Script" path="res://scripts/test/camera_rig.gd" id="3_kvu4o"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_xivqj"]
+
+[sub_resource type="Sky" id="Sky_drxq8"]
+sky_material = SubResource("ProceduralSkyMaterial_xivqj")
+
+[sub_resource type="Environment" id="Environment_0ns8n"]
+background_mode = 2
+sky = SubResource("Sky_drxq8")
+ambient_light_source = 3
+ambient_light_energy = 0.3
+tonemap_mode = 3
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_t3n24"]
+radius = 0.3
+height = 1.8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_kc50i"]
+shading_mode = 0
+albedo_color = Color(1, 0.3529412, 0.12156863, 1)
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_ylser"]
+radius = 0.3
+height = 1.8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_iprsv"]
+shading_mode = 0
+albedo_color = Color(1, 0.88235295, 0.3019608, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_x3b32"]
+top_radius = 0.0
+bottom_radius = 0.14
+height = 0.45
+
+[sub_resource type="LabelSettings" id="LabelSettings_p2tux"]
+font_size = 15
+outline_size = 5
+outline_color = Color(0, 0, 0, 0.8)
+
+[node name="CameraTest" type="Node3D" unique_id=1595856511]
+
+[node name="CityGreybox" parent="." unique_id=1964461738 instance=ExtResource("1_53guf")]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=507532139]
+environment = SubResource("Environment_0ns8n")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=1445240255]
+transform = Transform3D(1, 0, 0, 0, 0.49999997, 0.86602545, 0, -0.86602545, 0.49999997, 0, 0, 0)
+shadow_enabled = true
+
+[node name="TestPlayer" type="CharacterBody3D" parent="." unique_id=2145085102]
+transform = Transform3D(0.0871557, 0, 0.9961947, 0, 1, 0, -0.9961947, 0, 0.0871557, -70, 1, -30)
+script = ExtResource("2_884ud")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="TestPlayer" unique_id=947284283]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_t3n24")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="TestPlayer" unique_id=934347766]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+material_override = SubResource("StandardMaterial3D_kc50i")
+mesh = SubResource("CapsuleMesh_ylser")
+
+[node name="Facing" type="Marker3D" parent="TestPlayer/MeshInstance3D" unique_id=521071264]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.5)
+
+[node name="Cone" type="MeshInstance3D" parent="TestPlayer/MeshInstance3D/Facing" unique_id=440426330]
+transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 0, 0)
+material_override = SubResource("StandardMaterial3D_iprsv")
+mesh = SubResource("CylinderMesh_x3b32")
+
+[node name="CameraRig" type="Node3D" parent="." unique_id=1164172833]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -70, 0, -30)
+script = ExtResource("3_kvu4o")
+camera_yaw = 85.0
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig" unique_id=952773904]
+transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 28.6, 0)
+current = true
+fov = 70.0
+
+[node name="DebugHUD" type="CanvasLayer" parent="." unique_id=42759564]
+
+[node name="Label" type="Label" parent="DebugHUD" unique_id=1571888990]
+offset_left = 14.0
+offset_top = 10.0
+offset_right = 15.0
+offset_bottom = 33.0
+label_settings = SubResource("LabelSettings_p2tux")

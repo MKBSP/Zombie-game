@@ -196,7 +196,7 @@ func _process(delta: float) -> void:
 
 
 func _adapt_eyes(delta: float) -> void:
-	var torch_on: bool = _player.flashlight_enabled
+	var torch_on: bool = _player.flashlight_enabled and _player.get("torch_in_hand") != false
 	var target := 1.0 if torch_on else adapt_gain
 	var rate := (adapt_gain - 1.0) / (dazzle_time if torch_on else adapt_time)
 	_attrs.exposure_multiplier = move_toward(_attrs.exposure_multiplier, target, rate * delta)

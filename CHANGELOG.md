@@ -4,6 +4,67 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 10 — 3D conversion (in progress)
+- **Street lights (2026-11-12).** `scripts/3d/street_light.gd` (`StreetLight`, `@tool`):
+  a 7 m cobra-head lamp built from primitives, with a sodium spot (shadowed, distance-faded)
+  and collision. States: working, blinking (on, stutters out, dark, stutters back), dead
+  (lens intact or smashed), sparking (bursts of bouncing sparks + blue-white arc flash), and
+  four fallen builds: leaning, snapped (stump + top lying beside it), toppled (uprooted,
+  footing and all) and folded (kinked, head hanging). Angles, break heights and fall
+  direction (always roadward) are rolled per lamp; fallen lamps can keep live, sparking wires.
+  State = deterministic roll from position + seed, odds blended from `calm` to `wrecked`
+  by a ~110 m damage noise, so whole stretches are lit and others dark and smashed; every
+  peer gets the same lamps with no syncing. `scripts/3d/street_lights.gd` lines both kerbs
+  of the road mesh (kerbs read from the baked road UVs) every 28 m, staggered, dropping
+  spots on junctions, under buildings/trees or too close to another lamp: 50 lamps on the
+  v6 map. Odds and light numbers in `Balance.STREET_LIGHTS`. `test/test_street_lights.gd`.
+- **Viewmodel arms + torch pass (2026-11-12, second playtest).** Arms are now skinned
+  (`fp_arms.glb`: two armatures, fingers curled/relaxed baked in as rest) and posed every
+  frame: hand exactly on the grip, forearm aimed at an elbow point, wrist + elbow bend to
+  fit. This replaces the rigid arms that forced the forearm square to the grip (the
+  horizontal "pipe" arm). Viewmodel drawn through its own FOV (62°, 50° aimed) via an X/Y
+  stretch, so no edge stretching and the gun doesn't zoom with ADS. Pistol + torch: torch
+  out on the left at the hip (side-by-side, as Amnesia: The Bunker does), Harries hold only
+  when aiming. Torch lens glows while on. Arm/weapon materials de-metalled and matted (they
+  imported 40% metallic, glossy skin). Aimed elbows drop/splay; long guns shoulder with the
+  elbow out; pistol aims at arm's length (0.55 m), shotgun stock closer to the cheek.
+- **Weapon feel pass (2026-11-12, after Mads' playtest).** Torch: the beam now starts
+  where the torch *appears* (the viewmodel is drawn at 1/10 scale, so the light used
+  to sit 4 cm from the eye and lit the torch's own handle + the fog in your face).
+  Added a soft additive beam shaft from the lens (depth-faded, dithered), and the
+  viewmodel moved to render layer 2, which the torch/halo skip. The viewmodel brings
+  its own dim fill, torch spill and muzzle lights, with omni attenuation 0, since
+  1/d falloff at 3 cm made them ~30x too bright. Pistol + torch is now the Harries hold:
+  ice-pick grip at the tail cap, torch fist under the gun wrist, torch parallel to
+  the barrel, moving with the pistol's recoil. Recoil is springs (fast kick, slower
+  settle): gun spring = push into the shoulder + muzzle climb with random yaw/roll,
+  view spring = punch that returns, plus a small kept climb (`Balance.FP.climb_deg`).
+  Muzzle flash = camera-facing star + crossed flame planes (procedural textures,
+  HDR additive, 2–4 frames, randomised), a short fast-fading light from the apparent
+  muzzle, and a separate light on the hands. Lit smoke puffs; brass cases are
+  little rigid bodies that bounce, and the shotgun drops two red shells when
+  reloading. Bat: eased keys (short cocked wind-up, cubic ease-in into contact,
+  follow-through, recovery), a swoosh ribbon, a 70 ms freeze on contact + shake +
+  view jolt. The reticle ball hides when nothing in hand shoots.
+- **First-person arms + weapons (2026-11-12).** `scripts/3d/viewmodel.gd` (child of
+  the v6 camera) gives the test player 8 loadouts on keys 1–8 / mouse wheel:
+  hands, torch, pistol, pistol + torch, shotgun, rifle, uzi, bat. Two-handed
+  loadouts set `test_player.torch_in_hand = false`, so no torch, whatever F
+  says; the torch beam now starts at the torch lens (`light_anchor`). Rules are
+  the 2D ones via `scripts/3d/fp_loadout.gd`: Balance stats, auto-reload on an
+  empty mag, switching cancels a reload, 2D falloff in metres (35 px/m), bat
+  reach/fatigue from `Balance.MELEE`; uzi = the 2D machine gun (hold to fire).
+  New 3D-only numbers in `Balance.FP` (camera kick per shot, rifle scope FOV,
+  pistol reserve). Shots are hitscan from the eye through a random point in the
+  reticle volume (`reticle_radius` x weapon `spread_mult`, from 2D aim_base);
+  shotgun fires 5 pellets. Hits leave bullet-hole decals + sparks and call
+  `take_hit(damage, point, dir)` on anything that has it (ready for zombies).
+  Rifle aims through a scope overlay at 20° FOV. Weapons are CC0 (CreativeTrio
+  pack, `assets/weapons/`); arms + torch are baked from `arms.blend` by
+  `assets/blender/other/build_fp_arms.py` into rigid grip/open meshes. Each frame
+  a hand sits on its weapon's grip point with the forearm aimed at a fixed elbow,
+  so recoil/reload/swing motion carries the hands with it. The viewmodel is drawn at
+  1/10 scale and 10x closer (camera near 0.01), so guns never clip walls.
+  R reloads, T refills (test convenience). Check: `test/test_fp_loadout.gd`.
 - **Small dressed city (2026-11-12).** `assets/city/westvillage_small.glb` is a
   250 x 170 m crop (~10% of the area, 107 buildings) of the West Village map, built
   headless by `assets/blender/maps/build_small_city.py`, and dressed at import by

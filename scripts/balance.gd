@@ -166,6 +166,44 @@ const MELEE := {
 	fatigue_recover = 10.0,    # seconds with no landed hit to clear fatigue
 }
 
+# --- First person (Phase 10, 3D test player) --------------------------------
+# Weapon stats above are reused as-is; these are the extra 3D-only numbers.
+# Read by scripts/3d/fp_loadout.gd + scripts/3d/viewmodel.gd.
+const FP := {
+	px_per_m = 35.0,          # 2D pixels per 3D metre (3d-conversion-design §5)
+	max_range_m = 150.0,      # hitscan ray length
+	pistol_reserve = 15,      # spare pistol rounds at start (2D shooter: one spare mag)
+	camera_kick_deg = {       # view punch per shot (peak, springs back), degrees
+		pistol = 1.6, shotgun = 5.0, rifle = 4.0, uzi = 0.8, bat = 0.0,
+	},
+	climb_deg = {             # part of each kick that stays — the aim you must pull down
+		pistol = 0.3, shotgun = 1.0, rifle = 0.8, uzi = 0.22, bat = 0.0,
+	},
+	scope_fov = 20.0,         # rifle aim FOV; everything else keeps the rig's aim_fov
+}
+
+# --- 3D street lights (scripts/3d/street_light.gd + street_lights.gd) -------
+# A lamp's state comes from its position + seed, so every peer sees the same
+# lamps without syncing. Odds blend from `calm` to `wrecked` by a damage noise
+# over the map, so whole stretches are lit and others dark and smashed.
+const STREET_LIGHTS := {
+	seed = 1337,
+	spacing_m = 28.0,         # along each kerb; the far kerb is staggered by half
+	kerb_offset_m = 0.6,      # pole centre behind the kerb line
+	min_gap_m = 14.0,         # no two lamps closer (bends, junctions, overlaps)
+	decay_zone_m = 110.0,     # size of the calm / wrecked patches
+	calm = { working = 70.0, blinking = 12.0, dead = 12.0, sparking = 3.0, fallen = 3.0 },
+	wrecked = { working = 6.0, blinking = 14.0, dead = 30.0, sparking = 16.0, fallen = 34.0 },
+	fallen_sparks = 0.35,     # chance a fallen lamp still has live wires
+	smashed_glass = 0.5,      # chance a dead / fallen lamp's lens is gone
+	energy = 12.0,
+	range_m = 20.0,
+	angle_deg = 62.0,
+	color = Color(1.0, 0.68, 0.38),  # sodium
+	shadow_fade_m = 35.0,     # lamps further than this drop their shadows
+	fade_m = 90.0,            # and further than this switch off
+}
+
 # --- Headshots (Phase 2) ---------------------------------------------------
 const HEADSHOT := {
 	radius_px = 5.0,   # center crit zone radius, same on every zombie

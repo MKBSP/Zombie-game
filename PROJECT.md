@@ -94,6 +94,12 @@ collision / occlusion work feeds the zombie-commander rig rather than the
 shooter. Also settled on the way: the camera drops *below* the roofline rather
 than widening the lens, and aiming and being under a roof want the same pose.
 
+**First-person weapons:** in the v6 scene, keys 1–8 / mouse wheel switch hands,
+torch, pistol, pistol + torch, shotgun, rifle, uzi, bat; LMB fire / swing, RMB
+aim, R reload, F torch, T refill ammo. Poses (hip, aim, swing keyframes, grip
+points) are constants at the top of `scripts/3d/viewmodel.gd`; 3D-only tuning in
+`Balance.FP`. No zombies yet, so hits only leave marks (`take_hit` is the hook).
+
 **Small dressed city (current test map):** `scenes/test/camera_test_v6_small_city.tscn`
 runs the first-person rig on `assets/city/westvillage_small.glb`, a 250 x 170 m
 crop with procedural facades (doors, windows, shopfronts, lit windows) and road /
@@ -102,6 +108,13 @@ sidewalk / crosswalk / backlot surfaces. Rebuild it from the source .blend with
 (the crop rect and all classification constants are at the top of the script),
 then reimport. Look tuning lives in the shader uniforms (`lit_windows`,
 `window_glow`, `shop_chance`, ...).
+
+**Street lights:** the v6 scene's `StreetLights` node lines every kerb with lamps
+at runtime (working, blinking, dead, sparking, or fallen in four builds). Each lamp's
+state is rolled from its position, so it's the same on every run and every peer. Odds
+and light numbers are in `Balance.STREET_LIGHTS`. To place one by hand, add a Node3D
+with `scripts/3d/street_light.gd` (class `StreetLight`), with -Z facing the road; `state`
+forces a state, and `salt` rerolls the variant.
 
 The full design — first-person shooter, top-down commander over the 3D world
 with buildings going ~90% transparent when a zombie is underneath, per-part

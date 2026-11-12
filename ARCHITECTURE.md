@@ -115,6 +115,13 @@ scripts/test/      # camera_rig.gd (4 view modes) + test_player.gd (locomotion,
                    #   aim, flashlight) + flicker_light.gd; test-only — no game
                    #   code imports any of it
 scripts/3d/        # city_import.gd — post-import for the OSM city GLB: material name -> city shader
+                   #   viewmodel.gd — first-person arms/weapons/firing (child of the v6 camera)
+                   #     (skinned arms posed per frame on grips; own FOV via X/Y stretch; own lights on render layer 2)
+                   #   fp_loadout.gd — pure loadout + 2D ammo/reload rules (headless-tested)
+                   #   street_light.gd — StreetLight (@tool): lamp + its states; roll() = deterministic
+                   #     state from position (calm/wrecked odds by damage noise, Balance.STREET_LIGHTS)
+                   #   street_lights.gd — lines the road mesh's kerbs with StreetLights at runtime
+assets/weapons/    # CC0 weapon GLBs + fp_arms.glb (baked by assets/blender/other/build_fp_arms.py)
 shader/            # fog_zc.gdshader (zombie-controller fog; fog_of_war.gdshader removed)
                    #   city_building / city_ground.gdshader — procedural facades + ground,
                    #   driven by UV/UV2/vertex-colour data baked by
@@ -124,7 +131,7 @@ sprites/           # weapon + entity PNG art
 textures/          # generated tiles
 test/              # headless unit tests (test_aim_model, test_melee, test_npc_aim,
                    #   test_weapon_visuals, test_loot_table, test_interact_pick,
-                   #   test_city_dressing)
+                   #   test_city_dressing, test_fp_loadout)
 docs/              # per-phase design specs + implementation plans
 addons/godot_ai/   # MCP plugin — IGNORE
 ```

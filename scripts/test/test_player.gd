@@ -20,7 +20,8 @@ extends CharacterBody3D
 ## Movement state is the first real input to that: sprinting blows the volume
 ## up, crouching tightens it below standing.
 ##
-## No shooting yet. This is a feel test.
+## Shooting, arms and weapons live in scripts/3d/viewmodel.gd (a child of the
+## camera) when the scene has one; this script only owns movement + aim.
 
 @export_group("Movement")
 @export var walk_speed: float = 3.0
@@ -113,6 +114,19 @@ var crouching: bool = false
 var sprinting: bool = false
 ## Where the aim actually lands. The flashlight points at it.
 var reticle_point: Vector3 = Vector3.ZERO
+## Current reticle-volume radius (m) — a shot lands anywhere inside it.
+var reticle_radius: float = 0.0
+## Weapon multiplier on the volume, set by the viewmodel (rifle tight, shotgun wide).
+var spread_mult: float = 1.0
+## Hidden by the viewmodel when nothing in hand shoots (bat, torch, bare hands).
+var reticle_visible: bool = true
+## False while both hands are on a weapon: no torch, whatever F says.
+var torch_in_hand: bool = true
+## When set (the torch lens in the viewmodel), the beam starts here instead of the chest.
+var light_anchor: Node3D = null
+## Render layer the first-person viewmodel draws on. The world lights skip it,
+## so the torch never lights its own handle; the viewmodel brings its own lights.
+const VIEWMODEL_LAYER := 2
 
 var _rig: Node3D = null
 var _collision: CollisionShape3D = null
@@ -214,7 +228,7 @@ func _physics_process(delta: float) -> void:
 	_spread = lerpf(_spread, _stance_spread(input.length() > 0.1), 1.0 - exp(-spread_settle * delta))
 	_sync_mouse_mode()
 	_update_reticle()
-	_update_lights()
+	update_lights()
 
 
 ## Crouch is a real stance: the capsule shrinks as well as slowing down, and you
@@ -388,15 +402,17 @@ func _build_lights() -> void:
 	_flashlight.name = "Flashlight"
 	_flashlight.top_level = true
 	_flashlight.shadow_enabled = true
+	_flashlight.light_cull_mask = 0xFFFFF & ~VIEWMODEL_LAYER
 	add_child(_flashlight)
 
 	_halo = OmniLight3D.new()
 	_halo.name = "Halo"
 	_halo.top_level = true
 	_halo.shadow_enabled = false
+	_halo.light_cull_mask = 0xFFFFF & ~VIEWMODEL_LAYER
 	add_child(_halo)
 
-	_update_lights()
+	update_lights()
 
 
 func _translucent(color: Color) -> StandardMaterial3D:
@@ -410,7 +426,8 @@ func _translucent(color: Color) -> StandardMaterial3D:
 
 func _update_reticle() -> void:
 	var t := smoothstep(0.0, 1.0, _blend)
-	var radius := lerpf(reticle_radius_hip, reticle_radius_aim, t) * _spread
+	var radius := lerpf(reticle_radius_hip, reticle_radius_aim, t) * _spread * spread_mult
+	reticle_radius = radius
 	var muzzle := global_position + Vector3(0.0, reticle_height, 0.0)
 
 	# Under a straight-down camera the centre ray points at the player's own
@@ -449,6 +466,7 @@ func _update_reticle() -> void:
 	_sphere_mesh.radius = radius
 	_sphere_mesh.height = radius * 2.0
 	_sphere.global_position = point
+	_sphere.visible = reticle_visible
 	# Faint while hip-firing, solid once committed.
 	_sphere.material_override.albedo_color.a = lerpf(0.18, 0.45, t) * reticle_opacity
 
@@ -472,10 +490,11 @@ func _update_reticle() -> void:
 
 ## The beam points at the reticle, so at night the lit spot IS the aim — one
 ## thing to read instead of two.
-func _update_lights() -> void:
-	_flashlight.visible = flashlight_enabled
-	_halo.visible = flashlight_enabled
-	if not flashlight_enabled:
+func update_lights() -> void:
+	var lit := flashlight_enabled and torch_in_hand
+	_flashlight.visible = lit
+	_halo.visible = lit
+	if not lit:
 		return
 
 	var muzzle := global_position + Vector3(0.0, _height * 0.65, 0.0)
@@ -487,14 +506,14 @@ func _update_lights() -> void:
 	var shimmer := _shimmer()
 	_halo.light_energy = halo_energy * shimmer
 
-	_flashlight.global_position = muzzle
+	_flashlight.global_position = light_anchor.global_position if light_anchor != null else muzzle
 	_flashlight.spot_range = flashlight_range
 	_flashlight.spot_angle = flashlight_angle
 	_flashlight.spot_angle_attenuation = flashlight_edge_softness
 	_flashlight.light_energy = flashlight_energy * shimmer
 	_flashlight.light_color = flashlight_color
 	_flashlight.light_volumetric_fog_energy = flashlight_fog_energy
-	if muzzle.distance_to(reticle_point) > 0.5:
+	if _flashlight.global_position.distance_to(reticle_point) > 0.5:
 		_flashlight.look_at(reticle_point, Vector3.UP)
 
 

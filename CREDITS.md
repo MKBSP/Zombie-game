@@ -28,3 +28,18 @@ https://opendatacommons.org/licenses/odbl/1-0/
 Currently present inside `copenhagen_greybox.glb`; intended to replace the test
 capsule once the camera geometry is locked.
 https://poly.pizza/
+
+## Weapons
+
+**Weapons Pack 002 – In Case of Zombies** — CreativeTrio, via Poly Pizza. CC0
+(public domain). https://poly.pizza/bundle/Weapons-Pack-002-%E2%80%93-In-Case-of-Zombies-HgTFEJHrwv
+Used: Glock → `assets/weapons/pistol.glb`, Shotgun Double Barrel →
+`shotgun.glb`, Sniper → `rifle.glb`, Submachine Gun → `uzi.glb`, Baseball Bat →
+`bat.glb`.
+
+## First-person arms + torch
+
+`assets/weapons/fp_arms.glb`, baked from `assets/blender/other/arms.blend` by
+`assets/blender/other/build_fp_arms.py`. **Source and licence still to be
+confirmed** (the .blend's `PP_` node names suggest Poly Pizza) — fill this in
+before any distribution.

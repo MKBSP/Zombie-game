@@ -1,0 +1,108 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" uid="uid://cmvqd8b8sm3q6" path="res://assets/city/westvillage_small.glb" id="1_cot1k"]
+[ext_resource type="Script" uid="uid://bwmmjf27gn5tp" path="res://scripts/test/test_player.gd" id="2_1k36r"]
+[ext_resource type="Script" uid="uid://bd7ij1kbr57xb" path="res://scripts/test/camera_rig.gd" id="3_t84ee"]
+[ext_resource type="Script" uid="uid://dq3bb0gq8adq6" path="res://scripts/test/test_hud.gd" id="4_tl0yi"]
+
+[sub_resource type="Environment" id="Environment_ps6bg"]
+background_mode = 1
+background_color = Color(0.008, 0.011, 0.02, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.09, 0.11, 0.17, 1)
+ambient_light_energy = 0.04
+tonemap_mode = 3
+glow_enabled = true
+glow_intensity = 0.45
+glow_bloom = 0.06
+fog_enabled = true
+fog_light_color = Color(0.13, 0.15, 0.21, 1)
+fog_density = 0.022
+fog_sky_affect = 0.0
+volumetric_fog_enabled = true
+volumetric_fog_albedo = Color(0.66, 0.68, 0.74, 1)
+volumetric_fog_anisotropy = 0.3
+volumetric_fog_length = 96.0
+volumetric_fog_ambient_inject = 0.25
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_k84qv"]
+radius = 0.3
+height = 1.8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_aq2wy"]
+shading_mode = 0
+albedo_color = Color(1, 0.3529412, 0.12156863, 1)
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_nou4j"]
+radius = 0.3
+height = 1.8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_jikse"]
+shading_mode = 0
+albedo_color = Color(1, 0.88235295, 0.3019608, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_o02lt"]
+top_radius = 0.0
+bottom_radius = 0.14
+height = 0.45
+
+[sub_resource type="LabelSettings" id="LabelSettings_3pytn"]
+font_size = 15
+outline_size = 5
+outline_color = Color(0, 0, 0, 0.8)
+
+[node name="CameraTestSmallCity" type="Node3D" unique_id=1812326258]
+
+[node name="City" parent="." unique_id=1913698188 instance=ExtResource("1_cot1k")]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1916244625]
+environment = SubResource("Environment_ps6bg")
+
+[node name="TestPlayer" type="CharacterBody3D" parent="." unique_id=1756679669]
+transform = Transform3D(-0.9781476, 0, -0.2079117, 0, 1, 0, 0.2079117, 0, -0.9781476, 8, 1, 12)
+script = ExtResource("2_1k36r")
+reticle_opacity = 0.45
+show_bullet_cone = false
+flashlight_enabled = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="TestPlayer" unique_id=780443089]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_k84qv")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="TestPlayer" unique_id=1888505215]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+material_override = SubResource("StandardMaterial3D_aq2wy")
+mesh = SubResource("CapsuleMesh_nou4j")
+
+[node name="Facing" type="Marker3D" parent="TestPlayer/MeshInstance3D" unique_id=1981070571]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.5)
+
+[node name="Cone" type="MeshInstance3D" parent="TestPlayer/MeshInstance3D/Facing" unique_id=503660259]
+transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 0, 0)
+material_override = SubResource("StandardMaterial3D_jikse")
+mesh = SubResource("CylinderMesh_o02lt")
+
+[node name="CameraRig" type="Node3D" parent="." unique_id=1995213905]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 12)
+script = ExtResource("3_t84ee")
+view_mode = 3
+fov = 75.0
+camera_yaw = -160.0
+aim_fov = 45.0
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig" unique_id=1821288390]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.65, 0)
+current = true
+
+[node name="DebugHUD" type="CanvasLayer" parent="." unique_id=1311062435]
+
+[node name="Label" type="Label" parent="DebugHUD" unique_id=1348553840]
+offset_left = 14.0
+offset_top = 10.0
+offset_right = 15.0
+offset_bottom = 33.0
+label_settings = SubResource("LabelSettings_3pytn")
+metadata/_edit_use_anchors_ = true
+
+[node name="TuningHUD" type="CanvasLayer" parent="." unique_id=1787629046]
+script = ExtResource("4_tl0yi")

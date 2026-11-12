@@ -3,6 +3,7 @@
 [ext_resource type="PackedScene" uid="uid://c7nf6vdmaxjka" path="res://assets/city/copenhagen_greybox.glb" id="1_53guf"]
 [ext_resource type="Script" path="res://scripts/test/test_player.gd" id="2_884ud"]
 [ext_resource type="Script" path="res://scripts/test/camera_rig.gd" id="3_kvu4o"]
+[ext_resource type="PackedScene" uid="uid://qh7mhke4xnhr" path="res://scenes/test/test_structures.tscn" id="4_struct"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_xivqj"]
 
@@ -46,6 +47,8 @@ outline_color = Color(0, 0, 0, 0.8)
 
 [node name="CityGreybox" parent="." instance=ExtResource("1_53guf")]
 
+[node name="TestStructures" parent="." instance=ExtResource("4_struct")]
+
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_0ns8n")
 
@@ -54,7 +57,7 @@ transform = Transform3D(1, 0, 0, 0, 0.49999997, 0.86602545, 0, -0.86602545, 0.49
 shadow_enabled = true
 
 [node name="TestPlayer" type="CharacterBody3D" parent="."]
-transform = Transform3D(0.0871557, 0, 0.9961947, 0, 1, 0, -0.9961947, 0, 0.0871557, -70, 1, -30)
+transform = Transform3D(-0.9396926, 0, -0.3420201, 0, 1, 0, 0.3420201, 0, -0.9396926, -11.4, 1, -30)
 script = ExtResource("2_884ud")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="TestPlayer"]
@@ -75,14 +78,19 @@ material_override = SubResource("StandardMaterial3D_iprsv")
 mesh = SubResource("CylinderMesh_x3b32")
 
 [node name="CameraRig" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -70, 0, -30)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.4, 0, -30)
 script = ExtResource("3_kvu4o")
-camera_yaw = 85.0
+camera_yaw = -160.0
 view_mode = 2
 fov = 70.0
-height = 28.6
-aim_fov = 60.0
-ads_drop = 8.0
+height = 9.0
+player_screen_offset = 0.6
+aim_transition = 1.2
+aim_height = 2.1
+aim_distance = 3.2
+aim_shoulder = 0.7
+aim_pitch = -10.0
+aim_fov = 55.0
 
 [node name="Camera3D" type="Camera3D" parent="CameraRig"]
 transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 28.6, 0)

@@ -65,6 +65,68 @@ Keep this current: check items off here, move finished ones to the changelog.
 - [ ] Art v2: animations, fire, light, parallax buildings, sound, reactions, blood trail (Phase 10).
 - [ ] Sound.
 
+## D2. 3D conversion (Phase 10 — in progress)
+
+See [PROJECT.md](../PROJECT.md) → *3D conversion* for what exists today and
+[CHANGELOG.md](../CHANGELOG.md) → Phase 10 for the measured history.
+
+- [x] Renderer moved to Forward+ (2026-09-08); 2D game verified unaffected.
+- [x] Copenhagen greybox from OSM/blosm (`assets/city/`, ODbL — see CREDITS.md).
+- [x] Four camera/aim versions + night twins, one shared rig (8 scenes).
+- [x] Cover swoop, camera collision (384-sample clip audit, zero clips),
+      unified aim pose, walk/sprint/crouch/jump, night lighting + flashlight.
+- [x] **Shipping shooter camera picked: first person (V4)** (2026-09-09).
+- [x] **Design spec written** (2026-09-09) —
+      `docs/superpowers/specs/2026-09-09-3d-conversion-design.md`. Read it
+      before starting any stage below; the S-numbers here match its §9.
+- [ ] **Visibility / eye adaptation** — model + live tuning HUD in the v5
+      Manhattan scene; see `docs/superpowers/specs/2026-09-16-visibility-and-eye-adaptation.md`.
+      Record the settled slider values there. Better minimap reference pending.
+- [ ] Manhattan GLB: road/footway surfaces sit at y = 0.31, ground collision at
+      y = 0 — re-export with the intended 1–2.5 cm stack.
+- [ ] **S8 — commander fog of war in 3D.** No design yet; highest remaining
+      risk. The shooter's fog dissolves in first person (real lights + shadows
+      do the work), so only this half survives.
+- [ ] Confirm the **zombie** model separates per §8.1 (the human model does —
+      five meshes, one armature, per-limb vertex groups present). Key unknown:
+      does the zombie share the skeleton?
+- [ ] Validate the **35 px/m** conversion constant against the prototype.
+- [ ] **Zombie-commander view in 3D.** Stays a top-down RTS view, but of the 3D
+      world — free-flying/orbiting camera over the same geometry, not a
+      separate 2D map. Open: occlusion (roofs hiding units), fog-of-war in 3D,
+      selection box + click-to-ground raycast, minimap source.
+- [ ] **Headshots in 3D.** The 2D model (`AimModel.is_headshot` — a 5 px
+      centre-mass disk) has no 3D meaning. See section C: headshots already
+      one-shot too often in 2D, so the 3D design must solve both at once.
+- [ ] Port the game systems onto 3D bodies: shooter, zombies + variants +
+      merging, NPCs, bullets/ballistics, loot boxes, pickups, melee.
+- [ ] Fog-of-war in 3D for both roles (2D `Light2D` occluders do not port).
+- [ ] Navigation: `NavigationRegion3D` baked off the greybox, replacing the
+      TileMap-grid pathing.
+- [ ] Netcode: replicate `Vector3` + basis instead of `Vector2` + rotation;
+      confirm the director/server pool is unaffected.
+- [ ] Decide the fate of 2D-only systems: `blood_canvas`, tile-grid explored
+      memory, `minimap_math`, `fog_zc.gdshader`.
+
+### 3D asset library (needed for the conversion; greybox has none of it)
+Street dressing, in rough priority order. Each wants a low-poly model, a
+collision shape, and — for anything that emits or blocks light — a light setup.
+
+- [ ] **Vehicles:** car (intact), broken/burnt car, van/truck. Also cover.
+- [ ] **Street furniture:** dumpster (plain + burning), lightpost with a working
+      lamp, lightpost dark/broken, bins, benches, bollards, barriers.
+- [ ] **Fences:** chain-link and slatted — must let light *through* (alpha or
+      real gaps), since the night look is built on beams and shadow.
+- [ ] **Vegetation:** trees, shrubs, hedges, grass/weeds.
+- [ ] **Facades:** the OSM greybox has flat untextured walls — needs windows,
+      doors, shopfronts, ground-floor detail, so the canyon reads as a street.
+- [ ] **Characters:** shooter, zombie variants (standard / fast / fat / master),
+      NPC survivors — modelled, rigged and animated. Head bone required if
+      headshots become geometric.
+- [ ] **Critters:** rats, bugs, fireflies (3D versions of the 2D ambient life).
+- [ ] Decide the pipeline (Blender + glTF; hand-modelled vs. kitbash vs. bought
+      packs) and a shared material/scale convention before mass-producing.
+
 ## E. Meta / systems
 
 - [ ] Menu: settings screen content (toggle tooltips — default ON, profile/user/stats,
@@ -82,6 +144,6 @@ Keep this current: check items off here, move finished ones to the changelog.
 | 8 | Art v1 (simple sprites, 4× map, simple animation, smaller bullets) |
 | 9a | Fix-list: shooter items (section C) |
 | 9b | Fix-list: zombie items (section A) |
-| 10 | Art v2 (animations, fire, light, parallax, sound, blood trails) |
+| 10 | **3D conversion** (section D2) — supersedes the old "Art v2" scope |
 | 11 | Playtest with real players |
 | 12 | Landing page |

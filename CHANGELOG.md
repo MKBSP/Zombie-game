@@ -4,6 +4,39 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 10 — 3D conversion (in progress)
+- **Small dressed city (2026-11-12).** `assets/city/westvillage_small.glb` is a
+  250 x 170 m crop (~10% of the area, 107 buildings) of the West Village map, built
+  headless by `assets/blender/maps/build_small_city.py`, and dressed at import by
+  `scripts/3d/city_import.gd` with two procedural shaders (no textures):
+  `shader/city_building.gdshader` and `shader/city_ground.gdshader`. OSM has no
+  doors/windows/shops, so the Blender script works out what each wall faces by
+  stepping out from it and looking down for road surfaces: **main** street
+  (shopfronts, signs, shutters), **street** (front doors, ~35% shops), **alley**,
+  **back** (small windows, service doors), **party** wall (blank, sometimes a
+  ghost-sign landmark). Floors come from the real OSM height, bays from wall
+  length; ~26% of windows are lit at night. Consecutive wall faces turning less than ~20°
+  (~50° for short curve pieces) share one facade layout, so bow fronts get
+  continuous window rows. Roads get asphalt, cracks, lane lines (double yellow
+  on the secondary road), manholes; footways get concrete slabs + curbs;
+  footway faces lying on a road become zebra crosswalks. The map has almost no
+  OSM service roads, so the "alley" ground is the bare ground plane: a baked
+  distance-to-street mask (`westvillage_small_mask.png`) paves it near streets
+  and turns it into backlot (cracked concrete, weeds, puddles) inside blocks.
+  Flat layers were dropped from blosm's 0.3 m float to 2–4 cm so feet meet
+  the asphalt. Test scene: `scenes/test/camera_test_v6_small_city.tscn` (v5 copy).
+  Check: `test/test_city_dressing.gd`.
+- **Manhattan test scene + tuning HUD (2026-09-16).** `scenes/test/camera_test_v5_manhattan.tscn`
+  runs the first-person rig on `assets/city/manhattan_westvillage.glb` (755
+  buildings, 788 × 540 m). Spawn moved onto a street at (8, 1, 12) — the copied
+  Copenhagen spawn was inside Building_356, and at night an unlit street reads
+  as a sealed room. `scripts/test/test_hud.gd` (`TuningHUD` CanvasLayer): GTA-style
+  heading-up minimap (SubViewport + orthographic camera, ~30 m radius, own
+  flat environment) and live sliders for mist, haze, ambient, moon, flashlight
+  cone/edge/energy/range/fog shaft, and eye adaptation. **F** toggles the torch,
+  **ESC** frees the mouse for sliders, **Tab** hides the panel. Eye adaptation
+  is a driven `exposure_multiplier` (1× → 2× over 60 s, back in 2 s); Godot's
+  auto exposure was tried and rejected (blows the night out to daylight).
+  Model written up in `docs/superpowers/specs/2026-09-16-visibility-and-eye-adaptation.md`.
 - **3D camera test scene (Brief 11).** Standalone measuring instrument for the
   one open question behind the 2D→3D move: *what FOV/height makes a real
   Copenhagen street read as a canyon you are inside rather than a map you are
@@ -78,6 +111,238 @@ here as part of finishing any meaningful change.
   were oriented down the 6.2 m stub of Købmagergade rather than its 95 m open
   run; yaw is now +85° in all four scenes (verified: 95 m clear up-screen, 6.2 m
   behind, and the street still projects perfectly vertically at 0.0 px drift).
+- **Covered structures, to see what each camera does when the player goes under
+  a roof.** New `scenes/test/test_structures.tscn` (CSG, one combiner with
+  collision) instanced into all four scenes so the versions stay comparable:
+  an **overhang** bridging the alley — 8 x 6 m slab with 3.0 m clearance, the
+  Copenhagen *gennemgang* — and an enclosed **room**, 6 x 6 m with a 3.0 m
+  ceiling and a 2.2 m doorway facing the street. Both walkable end to end
+  (verified by capsule sweep).
+  The HUD gained a diagnostic line naming whatever sits between camera and
+  player, so the effect is objective rather than a judgement call. Result:
+  the top-down modes (V1, V3) lose the player **completely** — HUD reads
+  `PLAYER HIDDEN — camera blocked by TestStructures (3.5 m above you)` — while
+  V2 keeps him visible without any new code, because the shoulder camera's
+  collision pullback already tucks it under the ceiling (clearance 0.51 inside
+  the room). V4 is unaffected by definition. Nothing acts on the occlusion yet;
+  occlusion handling stays the open question it was.
+- **Fix — the camera-collision guard let the top-down camera be dragged down a
+  ceiling.** The guard skipped collision only when *both* pitch endpoints were
+  straight down, but V1's aim endpoint is a shallow over-the-shoulder pitch, so
+  its hip pose was never actually exempt: stepping under the 3 m overhang pulled
+  the camera from 28.6 m to 2.7 m and silently destroyed the geometry being
+  measured. It now tests the pitch the camera is actually at this frame.
+- **Fix — the spawn was never in a canyon.** The old spawn sat at the mouth of a
+  10 m stub that opens immediately into a 45-60 m plaza, so the street-to-height
+  ratio the whole brief turns on was not being tested at all. (The original
+  corridor search measured "length" through open ground and scored a false
+  positive.) All four scenes now spawn at (-54, -14) facing +Z on Købmagergade
+  proper: a straight 28 m run that goes 8 m wide, pinches to a 4.5 m alley
+  (1:4.4 against 20 m facades), then opens to 13 m — with the overhang over the
+  pinch and the room off the wide end.
+- **Playtest round 2 — five tuning changes.**
+  1. **Top-down cameras moved in**, 28.6 -> 25.0 m. Note the cost: splay against
+     a 20 m facade goes 3.33x -> 5.00x, and clearance over the map's tallest
+     building (23.0 m) is down to 2.0 m, where its splay is 12.5x. 25 m is close
+     to the floor for this map.
+  2. **Top-down modes now swoop to over-the-shoulder under cover.** A
+     straight-down camera loses the player completely under any roof, so V1/V3
+     drop to the shoulder pose on entering the tunnel or room and rise back on
+     the way out (~0.6 s each way, `cover_transition`). Cover is detected by a
+     ray straight UP from the player, deliberately *not* camera-to-player: once
+     the camera is under the ceiling a camera-to-player ray reads clear, which
+     would swoop it back up and oscillate forever.
+  3. **The aim no longer lands on the far side of walls.** Two causes, both
+     fixed: the hip reticle was placed at a fixed 12 m with no regard for
+     geometry, so indoors it sat outside the room — it now stops at the first
+     thing hit. And the absolute cursor is only meaningful under a straight-down
+     camera; once swooped, its ray meets the ground plane at a grazing angle.
+     The control scheme now follows the camera, handing over to relative mouse
+     during the swoop and warping the cursor back to the aim point on the way
+     out. ESC still frees the mouse; a click takes it back.
+  4. **Aim narrows slowly** instead of snapping: FOV over `aim_transition`
+     (1.2 s), reticle volume over `reticle_settle` (2.0 s), so the shot tightens
+     gradually and committing costs real time.
+  5. **Over-the-shoulder pose pulled in** — 4.5 -> 3.2 m back, 2.4 -> 2.1 m up,
+     0.8 -> 0.7 m across; RMB now closes to 2.0 m. Used by V2's resting pose and
+     by V1/V3's swoop, so they all agree.
+- **Fix — the swoop teleported instead of swooping.** The instant the camera was
+  allowed off straight-down, the collision ray hit the ceiling and clamped it to
+  head height in one frame, so it snapped down and only the rotation animated.
+  The camera's own position is now eased (`camera_move_smoothing`), which also
+  takes the pop out of ordinary collision pull-ins.
+- **Playtest round 3 — the top-down cameras drop below the roofline.** V1 25 ->
+  15 m, V3 25 -> 9 m. Both are now *under* the 20 m facades, which changes the
+  kind of shot rather than just its scale: with the camera below the roofs,
+  buildings never project a roof edge outward, so there are no roofs in frame at
+  all and you read wall faces instead. The brief's splay figure divides by
+  `h - H` and is undefined here, so the HUD stops quoting it and reports how far
+  below the roofline you are instead. This is the "canyon you are inside" the
+  brief asks for, arrived at by dropping under the roofs rather than by widening
+  the lens.
+  V3 also pushes the player down-screen: `player_screen_offset = 0.6`, which
+  solves `(1 + o) / 2 = 0.80` to put **80% of the visible ground ahead** of the
+  player and 20% behind (10.1 m / 2.5 m of a 12.6 m view). Verified: the
+  player's feet land at 80.0% down the frame. Their head sits at 87.5% — a 1.8 m
+  capsule is a big fraction of a 9 m camera height, so the body itself has real
+  parallax; at the 5 m first tried, the head reached 96.9% and was falling off
+  the bottom of the screen. V3's `ads_drop` rescaled 6.0 -> 2.5 m to stay
+  proportional (RMB now leans in to 6.5 m).
+- **Playtest round 4 — V1's aim is a lean, not a transplant.** RMB used to send
+  V1 all the way to the over-the-shoulder pose: a 15 m drop plus an 80 degree
+  rotation, and for as long as you held the button V1 simply *became* V2, which
+  defeats the point of running four versions side by side. V1 now leans instead
+  — 15 -> 8 m, pitch -90 -> -50, FOV 70 -> 55, its own `lean_*` exports — so it
+  commits while staying recognisably top-down. (If it should instead keep zero
+  pitch and commit purely by tightening, the way V3 does, that is a one-line
+  change to `_aim_local`/`_aim_pitch_now`.)
+- **The cover swoop now starts 1 m before the threshold** (`cover_lookahead`),
+  so it is already under way as you cross it rather than beginning on it. The
+  probe only follows actual movement, so standing near a doorway cannot make it
+  flicker, and it only ever ADDS cover — leaving is still judged on your real
+  position, so the camera stays down until you are genuinely out. Verified: the
+  swoop fires at z=-5.00 against an overhang edge at z=-4.00.
+- **Fix — a top-down camera with a screen offset could be pushed through a
+  facade.** Collision was skipped outright for any straight-down pose, which was
+  safe while the camera sat directly above the player but not once V3 gained
+  `player_screen_offset = 0.6` and started sitting 3.8 m *forward* of them. The
+  pullback now picks its pivot by pose: a straight-down camera retreats toward
+  the point directly OVERHEAD (trimming only the offset, never the height under
+  test), everything else toward the shoulder. Measured V3 pulling in to a
+  clearance of 0.05 where the street tightens — i.e. it would have clipped.
+- **Camera-clip audit across all four versions.** Swept the player over the
+  street, the alley pinch, the overhang and the room; every combination of four
+  facings, hip and aim, with the cover swoop settled — 96 samples per version,
+  384 total. **Zero clips.** V4 additionally checked for near-plane poke: the
+  closest wall ever gets to the eye is 0.45 m against a 0.05 m near plane, since
+  the 0.3 m capsule radius keeps it off the wall.
+- HUD no longer quotes the hip pose while the camera is leaned or swooped —
+  reporting "height 15.0 m" with the camera at 8 m was worse than reporting
+  nothing. It now switches to live FOV / pitch / yaw / camera offsets.
+- **Fix — the cover swoop's head start was too small to see.** The 1 m
+  lookahead fired correctly but bought nothing: at 5 m/s the 0.6 s swoop needs
+  3 m of travel, so 1 m covered a third of it and the camera was still at ~11.6
+  of 15 m as you crossed the threshold — indistinguishable from no lookahead at
+  all. The probe is now TIME-based, reaching `speed * cover_transition +
+  cover_lookahead_margin` (0.75 m): literally where you will be standing when
+  the swoop finishes, so it shrinks automatically while aiming. It also steps
+  along the path rather than testing only the far end, so a shallow porch
+  between here and there is not stepped over. Applies to the top-down modes
+  only; V2/V4 keep a literal "are you under something" readout.
+  Measured, walking in under real input: V1 tunnel fires 3.67 m out and is
+  **100% swooped at the threshold** (camera 2.45 m, was 26% / 11.6 m); V1 room
+  through the 1.2 m doorway fires 3.42 m out, 100% at the door; V3 tunnel fires
+  3.67 m out, 100% at the edge, with zero lateral drift.
+  HUD now distinguishes `COVER x.x m AHEAD — swooping n%` from `UNDER COVER`.
+- **RMB in both top-down modes now goes to the same over-the-shoulder pose the
+  cover swoop uses.** V3's aim previously just lowered a straight-down camera,
+  which cannot aim at anything: however close it gets, there is no forward view
+  to place a shot in. V1's partial lean had the same problem in milder form.
+  Aiming and being under a roof turn out to want the identical thing from the
+  camera — a view along the ground — so both now resolve to one pose
+  (`aim_height`/`aim_distance`/`aim_shoulder`/`aim_pitch`), which also means one
+  set of numbers to tune instead of three. Verified: V1 15.0 -> 2.10 m and V3
+  9.0 -> 2.10 m, both pitching to -10, reticle locked dead centre (50%, 50%) and
+  landing on world geometry 8.7 m ahead; mouse-Y sweeps it from 5.8 m of ground
+  out to a wall at 2.77 m. Retired the now-dead `lean_*` and `ads_drop`
+  exports, and V3's aim FOV moved 60 -> 55 to match V1 now that they share a
+  pose.
+- **Night variants of all four test scenes, and the renderer moved to
+  Forward+.** `project.godot` was still on `gl_compatibility` despite Brief 2
+  saying the renderer is Forward+ and web export was dropped for it; volumetric
+  fog does not exist on GL Compat, and the beam biting into fog is the entire
+  point of the night look. Switched, then booted the existing 2D game to
+  confirm nothing broke — menu, fog of war, zombie vision lights and HUD all
+  render correctly, so the 2D layer is unaffected.
+  Four clones (`*_night.tscn`) share the same two scripts, so every camera
+  behaviour carries over and future fixes land in all eight. Night is switched
+  on by exports that default to off, and the four daylight scenes were verified
+  unchanged (`flash=false cone=true fog=false amb=0.30`).
+  Per night scene: near-black ambient (0.08), a faint cold moon at 0.05 instead
+  of a sun, volumetric fog at 0.028, and one dim sodium lamp at the far end of
+  the 28 m run so the canyon reads in silhouette and there is somewhere to walk
+  toward.
+- **Flashlight, aimed at the reticle.** A `SpotLight3D` on the player pointed at
+  `reticle_point`, so the lit spot IS the aim — one thing to read instead of
+  two. Angle and colour ported from the 2D game's already-tuned
+  `Balance.FOG_SHOOTER` (22 deg half-angle, warm 1.0/0.97/0.85) rather than
+  invented, plus its dim bluish personal halo as an omni.
+  `light_volumetric_fog_energy` is what turns the beam into a visible shaft.
+  Reticle faded to 0.45 opacity and the bullet-path cone switched off at night,
+  where a bright ball of colour is the only thing competing with the beam.
+- **Walk / sprint / crouch / jump**, with movement driving the aim volume so
+  crouch is a stance rather than a slow walk. Measured: walk 3.00 m/s (r 0.95),
+  sprint 5.64 m/s (r 2.09), crouch 1.40 m/s with the capsule shrunk 1.80 ->
+  1.00 m (r 0.48), standing still (r 0.70), jump apex 1.07 m. Crouch refuses to
+  stand back up with something directly overhead. New actions `sprint` (Shift),
+  `crouch` (C — Ctrl is already `focus_aim` in the 2D map) and `jump` (Space);
+  no existing action was touched.
+- **Fix — the jump was floaty because gravity was real.** Project gravity is
+  9.8 m/s2, which is correct physics and wrong for a game. Scaled it 2.4x and
+  raised `jump_velocity` 4.5 -> 7.0 to compensate, plus a 1.35x multiplier on
+  the way DOWN only (falling faster than you rose is what actually reads as
+  weight). Apex is unchanged at ~1.1 m; hang time went **0.92 s -> 0.58 s**.
+  Applies to all eight scenes.
+- **Night dimmed, hazed and made to shimmer.** Ambient 0.08 -> 0.04, moon
+  0.05 -> 0.028, flashlight 9.0 -> 5.0, halo 0.5 -> 0.3, street lamp 2.6 -> 1.5.
+  Air now carries a general haze rather than only lighting up where the beam
+  hits: volumetric fog density 0.028 -> 0.05 with forward anisotropy 0.3 and
+  ambient inject, plus a separate depth fog for distance falloff. The beam edge
+  is feathered (`spot_angle_attenuation` 0.55) instead of a hard cutout.
+  Both lights are alive: the flashlight wavers +/-12% like a torch in a hand
+  (two sines at incommensurate rates, so it never lands on an obvious beat), and
+  the street lamp gets `scripts/test/flicker_light.gd` — the same drift plus a
+  rare short dip, phase-offset per instance so several fixtures never breathe
+  in lockstep. Measured: flashlight 4.75-5.60 around a base of 5.0, lamp
+  1.47-1.70.
+- **3D conversion design spec.**
+  `docs/superpowers/specs/2026-09-09-3d-conversion-design.md` — the shooter goes
+  **first person** (closing the four-version camera trial), the commander stays
+  top-down over the 3D world with buildings going ~90% transparent when a zombie
+  is underneath, and every mechanic ports except headshots. Zombies get
+  **per-part HP** (Head/Body/Arm L-R/Leg L-R): head or body to zero kills,
+  limbs never kill and never bleed into the body pool, one leg gone hobbles and
+  two crawls, arms slow the attack without ever making a zombie harmless. Sized
+  against the real weapon damage, so a pistol headshot drops a standard zombie
+  but a rifle cannot drop a fat one. Measured on the way: the 2D balance
+  converts to metres at **≈35 px/m** and every value lands on a physically
+  sensible number, so `balance.gd` converts rather than gets re-invented.
+- **Fix — the spawn, tunnel and room were all inside an enclosed inner
+  courtyard.** The "28 m run" at (−54, −14) is closed at both ends (z −18 and
+  z +11) — a *baggård*, not Købmagergade — and with the room 3 m in front of
+  the spawn there was nowhere to walk. Rasterised the greybox footprint
+  (`-col` meshes plus the visual-only Illum) and the only real two-sided street
+  in the collision patch is Købmagergade itself, between the block's east face
+  and Illum: 10.7 m wide, straight for ~65 m, bearing 20° off +Z. All eight
+  scenes now spawn at (−11.4, 1, −30) facing down it; `test_structures.tscn`
+  is rotated to the street (children placed as across / along metres): the
+  overhang spans wall to wall 18 m ahead (12.5 x 6 m, 3.0 m clearance), the
+  room sits against the west facade 40 m ahead with its doorway on the street
+  and 4.6 m of pavement past it; the night lamp is 54 m down the run. Illum
+  has no collision in the asset, so `test_player.gd` gives it a trimesh at
+  `_ready` (`_collide_illum`) — rename the object `Illum-col` on the next
+  Blender export to make that permanent. A 1 m visual-only icosphere sits at
+  the world origin, in the street 8 m short of the room.
+- **Fix — the test room sat in the courtyard, not the street.** Measured the
+  greybox floor plan by raycast rather than by eye: the street runs z −16 → +2
+  (4-13 m wide, pinching to 4 m at z −2..0) and then opens into a **13 m-wide
+  courtyard at z +4..+8** — where the room was, dead centre. Swept every 6x6
+  footprint in the street and found only three that sit fully on open ground;
+  the room moved to the best of them, **(−53, −8)**, as a pure translation
+  (dx −6, dz −14) so the west-facing door and all tested dimensions survive.
+  Verified walkable after the move: interior floor 0.00 / ceiling 3.00 m,
+  doorway 2.20 m, passages 3 m west and 2 m east, overhang and pinch untouched.
+  The overhang did **not** move — it was already over the 4 m street pinch.
+  Also measured: the greybox is 208 x 602 m of *visual* geometry but carries
+  **collision only in a ~85 x 120 m patch** at its southern end; the rest would
+  drop a player through the floor.
+- **Docs caught up to the 3D work.** `PROJECT.md` gained a *3D conversion*
+  section (the eight test scenes, what each version is, controls, what is
+  settled vs. still open) and its status heading now separates the shipping 2D
+  game from the in-progress conversion; `ARCHITECTURE.md` documents the new
+  input actions and `scripts/test/`; `docs/BACKLOG.md` gained section **D2**
+  (3D conversion + the 3D asset library) and its phase table now calls Phase 10
+  the 3D conversion rather than "Art v2".
 - Added `CREDITS.md` — the greybox is OpenStreetMap data under **ODbL 1.0**,
   which requires attribution on distribution (an itch.io page counts). The
   `asset_*` glTF extras carrying that credit are intact on every building; do

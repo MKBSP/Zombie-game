@@ -1,0 +1,136 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" uid="uid://c7nf6vdmaxjka" path="res://assets/city/copenhagen_greybox.glb" id="1_53guf"]
+[ext_resource type="Script" path="res://scripts/test/test_player.gd" id="2_884ud"]
+[ext_resource type="Script" path="res://scripts/test/camera_rig.gd" id="3_kvu4o"]
+[ext_resource type="PackedScene" uid="uid://qh7mhke4xnhr" path="res://scenes/test/test_structures.tscn" id="4_struct"]
+[ext_resource type="Script" path="res://scripts/test/flicker_light.gd" id="1_flicker"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_xivqj"]
+
+[sub_resource type="Sky" id="Sky_drxq8"]
+sky_material = SubResource("ProceduralSkyMaterial_xivqj")
+
+[sub_resource type="Environment" id="Environment_0ns8n"]
+background_mode = 1
+background_color = Color(0.008, 0.011, 0.02, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.09, 0.11, 0.17, 1)
+ambient_light_energy = 0.04
+tonemap_mode = 3
+glow_enabled = true
+glow_intensity = 0.45
+glow_bloom = 0.06
+fog_enabled = true
+fog_light_color = Color(0.13, 0.15, 0.21, 1)
+fog_density = 0.022
+fog_sky_affect = 0.0
+volumetric_fog_enabled = true
+volumetric_fog_density = 0.05
+volumetric_fog_albedo = Color(0.66, 0.68, 0.74, 1)
+volumetric_fog_anisotropy = 0.3
+volumetric_fog_ambient_inject = 0.25
+volumetric_fog_length = 96.0
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_t3n24"]
+radius = 0.3
+height = 1.8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_kc50i"]
+shading_mode = 0
+albedo_color = Color(1, 0.3529412, 0.12156863, 1)
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_ylser"]
+radius = 0.3
+height = 1.8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_iprsv"]
+shading_mode = 0
+albedo_color = Color(1, 0.88235295, 0.3019608, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_x3b32"]
+top_radius = 0.0
+bottom_radius = 0.14
+height = 0.45
+
+[sub_resource type="LabelSettings" id="LabelSettings_p2tux"]
+font_size = 15
+outline_size = 5
+outline_color = Color(0, 0, 0, 0.8)
+
+[node name="CameraTestHostileProcessNight" type="Node3D"]
+
+[node name="CityGreybox" parent="." instance=ExtResource("1_53guf")]
+
+[node name="TestStructures" parent="." instance=ExtResource("4_struct")]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_0ns8n")
+
+[node name="StreetLamp" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.1, 4.5, 20.7)
+light_color = Color(1, 0.82, 0.55, 1)
+light_energy = 1.5
+light_volumetric_fog_energy = 1.6
+shadow_enabled = true
+omni_range = 15.0
+script = ExtResource("1_flicker")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.49999997, 0.86602545, 0, -0.86602545, 0.49999997, 0, 0, 0)
+light_color = Color(0.55, 0.63, 0.86, 1)
+light_energy = 0.028
+shadow_enabled = true
+
+[node name="TestPlayer" type="CharacterBody3D" parent="."]
+transform = Transform3D(-0.9396926, 0, -0.3420201, 0, 1, 0, 0.3420201, 0, -0.9396926, -11.4, 1, -30)
+script = ExtResource("2_884ud")
+flashlight_enabled = true
+show_bullet_cone = false
+reticle_opacity = 0.45
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="TestPlayer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_t3n24")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="TestPlayer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+material_override = SubResource("StandardMaterial3D_kc50i")
+mesh = SubResource("CapsuleMesh_ylser")
+
+[node name="Facing" type="Marker3D" parent="TestPlayer/MeshInstance3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.5)
+
+[node name="Cone" type="MeshInstance3D" parent="TestPlayer/MeshInstance3D/Facing"]
+transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 0, 0)
+material_override = SubResource("StandardMaterial3D_iprsv")
+mesh = SubResource("CylinderMesh_x3b32")
+
+[node name="CameraRig" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.4, 0, -30)
+script = ExtResource("3_kvu4o")
+camera_yaw = -160.0
+view_mode = 2
+fov = 70.0
+height = 9.0
+player_screen_offset = 0.6
+aim_transition = 1.2
+aim_height = 2.1
+aim_distance = 3.2
+aim_shoulder = 0.7
+aim_pitch = -10.0
+aim_fov = 55.0
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig"]
+transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 28.6, 0)
+current = true
+fov = 70.0
+
+[node name="DebugHUD" type="CanvasLayer" parent="."]
+
+[node name="Label" type="Label" parent="DebugHUD"]
+offset_left = 14.0
+offset_top = 10.0
+offset_right = 15.0
+offset_bottom = 33.0
+label_settings = SubResource("LabelSettings_p2tux")

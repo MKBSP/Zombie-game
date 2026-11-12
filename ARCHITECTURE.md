@@ -8,6 +8,14 @@ the simulation; clients send input and render replicated state. A match is up to
 > `addons/godot_ai/` is the godot-ai MCP plugin — **tooling, not game code.**
 > Ignore it when reasoning about the game.
 
+## Renderer
+**Forward+** (`rendering/renderer/rendering_method`). Switched from
+`gl_compatibility` for the Brief 11 night test: volumetric fog, which the
+flashlight look depends on, does not exist on GL Compatibility. The 2D game
+renders correctly through it (verified: menu, fog of war, Light2D vision
+cones, HUD). Web export was already dropped in favour of downloadable
+itch.io builds, so the GL Compat constraint no longer applies.
+
 ## Boot flow
 `project.godot` → main scene `scenes/ui/loading_screen.tscn` (brand/boot screen;
 skipped for `--server`/`--host`/`--join`/`--role`/`--autojoin` launches) →
@@ -101,12 +109,22 @@ scenes/            # Game scenes, each .tscn paired with its .gd
 scripts/           # Shared logic, autoloads, RefCounted helpers (see below)
   loot_table.gd    # LootTable — pure roll helpers (roll_item_count, roll_kind); headless-safe
   interact_pick.gd # Interact — choose_nearest() contextual interact resolver
+scenes/test/       # 3D camera/aim test scenes (Brief 11) - 4 daylight + 4 night
+                   #   + test_structures.tscn (overhang + room). Standalone, F6.
+scripts/test/      # camera_rig.gd (4 view modes) + test_player.gd (locomotion,
+                   #   aim, flashlight) + flicker_light.gd; test-only — no game
+                   #   code imports any of it
+scripts/3d/        # city_import.gd — post-import for the OSM city GLB: material name -> city shader
 shader/            # fog_zc.gdshader (zombie-controller fog; fog_of_war.gdshader removed)
+                   #   city_building / city_ground.gdshader — procedural facades + ground,
+                   #   driven by UV/UV2/vertex-colour data baked by
+                   #   assets/blender/maps/build_small_city.py (crop + wall tagging)
 resources/         # city_tileset.tres; fonts/ (Share Tech Mono + Rajdhani, OFL)
 sprites/           # weapon + entity PNG art
 textures/          # generated tiles
 test/              # headless unit tests (test_aim_model, test_melee, test_npc_aim,
-                   #   test_weapon_visuals, test_loot_table, test_interact_pick)
+                   #   test_weapon_visuals, test_loot_table, test_interact_pick,
+                   #   test_city_dressing)
 docs/              # per-phase design specs + implementation plans
 addons/godot_ai/   # MCP plugin — IGNORE
 ```
@@ -228,8 +246,14 @@ addons/godot_ai/   # MCP plugin — IGNORE
   ("Project data folder missing"; just Restart, it's cache). See CLAUDE.md Gotchas.
 
 ## Input map (`project.godot [input]`)
-WASD move · `Q` swap weapon · `E` **interact** (contextual: open nearest crate /
-grab nearest dropped item / give weapon to an adjacent following NPC at tight
-radius / take a weapon back from an armed NPC — nearest-wins via `Interact`) ·
-`X` drop · `1/2/3` select slot · `Ctrl` focus aim · `F1` toggle debug · arrows
-pan camera · toggle view.
+**2D game:** WASD move · `Q` swap weapon · `E` **interact** (contextual: open
+nearest crate / grab nearest dropped item / give weapon to an adjacent following
+NPC at tight radius / take a weapon back from an armed NPC — nearest-wins via
+`Interact`) · `X` drop · `1/2/3` select slot · `Ctrl` focus aim · `F1` toggle
+debug · arrows pan camera · toggle view.
+
+**Added for the 3D test scenes** (Phase 10; no existing action was changed):
+`move_forward` (W) · `move_back` (S) · `sprint` (Shift) · `crouch` (C — Ctrl is
+already `focus_aim`) · `jump` (Space). The test scenes also read RMB (aim), ESC
+(free the mouse), LMB (recapture it) and `1/2/3` (V1 preset cuts) directly,
+without input actions.

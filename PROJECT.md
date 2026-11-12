@@ -7,7 +7,7 @@ that can be armed and recruited) versus **1 zombie commander** (with merging
 mechanics and variants). Built solo, iteratively, in numbered phases — each phase
 has a design spec + implementation plan in `docs/`.
 
-## Current status (as of Phase 5)
+## Current status (2D game: Phase 9 · 3D conversion: Phase 10, in progress)
 Single-player and **local multiplayer** both work; a dedicated server can be run
 headless and deployed (see `DEPLOY.md` / Railway). The Railway deployment runs
 **multiple concurrent matches** via the Go director (`server/director/`, Phase 9;
@@ -56,6 +56,60 @@ see `ARCHITECTURE.md` → *Server topology*). Implemented:
 
 See [CHANGELOG.md](CHANGELOG.md) for the full phase history.
 
+## 3D conversion (Phase 10, in progress)
+The game is moving from top-down 2D to a **3D world**. Nothing in the shipping
+2D game has been changed by this work yet — the only project-wide change is the
+renderer (`gl_compatibility` → **Forward+**, needed for volumetric fog; the 2D
+game was booted and verified unaffected).
+
+What exists today is a **measuring instrument, not the game**: eight standalone
+camera/aim test scenes in `scenes/test/`, run with **F6**, referenced by nothing
+else in the project. They exist to settle the one question the conversion turns
+on — *what camera makes a real Copenhagen street read as a canyon you are inside
+rather than a map you are looking at?*
+
+| Scene | View | Aim (RMB) |
+|---|---|---|
+| `camera_test_3d.tscn` (V1) | top-down 70° at 15 m, street-locked yaw | over-the-shoulder |
+| `camera_test_v2_over_shoulder.tscn` (V2) | over-the-shoulder always | pulls to 2.0 m + 45° FOV |
+| `camera_test_v3_hostile_process.tscn` (V3) | top-down at 9 m, rig yaw **is** the mouse, 80% forward view | over-the-shoulder |
+| `camera_test_v4_first_person.tscn` (V4) | first person, eye height 1.65 m | 45° iron sights |
+
+Each has a `*_night.tscn` twin (volumetric fog, moonlight, flashlight aimed at
+the reticle, flickering sodium lamp). All eight share `scripts/test/camera_rig.gd`
++ `scripts/test/test_player.gd`, so a fix lands in all of them.
+`scenes/test/test_structures.tscn` (an overhang and an enclosed room) is
+instanced into all eight to test what each camera does under a roof.
+
+The world is `assets/city/copenhagen_greybox.glb` — real OpenStreetMap geometry
+via Blender/blosm, **ODbL 1.0, attribution required on distribution** (see
+[CREDITS.md](CREDITS.md); do not strip the `asset_*` glTF extras).
+
+**Test-scene controls:** WASD move · Shift sprint · C crouch · Space jump ·
+RMB aim · ESC free mouse · LMB recapture · 1/2/3 preset cuts (V1 only).
+
+**The trial is settled: the shooter ships in first person (V4).** The other
+three scenes are kept as the record of how that was decided, and their camera
+collision / occlusion work feeds the zombie-commander rig rather than the
+shooter. Also settled on the way: the camera drops *below* the roofline rather
+than widening the lens, and aiming and being under a roof want the same pose.
+
+**Small dressed city (current test map):** `scenes/test/camera_test_v6_small_city.tscn`
+runs the first-person rig on `assets/city/westvillage_small.glb`, a 250 x 170 m
+crop with procedural facades (doors, windows, shopfronts, lit windows) and road /
+sidewalk / crosswalk / backlot surfaces. Rebuild it from the source .blend with
+`/Applications/Blender.app/Contents/MacOS/Blender -b assets/blender/maps/manhattan_westvillage.blend --python assets/blender/maps/build_small_city.py`
+(the crop rect and all classification constants are at the top of the script),
+then reimport. Look tuning lives in the shader uniforms (`lit_windows`,
+`window_glow`, `shop_chance`, ...).
+
+The full design — first-person shooter, top-down commander over the 3D world
+with buildings going ~90% transparent when a zombie is underneath, per-part
+zombie HP replacing the old headshot model, and an 11-stage plan — is
+**[docs/superpowers/specs/2026-09-09-3d-conversion-design.md](docs/superpowers/specs/2026-09-09-3d-conversion-design.md)**.
+Read it before starting any conversion work. See
+[CHANGELOG.md](CHANGELOG.md) → Phase 10 for the full measured history.
+
 ## How to run
 - **In editor:** open the project in Godot 4.6.3 and press Play (main scene is
   `scenes/ui/main_menu.tscn`). With an MCP session live, use `project_run` /
@@ -63,6 +117,8 @@ See [CHANGELOG.md](CHANGELOG.md) for the full phase history.
 - **Local multiplayer:** `./run_local_mp.command` launches host + client locally.
 - **Dedicated server:** run headless with `--server`; see `DEPLOY.md` (Dockerfile
   + Railway) for hosted play.
+- **3D camera tests:** open any scene in `scenes/test/` and press **F6** (run
+  current scene). They do not go through the menu and do not touch game state.
 
 ## Tests
 Headless unit tests live in `test/` (`test_aim_model`, `test_melee`,

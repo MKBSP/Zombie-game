@@ -1,8 +1,8 @@
 extends SceneTree
 
 ## Headless check for the 3D zombie / commander numbers (scripts/3d/zombie_3d.gd,
-## scripts/3d/commander.gd): 2D px stats convert at Balance.FP.px_per_m to the
-## spec §5 table, and group orders spread out. Run:
+## scripts/3d/commander.gd): 3D speed / sight / hearing rules, melee reach from 2D
+## px, and group orders spread out. Run:
 ##   "/Applications/Godot 2.app/Contents/MacOS/Godot" --headless --path . --script test/test_zombie_3d.gd
 
 var _failures := 0
@@ -11,11 +11,14 @@ var C = load("res://scripts/3d/commander.gd")
 
 
 func _init() -> void:
-	# --- spec §5: speeds and reach in metres ---
-	var want := [1.21, 3.14, 1.09, 0.86]
-	for v in 4:
-		var got: float = Z.m(Z.STATS[v].speed)
-		_check("%s speed %.2f m/s (got %.2f)" % [Z.NAMES[v], want[v], got], absf(got - want[v]) < 0.01)
+	# --- 3D speeds: fast = shooter sprint + 1%, the rest from Balance.ZOMBIE_3D ---
+	_check("fast = sprint 6.0 + 1%% (got %.3f)" % Z.speed_for(Z.Variant.FAST, 6.0), is_equal_approx(Z.speed_for(Z.Variant.FAST, 6.0), 6.06))
+	_check("fast follows a retuned sprint", is_equal_approx(Z.speed_for(Z.Variant.FAST, 7.0), 7.07))
+	for v in [Z.Variant.STANDARD, Z.Variant.FAT, Z.Variant.MASTER]:
+		_check("%s slower than a walking shooter (3 m/s)" % Z.NAMES[v], Z.speed_for(v, 6.0) < 3.0)
+	_check("vision for every variant", Z.NAMES.all(func(n): return Balance.ZOMBIE_3D.vision_m.get(n, 0.0) >= 10.0))
+	_check("hearing beyond sight", Balance.ZOMBIE_3D.hearing_m > Balance.ZOMBIE_3D.vision_m.master)
+	# melee reach still converts from 2D px (spec §5)
 	_check("melee reach ~1.09 m", absf(Z.m(Z.STATS[0].contact_px) - 1.09) < 0.01)
 	_check("one stat block + body per variant", Z.STATS.size() == 4 and Z.BODY.size() == 4 and Z.TINT.size() == 4)
 

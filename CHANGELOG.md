@@ -4,6 +4,22 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 10 — 3D conversion (in progress)
+- **Commander fog of war, camera, zombie speed / sight / hearing (2026-11-13, playtest).**
+  Fog (`scripts/3d/commander_fog.gd` + `shader/commander_fog.gdshader`): the 2D
+  ZombieLighting idea on the 3D city. A top-down SubViewport where each zombie is a
+  shadow-casting PointLight2D (radius = its sight) and each roof triangle a
+  LightOccluder2D gives "seen now"; a second, never-cleared SubViewport adds it up into
+  "explored". A full-screen quad on the commander layer shades each pixel by its world
+  XZ (from depth): unexplored near-black, explored dim, seen full; buildings never below
+  dim; bright light (torches, lamps, windows) glows through like the 2D flashlight glow.
+  Shooters / NPCs are drawn for the commander only while a zombie can see them (meshes
+  swap to render layer 4 otherwise), and only seen enemies can be right-clicked.
+  Camera: north-up and fixed-angle (classic RTS), Q/E turn 90° with a smooth snap
+  (XCOM-style), HOME back to north, middle-drag pans, tilt goes 50° -> 72° as you zoom
+  out; status line shows the facing. Zombies (`Balance.ZOMBIE_3D`): fast = the shooter's
+  sprint +1% (6.06 m/s), standard 2.0, fat 1.6, master 1.3 m/s; sight 20 m (fat 16,
+  master 30) with a line-of-sight check past buildings (`can_see`, also used to acquire
+  targets); gunshots heard at 70 m (was 3.7 m sight / 17 m hearing, converted from 2D).
 - **Zombie commander in 3D, first slice (2026-11-13).** `scripts/3d/commander.gd` on the v6
   scene: TAB swaps between the first-person shooter and a tilted, rotating RTS camera
   (WASD/edge pan, Q/E or MMB rotate, wheel zoom; never drops below the roof under it).

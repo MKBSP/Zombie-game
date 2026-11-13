@@ -4,9 +4,13 @@ extends Node3D
 ## scripts/zombie_controller.gd. TAB swaps between it and the first-person
 ## shooter in the same scene, so one person can test both sides. Bakes the
 ## navmesh and spawns the horde (scripts/3d/zombie_3d.gd) itself for now.
-## Not here yet: fog of war (S8), minimap, networking, the real HUD.
+## Fog of war: scripts/3d/commander_fog.gd. Not here yet: minimap, networking,
+## the real HUD.
 ##
-## Camera  WASD / arrows / screen edge pan, Q/E or middle-drag rotate, wheel zoom
+## Camera  north-up and fixed-angle like a classic RTS; Q/E turn it 90 degrees
+##         (XCOM-style snaps, to see the other side of a street), HOME back to
+##         north. WASD / arrows / screen edge / middle-drag pan, wheel zoom; the
+##         camera tilts toward top-down as it zooms out.
 ## Select  LMB click or drag a box (SHIFT adds), CTRL+A all, ESC clear / cancel
 ## Orders  RMB move, or attack the enemy under the cursor
 ## Groups  CTRL+1-9 save, 1-9 recall
@@ -17,9 +21,11 @@ extends Node3D
 ## `fade`); zombies also show a rim silhouette through anything still in front.
 
 const Z := preload("res://scripts/3d/zombie_3d.gd")
+const Fog := preload("res://scripts/3d/commander_fog.gd")
 const B := preload("res://scripts/balance.gd")
 const VIEWMODEL_LAYER := 2
-const PITCH := 0.96          # ~55 deg below the horizon
+const PITCH_NEAR := 0.87     # ~50 deg below the horizon, zoomed in
+const PITCH_FAR := 1.26      # ~72 deg, zoomed out
 const DIST_MIN := 10.0
 const DIST_MAX := 110.0
 const EDGE_PX := 24.0
@@ -42,6 +48,7 @@ var _player: Node3D
 var _rig: Node
 var _focus := Vector3.ZERO
 var _yaw := 0.0
+var _yaw_target := 0.0      # multiples of 90 deg; 0 = looking north (-Z)
 var _dist := 45.0
 var _groups := {}
 var _drag_from := Vector2.ZERO
@@ -60,6 +67,7 @@ var _event: Label
 var _banner: Label
 var _box: Panel
 var _region: NavigationRegion3D
+var _fog: Fog
 var _event_t := 0.0
 
 
@@ -90,6 +98,11 @@ func _ready() -> void:
 	add_child(_cam)
 	_build_hud()
 	_bake_nav()
+	var city := get_node_or_null(city_path)
+	if city:
+		_fog = Fog.new()
+		add_child(_fog)
+		_fog.setup(city, _cam)
 	set_active(start_active)
 
 
@@ -156,12 +169,14 @@ func set_active(on: bool) -> void:
 				_fp_layers.append(cl)
 	for cl in _fp_layers:
 		cl.visible = not on
+	var body := _player.get_node_or_null("MeshInstance3D") if _player else null
+	if body:  # first person hides its own capsule; the commander needs to see it
+		body.visible = on
 	_hud.visible = on
 	if on:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		if _player:
+		if _player and selected.is_empty():
 			_focus = _player.global_position
-			_yaw = _player.global_rotation.y
 		_cam.current = true
 	else:
 		_pending = -1
@@ -192,8 +207,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton:
 		_mouse_button(event)
 	elif event is InputEventMouseMotion:
-		if Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):
-			_yaw -= event.relative.x * 0.008
+		if Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):  # drag the map
+			_focus -= Basis(Vector3.UP, _yaw) * Vector3(event.relative.x, 0, event.relative.y) * _dist * 0.0016
 		elif _pressing and not _dragging and event.position.distance_to(_drag_from) > 6.0:
 			_dragging = true
 		if _dragging:
@@ -224,6 +239,9 @@ func _key(e: InputEventKey) -> void:
 		KEY_G:
 			_rally_armed = true
 			_say("Rally: right-click where the horde goes")
+		KEY_Q: _yaw_target += PI / 2
+		KEY_E: _yaw_target -= PI / 2
+		KEY_HOME: _yaw_target = roundf(_yaw / TAU) * TAU
 
 
 func _mouse_button(e: InputEventMouseButton) -> void:
@@ -266,7 +284,7 @@ func _mouse_button(e: InputEventMouseButton) -> void:
 			return
 		if selected.is_empty():
 			return
-		var enemy := _pick(e.position, _enemies())
+		var enemy := _pick(e.position, _fog.visible_enemies if _fog else _enemies())
 		if enemy:
 			for z in _free_units():
 				z.set_attack_target(enemy)
@@ -283,7 +301,9 @@ func _process(delta: float) -> void:
 	if not active:
 		return
 	_pan(delta)
-	var pos := _focus + Basis(Vector3.UP, _yaw) * Vector3(0, sin(PITCH), cos(PITCH)) * _dist
+	_yaw = lerpf(_yaw, _yaw_target, minf(delta * 8.0, 1.0))
+	var pitch := lerpf(PITCH_NEAR, PITCH_FAR, inverse_lerp(DIST_MIN, DIST_MAX, _dist))
+	var pos := _focus + Basis(Vector3.UP, _yaw) * Vector3(0, sin(pitch), cos(pitch)) * _dist
 	# Stay above the roofline (spec D2): never inside a building when zoomed in.
 	var roof := get_world_3d().direct_space_state.intersect_ray(
 			PhysicsRayQueryParameters3D.create(Vector3(pos.x, 300.0, pos.z), Vector3(pos.x, -1.0, pos.z), 1))
@@ -305,10 +325,6 @@ func _pan(delta: float) -> void:
 		dir.x -= 1
 	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
 		dir.x += 1
-	if Input.is_key_pressed(KEY_Q):
-		_yaw += delta * 1.6
-	if Input.is_key_pressed(KEY_E):
-		_yaw -= delta * 1.6
 	var mp := get_viewport().get_mouse_position()
 	var vs := get_viewport().get_visible_rect().size
 	if DisplayServer.window_is_focused() and Rect2(Vector2.ZERO, vs).has_point(mp) and not _dragging:
@@ -449,9 +465,10 @@ func _end_merge(mg: Dictionary) -> void:
 
 # --- noise --------------------------------------------------------------------------
 
-## Gunshot from the first-person weapons (scripts/3d/viewmodel.gd).
+## Gunshot from the first-person weapons (scripts/3d/viewmodel.gd): the
+## commander hears it anywhere, as in 2D (ripple), even through the fog.
 func hear_gunshot(pos: Vector3) -> void:
-	_ping(pos, Color(1.0, 0.55, 0.1), Z.m(B.AGGRO.ripple_radius) * 2.0)
+	_ping(pos, Color(1.0, 0.55, 0.1), 5.0)
 	_say("Gunshot")
 
 
@@ -520,7 +537,7 @@ func _build_hud() -> void:
 	add_child(_hud)
 	var help := Label.new()
 	help.position = Vector2(14, 10)
-	help.text = "ZOMBIE COMMANDER  (TAB: shooter)\nWASD/edge pan · Q/E or MMB rotate · wheel zoom\nLMB select / box (SHIFT add) · CTRL+A all · RMB move / attack\nCTRL+1-9 save group · 1-9 recall · ESC clear"
+	help.text = "ZOMBIE COMMANDER  (TAB: shooter)\nWASD/edge/MMB-drag pan · Q/E turn 90° · HOME north · wheel zoom\nLMB select / box (SHIFT add) · CTRL+A all · RMB move / attack\nCTRL+1-9 save group · 1-9 recall · ESC clear"
 	_outline(help)
 	_hud.add_child(help)
 	_status = Label.new()
@@ -600,7 +617,8 @@ func _update_status() -> void:
 	var parts := []
 	for k in n:
 		parts.append("%d %s" % [n[k], k])
-	var t := "Horde %d · selected %d" % [_units().size(), selected.size()]
+	var facing: String = ["N", "W", "S", "E"][posmod(roundi(_yaw_target / (PI / 2)), 4)]
+	var t := "Facing %s · horde %d · selected %d" % [facing, _units().size(), selected.size()]
 	if not selected.is_empty():
 		var z0 = selected[0]
 		t += " (%s) · HP %d%% · %s · %s" % [", ".join(parts), roundi(hp / selected.size() * 100.0),

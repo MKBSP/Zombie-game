@@ -952,7 +952,6 @@ func _try_reload() -> void:
 func _shoot(d: Resource) -> void:
 	var origin := _cam.global_position
 	var space := get_world_3d().direct_space_state
-	get_tree().call_group("noise_listeners", "hear_gunshot", origin)  # zombie sound aggro
 	for i in d.pellets:
 		var r: float = _player.reticle_radius * pow(randf(), 1.0 / 3.0)
 		var target: Vector3 = _player.reticle_point + Vector3(randfn(0, 1), randfn(0, 1), randfn(0, 1)).normalized() * r

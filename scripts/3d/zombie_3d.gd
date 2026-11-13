@@ -1,7 +1,9 @@
 extends CharacterBody3D
 ## 3D zombie unit (Phase 10 slice for the commander): a placeholder capsule per
 ## variant, run by the 2D stance machine ported from scenes/zombie/zombie.gd —
-## same Balance numbers, pixels converted at Balance.FP.px_per_m. Orders come
+## same Balance numbers, pixels converted at Balance.FP.px_per_m, except speed,
+## sight and hearing, which are 3D-only (Balance.ZOMBIE_3D). Sight needs a clear
+## line past the buildings (can_see). Orders come
 ## from scripts/3d/commander.gd. First-person weapon hits land in take_hit()
 ## (one HP pool for now; per-part HP is S5). Commander-only markers (selection
 ## ring, stance dot, rim silhouette through walls) sit on render layer
@@ -15,6 +17,8 @@ enum Movement { FREE, FLEE, PATROL }
 enum FleeTrigger { ON_SIGHT, ON_DAMAGE, IDLE }
 
 const COMMANDER_LAYER := 4  # render layer 3
+const EYE := Vector3(0, 1.6, 0)
+const FALLBACK_SPRINT := 6.0  # test_player.sprint_speed, if no shooter is around
 const STATS := [B.ZOMBIE, B.FAST, B.FAT, B.MASTER]
 ## Placeholder capsule [radius, height] + colour per variant, until the models land.
 const BODY := [[0.3, 1.75], [0.27, 1.65], [0.5, 1.9], [0.42, 2.2]]
@@ -71,10 +75,11 @@ func _ready() -> void:
 	add_to_group("zombies")
 	add_to_group("noise_listeners")
 	var s: Dictionary = STATS[variant]
-	speed = m(s.speed)
+	var sh := get_tree().get_first_node_in_group("shooter")
+	speed = speed_for(variant, sh.get("sprint_speed") if sh and sh.get("sprint_speed") else FALLBACK_SPRINT)
 	max_hp = s.max_hp
 	hp = max_hp
-	vision_m = m(s.vision * 64.0)  # 2D vision is in 64 px tiles
+	vision_m = B.ZOMBIE_3D.vision_m[NAMES[variant]]
 	reach_m = m(s.contact_px)
 	damage_per_hit = s.damage_per_hit
 	attack_interval = s.attack_interval
@@ -256,24 +261,62 @@ func _attack_range() -> float:
 	return m(B.STANCE.hold_attack_px) if combat_stance == Combat.HOLD else reach_m
 
 
-## Nearest live shooter / NPC within radius (default: vision), or null.
+## Nearest live shooter / NPC within radius (default: vision) that this zombie
+## can see (bite range needs no sight line), or null.
 func _acquire_enemy(radius := -1.0) -> Node3D:
+	if radius < 0.0:
+		radius = vision_m
 	var nodes: Array = []
 	var cands: Array = []
 	for grp in ["shooter", "npcs"]:
 		for n in get_tree().get_nodes_in_group(grp):
 			if n is Node3D:
+				var d := _flat(global_position, n.global_position)
 				nodes.append(n)
-				cands.append({pos = _xz(n.global_position), eligible = n.get("is_dead") != true})
-	var i := Targeting.nearest_index(_xz(global_position), cands, vision_m if radius < 0.0 else radius)
+				cands.append({pos = _xz(n.global_position), eligible = n.get("is_dead") != true \
+						and d <= radius and (d <= 2.0 or can_see(n.global_position))})
+	var i := Targeting.nearest_index(_xz(global_position), cands, radius)
 	return nodes[i] if i >= 0 else null
 
 
 func _seen_by_horde(pos: Vector3) -> bool:
-	var watchers: Array = []
-	for z in get_tree().get_nodes_in_group("zombies"):
-		watchers.append({pos = _xz(z.global_position), vision_px = z.vision_m})
-	return Targeting.visible_to_any(_xz(pos), watchers)
+	return seen_by_horde(get_tree(), pos)
+
+
+## Sight: within vision_m and no building in the way (people, props and lamps
+## don't block it). The commander's fog uses the same test to show enemies.
+func can_see(pos: Vector3) -> bool:
+	return _flat(global_position, pos) <= vision_m \
+			and buildings_clear(get_world_3d().direct_space_state, global_position + EYE, pos + Vector3.UP)
+
+
+static func seen_by_horde(tree: SceneTree, pos: Vector3) -> bool:
+	for z in tree.get_nodes_in_group("zombies"):
+		if not z.is_dead and z.visible and z.can_see(pos):
+			return true
+	return false
+
+
+static func buildings_clear(space: PhysicsDirectSpaceState3D, from: Vector3, to: Vector3) -> bool:
+	var ex: Array[RID] = []
+	for k in 4:
+		var q := PhysicsRayQueryParameters3D.create(from, to, 1)
+		q.exclude = ex
+		var hit := space.intersect_ray(q)
+		if hit.is_empty():
+			return true
+		var p: Node = hit.collider.get_parent()
+		if p and String(p.name).begins_with("Building"):
+			return false
+		ex.append(hit.rid)
+	return true
+
+
+## m/s: fast = the shooter's sprint + 1%, the rest from Balance.ZOMBIE_3D.
+static func speed_for(v: int, sprint: float) -> float:
+	if v == Variant.FAST:
+		return sprint * B.ZOMBIE_3D.fast_vs_sprint
+	return B.ZOMBIE_3D.speed_mps[NAMES[v]]
 
 
 func _bite(delta: float) -> void:
@@ -350,7 +393,7 @@ func set_merge_progress(p: float) -> void:
 
 ## Sound aggro: an Aggressive zombie within earshot heads for a gunshot.
 func hear_gunshot(pos: Vector3) -> void:
-	if combat_stance == Combat.AGGRESSIVE and _flat(pos, global_position) <= m(B.AGGRO.alert_radius_px):
+	if combat_stance == Combat.AGGRESSIVE and _flat(pos, global_position) <= B.ZOMBIE_3D.hearing_m:
 		_alert_point = pos
 		_alert_timer = B.AGGRO.alert_seconds
 

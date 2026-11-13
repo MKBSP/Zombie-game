@@ -182,6 +182,17 @@ const FP := {
 	scope_fov = 20.0,         # rifle aim FOV; everything else keeps the rig's aim_fov
 }
 
+# --- 3D zombies (scripts/3d/zombie_3d.gd) — 3D-only numbers -----------------
+# HP, damage and attack timing still come from ZOMBIE/FAST/FAT/MASTER above;
+# these replace the px-converted speed / sight / hearing, which read too slow
+# and too short in first person (2026-11-13 playtest).
+const ZOMBIE_3D := {
+	speed_mps = { standard = 2.0, fat = 1.6, master = 1.3 },
+	fast_vs_sprint = 1.01,      # fast zombie = the shooter's sprint speed + 1%
+	vision_m = { standard = 20.0, fast = 20.0, fat = 16.0, master = 30.0 },  # also the fog reveal
+	hearing_m = 70.0,           # a gunshot pulls Aggressive zombies this far
+}
+
 # --- 3D street lights (scripts/3d/street_light.gd + street_lights.gd) -------
 # A lamp's state comes from its position + seed, so every peer sees the same
 # lamps without syncing. Odds blend from `calm` to `wrecked` by a damage noise

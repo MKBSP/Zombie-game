@@ -25,9 +25,13 @@ https://opendatacommons.org/licenses/odbl/1-0/
 ## Characters
 
 **Adventurer** — Quaternius, via Poly Pizza. CC0 (public domain).
-Currently present inside `copenhagen_greybox.glb`; intended to replace the test
-capsule once the camera geometry is locked.
-https://poly.pizza/
+https://poly.pizza/m/5EGWBMpuXq — `assets/characters/adventurer.glb`, the 3D
+shooter's body (seen by the commander) and the planned NPC survivors. Also
+present inside `copenhagen_greybox.glb`.
+
+**Zombie** — bachosoftdesign, via Poly Pizza. **CC-BY 3.0: credit required**
+("Zombie by bachosoftdesign, CC-BY 3.0, via Poly Pizza"). Supporter-only
+download. https://poly.pizza/m/xqEzosAVYX — not in the project yet.
 
 ## Weapons
 

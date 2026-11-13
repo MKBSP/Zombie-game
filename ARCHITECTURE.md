@@ -127,8 +127,10 @@ scripts/3d/        # city_import.gd — post-import for the OSM city GLB: materi
                    #     explored textures -> full-screen quad (shader/commander_fog.gdshader); hides unseen enemies
                    #     (render layer 4 = drawn by shooter cameras, not the commander's)
                    #   zombie_3d.gd — 3D zombie unit: capsule placeholder + 2D stance machine in metres
+                   #   character_anim.gd — Idle/Walk/Run/Death for a Quaternius-rig model under a body
                    #     (render layer 3 = commander-only markers; group "noise_listeners" hears gunshots)
 assets/weapons/    # CC0 weapon GLBs + fp_arms.glb (baked by assets/blender/other/build_fp_arms.py)
+assets/characters/ # character GLBs (adventurer.glb, Quaternius CC0); licences in CREDITS.md
 shader/            # fog_zc.gdshader (zombie-controller fog; fog_of_war.gdshader removed)
                    #   city_building / city_ground.gdshader — procedural facades + ground,
                    #   driven by UV/UV2/vertex-colour data baked by

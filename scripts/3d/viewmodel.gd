@@ -225,6 +225,10 @@ var _smoke_tex: Texture2D
 var _decals: Array[Decal] = []
 var _shells: Array[Node3D] = []
 var _hud_ammo: Label
+var _hud_hp: Label
+var _hurt: ColorRect        # red flash on each bite
+var _dead: Label
+var _last_hp := -1
 var _scope: ColorRect
 
 
@@ -554,11 +558,37 @@ void fragment() {
 	_hud_ammo.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_hud_ammo.position = Vector2(-24, -20)
 	layer.add_child(_hud_ammo)
+	_hud_hp = Label.new()
+	_hud_hp.label_settings = ls
+	_hud_hp.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	_hud_hp.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hud_hp.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)  # bottom-left is the minimap
+	_hud_hp.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_hud_hp.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_hud_hp.position.y = -20
+	layer.add_child(_hud_hp)
+	_hurt = ColorRect.new()
+	_hurt.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_hurt.color = Color(0.6, 0.0, 0.0, 0.0)
+	_hurt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(_hurt)
+	_dead = Label.new()
+	_dead.label_settings = ls
+	_dead.set_anchors_preset(Control.PRESET_CENTER)
+	_dead.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_dead.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_dead.text = "YOU DIED - the zombies win\nENTER to restart"
+	_dead.visible = false
+	layer.add_child(_dead)
 
 
 # --- input -------------------------------------------------------------------
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _player.get("is_dead"):
+		if event is InputEventKey and event.pressed and (event as InputEventKey).keycode == KEY_ENTER:
+			get_tree().reload_current_scene()
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		var k := (event as InputEventKey).keycode
 		if k >= KEY_1 and k <= KEY_8:
@@ -602,7 +632,23 @@ func _apparent(local: Transform3D) -> Transform3D:
 
 # --- per frame -----------------------------------------------------------------
 
+## HP readout, a red flash per bite (stronger the closer to death), death screen.
+func _update_health(delta: float) -> void:
+	var hp: int = _player.get("hp") if _player.get("hp") != null else 0
+	if _last_hp >= 0 and hp < _last_hp:
+		_hurt.color.a = 0.25 + 0.3 * (1.0 - float(hp) / _player.max_hp)
+	_last_hp = hp
+	_hurt.color.a = 0.55 if _player.is_dead else move_toward(_hurt.color.a, 0.0, delta * 0.8)
+	_hud_hp.text = "HP %d" % hp
+	_hud_hp.modulate = Color(1, 0.35, 0.3) if hp < _player.max_hp * Balance.SHOOTER.injured_hp_frac else Color.WHITE
+	_dead.visible = _player.is_dead
+
+
 func _process(delta: float) -> void:
+	_update_health(delta)
+	if _player.get("is_dead"):
+		_geo.visible = false
+		return
 	# switching: holster, swap at the bottom, draw
 	if _pending >= 0:
 		_sw = move_toward(_sw, 1.0, delta / HOLSTER_TIME)

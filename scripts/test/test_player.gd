@@ -109,6 +109,15 @@ var aim_yaw: float = 0.0
 ## centre ray is pinned at the rest pitch and you can only aim at the ground.
 var aim_pitch_offset: float = 0.0
 ## True while RMB is held. Read by camera_rig.
+## Health, on the 2D shooter's rules (Balance.SHOOTER): zombie bites land in
+## take_damage(); hurt widens the reticle (2D debuff_injured / debuff_hurt);
+## at 0 the shooter is dead, stops moving and emits `died`.
+signal died
+var max_hp: int = Balance.SHOOTER.max_hp
+var hp: int = max_hp
+var is_dead := false
+var _dmg_acc := 0.0
+
 var aiming: bool = false
 var crouching: bool = false
 var sprinting: bool = false
@@ -194,6 +203,8 @@ func _wants_capture() -> bool:
 
 
 func _physics_process(delta: float) -> void:
+	if is_dead:
+		return
 	_time += delta
 	_update_stance(delta)
 
@@ -299,7 +310,33 @@ func _sync_mouse_mode() -> void:
 		_warp_cursor_to_aim()
 
 
+func take_damage(amount: float) -> void:
+	if is_dead:
+		return
+	_dmg_acc += amount
+	var whole := int(_dmg_acc)
+	if whole < 1:
+		return
+	_dmg_acc -= whole
+	hp = maxi(hp - whole, 0)
+	if hp == 0:
+		is_dead = true
+		aiming = false
+		died.emit()
+
+
+## Reticle growth from wounds, as the 2D aim debuffs: badly hurt below
+## injured_hp_frac, lightly below full.
+func hurt_spread() -> float:
+	var S: Dictionary = Balance.SHOOTER
+	if hp < max_hp * S.injured_hp_frac:
+		return 1.0 + S.debuff_hurt
+	return 1.0 + S.debuff_injured if hp < max_hp else 1.0
+
+
 func _unhandled_input(event: InputEvent) -> void:
+	if is_dead:
+		return
 	# Escape hatch out of a captured mouse, and a way back in.
 	if event.is_action_pressed("ui_cancel"):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -426,7 +463,7 @@ func _translucent(color: Color) -> StandardMaterial3D:
 
 func _update_reticle() -> void:
 	var t := smoothstep(0.0, 1.0, _blend)
-	var radius := lerpf(reticle_radius_hip, reticle_radius_aim, t) * _spread * spread_mult
+	var radius := lerpf(reticle_radius_hip, reticle_radius_aim, t) * _spread * spread_mult * hurt_spread()
 	reticle_radius = radius
 	var muzzle := global_position + Vector3(0.0, reticle_height, 0.0)
 

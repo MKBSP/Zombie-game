@@ -80,6 +80,8 @@ func _ready() -> void:
 		_fp_cam.cull_mask &= ~Z.COMMANDER_LAYER  # the shooter never sees commander markers
 	if _player:
 		_player.add_to_group("shooter")
+		if _player.has_signal("died"):
+			_player.died.connect(func(): _banner.text = "SHOOTER DOWN\nthe zombies win")
 		if _player is CollisionObject3D:
 			_player.set_collision_mask_value(2, true)  # bump into zombies
 	_cam = Camera3D.new()
@@ -175,8 +177,14 @@ func set_active(on: bool) -> void:
 				_fp_layers.append(cl)
 	for cl in _fp_layers:
 		cl.visible = not on
-	var body := _player.get_node_or_null("MeshInstance3D") if _player else null
-	if body:  # first person hides its own capsule; the commander needs to see it
+	# First person hides its own body; the commander needs to see it. "Body" is
+	# the character model (adventurer.glb), else the placeholder capsule.
+	var body: Node3D = null
+	if _player:
+		body = _player.get_node_or_null("Body")
+		if body == null:
+			body = _player.get_node_or_null("MeshInstance3D")
+	if body:
 		body.visible = on
 	_hud.visible = on
 	if on:

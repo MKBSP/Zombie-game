@@ -2,8 +2,10 @@
 
 [ext_resource type="PackedScene" uid="uid://cmvqd8b8sm3q6" path="res://assets/city/westvillage_small.glb" id="1_cot1k"]
 [ext_resource type="Script" uid="uid://bwmmjf27gn5tp" path="res://scripts/test/test_player.gd" id="2_1k36r"]
+[ext_resource type="PackedScene" uid="uid://t110r54a0777" path="res://assets/characters/adventurer.glb" id="3_iq7d3"]
 [ext_resource type="Script" uid="uid://bd7ij1kbr57xb" path="res://scripts/test/camera_rig.gd" id="3_t84ee"]
 [ext_resource type="Script" uid="uid://jekxt6vjbrlq" path="res://scripts/3d/viewmodel.gd" id="4_0o553"]
+[ext_resource type="Script" uid="uid://dpfxs50vyds1d" path="res://scripts/3d/character_anim.gd" id="4_he66c"]
 [ext_resource type="Script" uid="uid://dq3bb0gq8adq6" path="res://scripts/test/test_hud.gd" id="4_tl0yi"]
 [ext_resource type="Script" uid="uid://dmq1h0f5jehh" path="res://scripts/3d/street_lights.gd" id="6_64dut"]
 [ext_resource type="Script" uid="uid://d32lcqq3k0phf" path="res://scripts/3d/commander.gd" id="7_bedqs"]
@@ -84,6 +86,10 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.5)
 transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 0, 0)
 material_override = SubResource("StandardMaterial3D_jikse")
 mesh = SubResource("CylinderMesh_o02lt")
+
+[node name="Body" parent="TestPlayer" unique_id=2029975018 instance=ExtResource("3_iq7d3")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 0, 0)
+script = ExtResource("4_he66c")
 
 [node name="CameraRig" type="Node3D" parent="." unique_id=1995213905]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 12)

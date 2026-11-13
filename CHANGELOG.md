@@ -4,6 +4,17 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 10 — 3D conversion (in progress)
+- **Shooter health + first character model (2026-11-13).** `test_player.gd` gets the 2D
+  shooter's health: `Balance.SHOOTER.max_hp` (100), whole-point damage with fractions
+  carried, wounds widen the reticle (`debuff_injured` +20%, `debuff_hurt` +40% below
+  half), death at 0 (`died`): the shooter freezes, the viewmodel shows a red death
+  screen (ENTER restarts) and the commander "SHOOTER DOWN - the zombies win". HP
+  readout bottom-centre, red flash per bite. Measured: three standard zombies kill in
+  ~4.5 s. The shooter's commander-visible body is now Quaternius' Adventurer
+  (`assets/characters/adventurer.glb`, CC0) with `scripts/3d/character_anim.gd`
+  playing Idle / Walk / Run from measured speed and Death once. The zombie model
+  (bachosoftdesign, CC-BY 3.0) is supporter-only on Poly Pizza, so it waits for a
+  manual download. `test/test_shooter_health.gd`.
 - **Zombie reactions, strict fog, free rotation (2026-11-13, second playtest).** Zombies
   no longer stay glued on: a 0.6 s beat to register a new target, then a fresh read of
   where it is every ~0.45 s (+-30%), momentum (`accel_mps2`, fast 8 m/s²) so a juke

@@ -24,6 +24,7 @@ const R0 := 0.1        # pole radius at the foot
 const R1 := 0.055      # ... and at the top
 const LENS := Vector3(0.0, 0.09, -1.9)  # lens centre, from the pole top
 const VIEWMODEL_LAYER := 2  # first-person arms have their own lights (viewmodel.gd)
+const DEBRIS_LAYER := 16    # physics layer 5: hit by bullet rays (all layers), not by bodies (mask 1)
 
 @export var state: State = State.AUTO:
 	set(v):
@@ -119,11 +120,11 @@ func _build() -> void:
 
 	var lower := _node(self)
 	_mesh(lower, _cyl(0.24, 0.24, 0.6), Vector3(0, -0.25, 0), "concrete")  # footing, mostly buried
-	_segment(lower, 0.0, b)
+	_segment(lower, 0.0, b, kind == State.TOPPLED)
 	var upper := _node(self if kind == State.SNAPPED else lower)
 	upper.position.y = b
 	if b < H:
-		_segment(upper, b, H)
+		_segment(upper, b, H, kind == State.SNAPPED or kind == State.FOLDED)
 	var top := _node(upper)
 	top.position.y = H - b
 	_head(top, kind == State.WORKING or kind == State.BLINKING)
@@ -281,10 +282,14 @@ func _scar(radius: float) -> void:
 	_mesh(self, _cyl(radius, radius, 0.02), Vector3(0, 0.012, 0), "dirt")
 
 
-func _segment(parent: Node3D, y0: float, y1: float) -> void:
+## debris: a piece lying on / hanging near the ground. Bullets still hit it,
+## but people and zombies step over it instead of snagging (DEBRIS_LAYER).
+func _segment(parent: Node3D, y0: float, y1: float, debris := false) -> void:
 	var h := y1 - y0
 	_mesh(parent, _cyl(_r(y1), _r(y0), h), Vector3(0, h / 2, 0), "metal")
 	var body := StaticBody3D.new()
+	if debris:
+		body.collision_layer = DEBRIS_LAYER
 	var cs := CollisionShape3D.new()
 	var sh := CylinderShape3D.new()
 	sh.radius = _r(y0)

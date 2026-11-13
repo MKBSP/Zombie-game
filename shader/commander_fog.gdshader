@@ -9,10 +9,8 @@ uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
 uniform sampler2D vis_tex : filter_linear;
 uniform sampler2D seen_tex : filter_linear;
 uniform vec4 map_rect;                 // x0, z0, width, depth in metres
-uniform float unexplored = 0.05;       // brightness never seen
-uniform float explored = 0.3;          // seen before, not now
-uniform float building_floor = 0.3;    // the commander knows the city
-uniform float glow_through = 0.7;      // bright light still reads in the fog
+uniform float explored = 0.3;          // seen before, not now (never seen = black)
+uniform float glow_through = 0.7;      // bright light still reads in explored fog
 
 void vertex() {
 	POSITION = vec4(VERTEX.xy, 1.0, 1.0);
@@ -33,21 +31,16 @@ void fragment() {
 	view.xyz /= view.w;
 	vec3 world = (INV_VIEW_MATRIX * vec4(view.xyz, 1.0)).xyz;
 	vec2 f = sample_fog(world.xz);
-	bool building = world.y > 0.3;
-	if (building) {
-		// a wall sits on the footprint edge: look a metre around so the side
-		// facing a seen street lights up
-		f = max(f, sample_fog(world.xz + vec2(1.2, 0.0)));
-		f = max(f, sample_fog(world.xz - vec2(1.2, 0.0)));
-		f = max(f, sample_fog(world.xz + vec2(0.0, 1.2)));
-		f = max(f, sample_fog(world.xz - vec2(0.0, 1.2)));
+	if (world.y > 0.3) {
+		// walls sit on the footprint edge: look half a metre around
+		f = max(f, sample_fog(world.xz + vec2(0.6, 0.0)));
+		f = max(f, sample_fog(world.xz - vec2(0.6, 0.0)));
+		f = max(f, sample_fog(world.xz + vec2(0.0, 0.6)));
+		f = max(f, sample_fog(world.xz - vec2(0.0, 0.6)));
 	}
-	float k = mix(unexplored, explored, clamp(f.y, 0.0, 1.0));
-	k = mix(k, 1.0, clamp(f.x, 0.0, 1.0));
-	if (building) {
-		k = max(k, building_floor);
-	}
+	float seen = clamp(f.y, 0.0, 1.0);
+	float k = mix(explored * seen, 1.0, clamp(f.x, 0.0, 1.0));
 	float lum = dot(col, vec3(0.299, 0.587, 0.114));
-	vec3 glow = col * smoothstep(0.25, 0.9, lum) * glow_through;
+	vec3 glow = col * smoothstep(0.25, 0.9, lum) * glow_through * seen;
 	ALBEDO = col * k + glow * (1.0 - k);
 }

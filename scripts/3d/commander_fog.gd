@@ -4,12 +4,14 @@ extends Node
 ## The city is building footprints pushed straight up, so street-level sight is
 ## a 2D problem, and this is the 2D game's ZombieLighting idea reused: a
 ## top-down SubViewport where every zombie is a shadow-casting PointLight2D
-## (radius = its vision) and every roof triangle a LightOccluder2D. White =
-## seen right now. A second SubViewport adds that up into "explored" memory.
+## (radius = its vision) and every building footprint a LightOccluder2D that
+## only casts from its far side, so seeing a building's front lights its whole
+## footprint (= "that building is known") and the shadow starts behind it.
+## White = seen right now. A second SubViewport adds that up into "explored".
 ## A full-screen quad on the commander's render layer then shades each pixel by
-## the state at its world XZ: unexplored near-black, explored dim, seen full.
-## Buildings never go below dim (the commander knows the city) and bright light
-## (torches, lamps, lit windows) still glows through, like the 2D flashlight glow.
+## the state at its world XZ: unexplored black (no streets, no buildings, no
+## light), explored dim with bright light (torches, lamps) glowing through,
+## seen full.
 ##
 ## Enemies (groups "shooter" / "npcs") are drawn for the commander only while a
 ## zombie can see them (Zombie3D.seen_by_horde): otherwise their meshes move to
@@ -19,6 +21,9 @@ const Z := preload("res://scripts/3d/zombie_3d.gd")
 const MPP := 0.5            # metres per fog pixel
 const HIDDEN_LAYER := 8     # render layer 4
 const LIGHT_TEX := 256
+## Footprints only cast shadow from their far edges, so a building whose front
+## a zombie sees is lit (known) inside. Matches outlines()' winding.
+const OCCLUDER_CULL := OccluderPolygon2D.CULL_COUNTER_CLOCKWISE
 
 var visible_enemies: Array = []
 var _rect := Rect2()        # map, world XZ
@@ -29,24 +34,24 @@ var _t := 0.0
 
 
 func setup(city: Node3D, cam: Camera3D) -> void:
-	var occluders: Array = []
-	for mi: MeshInstance3D in city.find_children("*", "MeshInstance3D", true, false):
+	var meshes := city.find_children("*", "MeshInstance3D", true, false)
+	for mi: MeshInstance3D in meshes:
 		var box: AABB = mi.global_transform * mi.get_aabb()
 		var r := Rect2(box.position.x, box.position.z, box.size.x, box.size.z)
 		_rect = r if _rect.size == Vector2.ZERO else _rect.merge(r)
+	var size := Vector2i((_rect.size / MPP).ceil())
+	var occluders: Array = []
+	for mi: MeshInstance3D in meshes:
 		if not String(mi.name).begins_with("Building"):
 			continue
 		for i in mi.mesh.get_surface_count():
 			var mat := mi.mesh.surface_get_material(i) as ShaderMaterial
-			if mat == null or not mat.get_shader_parameter("is_roof"):
-				continue
-			var a := mi.mesh.surface_get_arrays(i)
-			var v: PackedVector3Array = a[Mesh.ARRAY_VERTEX]
-			var idx: PackedInt32Array = a[Mesh.ARRAY_INDEX]
-			for t in range(0, idx.size(), 3):
-				occluders.append([mi.global_transform * v[idx[t]], mi.global_transform * v[idx[t + 1]],
-						mi.global_transform * v[idx[t + 2]]])
-	var size := Vector2i((_rect.size / MPP).ceil())
+			if mat and mat.get_shader_parameter("is_roof"):
+				var a := mi.mesh.surface_get_arrays(i)
+				var v := PackedVector2Array()
+				for p in a[Mesh.ARRAY_VERTEX]:
+					v.append(_px(mi.global_transform * p))
+				occluders.append_array(outlines(v, a[Mesh.ARRAY_INDEX]))
 
 	_vis = _viewport(size)
 	_vis.transparent_bg = false
@@ -56,10 +61,10 @@ func setup(city: Node3D, cam: Camera3D) -> void:
 	var white := ColorRect.new()
 	white.size = Vector2(size)
 	_vis.add_child(white)
-	for tri in occluders:
+	for loop in occluders:
 		var poly := OccluderPolygon2D.new()
-		poly.polygon = PackedVector2Array([_px(tri[0]), _px(tri[1]), _px(tri[2])])
-		poly.cull_mode = OccluderPolygon2D.CULL_DISABLED
+		poly.polygon = loop
+		poly.cull_mode = OCCLUDER_CULL
 		var occ := LightOccluder2D.new()
 		occ.occluder = poly
 		_vis.add_child(occ)
@@ -141,6 +146,47 @@ func _update_enemies() -> void:
 			if not g.has_meta("fog_layers"):
 				g.set_meta("fog_layers", g.layers)
 			g.layers = g.get_meta("fog_layers") if seen else HIDDEN_LAYER
+
+
+## Outer outlines of a triangulated roof (2D points + triangle indices): the
+## directed edges with no twin, chained into loops, all wound the same way.
+## Holes (courtyards) wind the other way and are dropped: from the street a
+## courtyard is as hidden as the building around it.
+static func outlines(v: PackedVector2Array, idx: PackedInt32Array) -> Array:
+	var key := func(p: Vector2) -> Vector2i: return Vector2i((p * 50.0).round())
+	var edges := {}
+	var tri_area := 0.0
+	for t in range(0, idx.size() - 2, 3):
+		var a := v[idx[t]]
+		var b := v[idx[t + 1]]
+		var c := v[idx[t + 2]]
+		tri_area += (b - a).cross(c - a)
+		for e in [[a, b], [b, c], [c, a]]:
+			edges[[key.call(e[0]), key.call(e[1])]] = e
+	var next := {}
+	for k in edges:
+		if not edges.has([k[1], k[0]]):
+			next[k[0]] = [k[1], edges[k][0]]
+	var loops: Array = []
+	while not next.is_empty():
+		var start: Vector2i = next.keys()[0]
+		var loop := PackedVector2Array()
+		var at := start
+		while next.has(at) and loop.size() < 4096:
+			var n: Array = next[at]
+			next.erase(at)
+			loop.append(n[1])
+			at = n[0]
+			if at == start:
+				break
+		var area := 0.0
+		for i in loop.size():
+			area += loop[i].cross(loop[(i + 1) % loop.size()])
+		if loop.size() >= 3 and signf(area) == signf(tri_area):
+			if area < 0.0:
+				loop.reverse()  # every outer loop counter-clockwise (y down)
+			loops.append(loop)
+	return loops
 
 
 func _px(p: Vector3) -> Vector2:

@@ -58,6 +58,14 @@ var _damaged_timer := 0.0
 var _alert_timer := 0.0
 var _alert_point := Vector3.ZERO
 var _cooldown := 0.0
+var accel := 5.0
+var _dt := 0.0
+var _chasing: Node3D = null    # the enemy being chased, as registered (see _chase)
+var _chased := false
+var _react_t := 0.0
+var _seen_pos := Vector3.ZERO
+var _seen_valid := false
+var _search_t := 0.0           # after losing sight: keep going to where it was last seen
 var _agent: NavigationAgent3D
 var _body: MeshInstance3D
 var _ring: MeshInstance3D
@@ -80,6 +88,7 @@ func _ready() -> void:
 	max_hp = s.max_hp
 	hp = max_hp
 	vision_m = B.ZOMBIE_3D.vision_m[NAMES[variant]]
+	accel = B.ZOMBIE_3D.accel_mps2[NAMES[variant]]
 	reach_m = m(s.contact_px)
 	damage_per_hit = s.damage_per_hit
 	attack_interval = s.attack_interval
@@ -137,8 +146,13 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if is_dead:
 		return
+	_dt = delta
+	if not _chased:
+		_chasing = null
+	_chased = false
 	_damaged_timer -= delta
 	_alert_timer -= delta
+	_search_t -= delta
 	_bite(delta)
 
 	# Merging overrides everything: walk to the merge point, no avoidance.
@@ -152,7 +166,7 @@ func _physics_process(delta: float) -> void:
 	if attack_target != null:
 		if _seen_by_horde(attack_target.global_position):
 			target = attack_target
-			_agent.target_position = attack_target.global_position
+			_chase(attack_target)
 			_move()
 			return
 		set_command(attack_target.global_position)  # lost sight: go to the last-seen spot
@@ -187,9 +201,30 @@ func _move() -> void:
 		_on_velocity_computed(v)
 
 
+## Head for where this zombie last registered the enemy: a beat to notice a new
+## one, then a fresh read every ~reaction_s. Until the first read it carries on
+## with whatever it was doing.
+func _chase(e: Node3D) -> void:
+	_chased = true
+	if e != _chasing:
+		_chasing = e
+		_seen_valid = false
+		_react_t = B.ZOMBIE_3D.notice_s
+	_react_t -= _dt
+	if _react_t <= 0.0:
+		_seen_pos = e.global_position
+		_seen_valid = true
+		_search_t = B.ZOMBIE_3D.search_s
+		_react_t = B.ZOMBIE_3D.reaction_s * randf_range(0.7, 1.3)
+	if _seen_valid:
+		_agent.target_position = _seen_pos
+
+
 func _on_velocity_computed(safe: Vector3) -> void:
-	velocity.x = safe.x
-	velocity.z = safe.z
+	# momentum: speed changes at most accel m/s^2, so it can't turn on a dime
+	var v := Vector2(velocity.x, velocity.z).move_toward(Vector2(safe.x, safe.z), accel * get_physics_process_delta_time())
+	velocity.x = v.x
+	velocity.z = v.y
 	velocity.y = 0.0 if is_on_floor() else velocity.y - 9.8 * get_physics_process_delta_time()
 	move_and_slide()
 	if Vector2(velocity.x, velocity.z).length() > 0.1:
@@ -203,7 +238,12 @@ func _free() -> void:
 		var e := _acquire_enemy()
 		if e:
 			target = e
-			_agent.target_position = e.global_position
+			_chase(e)
+		elif _search_t > 0.0:  # lost sight round a corner: run to where it was last seen
+			target = null
+			_agent.target_position = _seen_pos
+			if _flat(global_position, _seen_pos) < 1.0:
+				_search_t = 0.0  # got there, nothing in sight: give up
 		elif _alert_timer > 0.0:
 			target = null
 			_agent.target_position = _alert_point
@@ -220,7 +260,7 @@ func _patrol() -> void:
 		var e := _acquire_enemy()
 		if e:
 			target = e
-			_agent.target_position = e.global_position
+			_chase(e)
 			return
 		target = null
 	else:
@@ -238,7 +278,7 @@ func _parked(point: Vector3) -> void:
 		var e := _acquire_enemy()
 		if e and _flat(point, e.global_position) <= m(B.STANCE.leash_px):
 			target = e
-			_agent.target_position = e.global_position
+			_chase(e)
 			return
 		target = _acquire_enemy(_attack_range())
 	else:

@@ -110,10 +110,11 @@ then reimport. Look tuning lives in the shader uniforms (`lit_windows`,
 `window_glow`, `shop_chance`, ...).
 
 **Zombie commander (3D, first slice):** in the v6 scene press **TAB** to swap between
-the shooter and the commander. Camera: north-up; WASD / screen edge / middle-drag
-pan, Q/E turn 90°, HOME back to north, wheel zoom (tilts toward top-down as you zoom
-out). Fog of war: you see what your zombies see (20 m, blocked by buildings), explored
-streets stay dim, and the shooter only shows while a zombie has eyes on them. LMB select or drag a box (SHIFT adds), CTRL+A all, RMB move or
+the shooter and the commander. Camera: WASD / screen edge pan, Q/E or middle-drag
+rotate, HOME back to north, wheel zoom (tilts toward top-down as you zoom out). Fog
+of war: you see what your zombies see (20 m, blocked by buildings); never-seen areas
+are black, explored ones dim, and the shooter only shows while a zombie has eyes on
+them. Zombies react with a delay and momentum, and search the last-seen spot. LMB select or drag a box (SHIFT adds), CTRL+A all, RMB move or
 attack, CTRL+1-9 / 1-9 groups, Z aggressive, X hold, C free, V patrol (2 clicks),
 B flee (1 click), F merge 2 -> fast, T merge 3 -> fat, G + RMB rally, ESC clear; the
 same orders are on the buttons bottom-right. Zombies are capsules until the models

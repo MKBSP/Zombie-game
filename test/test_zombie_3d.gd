@@ -17,6 +17,8 @@ func _init() -> void:
 	for v in [Z.Variant.STANDARD, Z.Variant.FAT, Z.Variant.MASTER]:
 		_check("%s slower than a walking shooter (3 m/s)" % Z.NAMES[v], Z.speed_for(v, 6.0) < 3.0)
 	_check("vision for every variant", Z.NAMES.all(func(n): return Balance.ZOMBIE_3D.vision_m.get(n, 0.0) >= 10.0))
+	_check("momentum for every variant", Z.NAMES.all(func(n): return Balance.ZOMBIE_3D.accel_mps2.get(n, 0.0) > 0.0))
+	_check("reaction slower than one frame", Balance.ZOMBIE_3D.reaction_s > 0.1 and Balance.ZOMBIE_3D.notice_s > 0.1)
 	_check("hearing beyond sight", Balance.ZOMBIE_3D.hearing_m > Balance.ZOMBIE_3D.vision_m.master)
 	# melee reach still converts from 2D px (spec §5)
 	_check("melee reach ~1.09 m", absf(Z.m(Z.STATS[0].contact_px) - 1.09) < 0.01)

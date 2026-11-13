@@ -191,6 +191,13 @@ const ZOMBIE_3D := {
 	fast_vs_sprint = 1.01,      # fast zombie = the shooter's sprint speed + 1%
 	vision_m = { standard = 20.0, fast = 20.0, fat = 16.0, master = 30.0 },  # also the fog reveal
 	hearing_m = 70.0,           # a gunshot pulls Aggressive zombies this far
+	# Reaction, "like in real life": a beat to register a new target, then a fresh
+	# read of where it is only this often (+-30%), and momentum (m/s^2) so a juke
+	# or a corner makes them overshoot instead of staying glued on.
+	notice_s = 0.6,
+	reaction_s = 0.45,
+	search_s = 5.0,             # lost sight: keeps heading to the last-seen spot this long
+	accel_mps2 = { standard = 5.0, fast = 8.0, fat = 3.0, master = 3.0 },
 }
 
 # --- 3D street lights (scripts/3d/street_light.gd + street_lights.gd) -------

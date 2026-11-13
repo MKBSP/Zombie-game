@@ -4,6 +4,19 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 10 — 3D conversion (in progress)
+- **Zombie reactions, strict fog, free rotation (2026-11-13, second playtest).** Zombies
+  no longer stay glued on: a 0.6 s beat to register a new target, then a fresh read of
+  where it is every ~0.45 s (+-30%), momentum (`accel_mps2`, fast 8 m/s²) so a juke
+  overshoots, and after losing sight round a corner they run to the last-seen spot for
+  up to 5 s (`Balance.ZOMBIE_3D`). Measured: from contact a sprinting shooter opens 4 m
+  in 0.5 s and ~7 m by 1.5 s (was creeping away at ~0.5 m/s). Fog: never-seen is now
+  black for everything (no streets, buildings or window glow); building footprints are
+  single outlines that only shadow from their far side, so a seen facade makes its
+  building known and the shadow starts behind it; explored stays dim. Camera back to
+  free rotation (Q/E hold, middle-drag), HOME = north, compass shows 8 directions.
+  Street lights: lying / hanging debris moved to physics layer 5 (bullets hit it,
+  bodies step over it; a snapped lamp across the pavement was trapping zombies), and
+  standing poles are now baked into the navmesh.
 - **Commander fog of war, camera, zombie speed / sight / hearing (2026-11-13, playtest).**
   Fog (`scripts/3d/commander_fog.gd` + `shader/commander_fog.gdshader`): the 2D
   ZombieLighting idea on the 3D city. A top-down SubViewport where each zombie is a

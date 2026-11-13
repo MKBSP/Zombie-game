@@ -7,10 +7,9 @@ extends Node3D
 ## Fog of war: scripts/3d/commander_fog.gd. Not here yet: minimap, networking,
 ## the real HUD.
 ##
-## Camera  north-up and fixed-angle like a classic RTS; Q/E turn it 90 degrees
-##         (XCOM-style snaps, to see the other side of a street), HOME back to
-##         north. WASD / arrows / screen edge / middle-drag pan, wheel zoom; the
-##         camera tilts toward top-down as it zooms out.
+## Camera  WASD / arrows / screen edge pan, Q/E (hold) or middle-drag rotate freely
+##         (90-degree snaps didn't line up with the street grid), HOME back to
+##         north, wheel zoom; the camera tilts toward top-down as it zooms out.
 ## Select  LMB click or drag a box (SHIFT adds), CTRL+A all, ESC clear / cancel
 ## Orders  RMB move, or attack the enemy under the cursor
 ## Groups  CTRL+1-9 save, 1-9 recall
@@ -36,6 +35,7 @@ const ROOF_CLEAR := 4.0      # camera keeps this far above the roof under it
 @export var player_path: NodePath = ^"../TestPlayer"
 @export var fp_rig_path: NodePath = ^"../CameraRig"
 @export var city_path: NodePath = ^"../City"
+@export var lights_path: NodePath = ^"../StreetLights"  # standing poles go into the navmesh
 @export var horde_size := 15            # Balance.WORLD.base_zombie_count; + 1 master
 @export var spawn_point := Vector3(-35, 0, -4)  # on the long diagonal street, ~45 m from the shooter
 @export var start_active := false
@@ -48,7 +48,7 @@ var _player: Node3D
 var _rig: Node
 var _focus := Vector3.ZERO
 var _yaw := 0.0
-var _yaw_target := 0.0      # multiples of 90 deg; 0 = looking north (-Z)
+var _yaw_target := 0.0      # 0 = looking north (-Z); eased toward by _yaw
 var _dist := 45.0
 var _groups := {}
 var _drag_from := Vector2.ZERO
@@ -112,10 +112,16 @@ func _bake_nav() -> void:
 		push_warning("commander: no city at %s" % city_path)
 		return
 	city.add_to_group("nav_source")
+	var lights := get_node_or_null(lights_path)
+	if lights:  # street_lights.gd places its lamps on the first physics frame
+		await get_tree().physics_frame
+		await get_tree().physics_frame
+		lights.add_to_group("nav_source")
 	var nm := NavigationMesh.new()
 	nm.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
 	nm.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_GROUPS_WITH_CHILDREN
 	nm.geometry_source_group_name = &"nav_source"
+	nm.geometry_collision_mask = 1  # lamp debris (layer 5) stays walkable
 	nm.agent_radius = 0.5
 	nm.agent_height = 1.75   # whole 0.25 m cells (cell_height), or the baker warns
 	nm.agent_max_climb = 0.25
@@ -207,8 +213,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton:
 		_mouse_button(event)
 	elif event is InputEventMouseMotion:
-		if Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):  # drag the map
-			_focus -= Basis(Vector3.UP, _yaw) * Vector3(event.relative.x, 0, event.relative.y) * _dist * 0.0016
+		if Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):
+			_yaw_target -= event.relative.x * 0.008
 		elif _pressing and not _dragging and event.position.distance_to(_drag_from) > 6.0:
 			_dragging = true
 		if _dragging:
@@ -239,8 +245,6 @@ func _key(e: InputEventKey) -> void:
 		KEY_G:
 			_rally_armed = true
 			_say("Rally: right-click where the horde goes")
-		KEY_Q: _yaw_target += PI / 2
-		KEY_E: _yaw_target -= PI / 2
 		KEY_HOME: _yaw_target = roundf(_yaw / TAU) * TAU
 
 
@@ -325,6 +329,10 @@ func _pan(delta: float) -> void:
 		dir.x -= 1
 	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
 		dir.x += 1
+	if Input.is_key_pressed(KEY_Q):
+		_yaw_target += delta * 1.6
+	if Input.is_key_pressed(KEY_E):
+		_yaw_target -= delta * 1.6
 	var mp := get_viewport().get_mouse_position()
 	var vs := get_viewport().get_visible_rect().size
 	if DisplayServer.window_is_focused() and Rect2(Vector2.ZERO, vs).has_point(mp) and not _dragging:
@@ -537,7 +545,7 @@ func _build_hud() -> void:
 	add_child(_hud)
 	var help := Label.new()
 	help.position = Vector2(14, 10)
-	help.text = "ZOMBIE COMMANDER  (TAB: shooter)\nWASD/edge/MMB-drag pan · Q/E turn 90° · HOME north · wheel zoom\nLMB select / box (SHIFT add) · CTRL+A all · RMB move / attack\nCTRL+1-9 save group · 1-9 recall · ESC clear"
+	help.text = "ZOMBIE COMMANDER  (TAB: shooter)\nWASD/edge pan · Q/E or MMB-drag rotate · HOME north · wheel zoom\nLMB select / box (SHIFT add) · CTRL+A all · RMB move / attack\nCTRL+1-9 save group · 1-9 recall · ESC clear"
 	_outline(help)
 	_hud.add_child(help)
 	_status = Label.new()
@@ -617,7 +625,7 @@ func _update_status() -> void:
 	var parts := []
 	for k in n:
 		parts.append("%d %s" % [n[k], k])
-	var facing: String = ["N", "W", "S", "E"][posmod(roundi(_yaw_target / (PI / 2)), 4)]
+	var facing: String = ["N", "NW", "W", "SW", "S", "SE", "E", "NE"][posmod(roundi(_yaw / (PI / 4)), 8)]
 	var t := "Facing %s · horde %d · selected %d" % [facing, _units().size(), selected.size()]
 	if not selected.is_empty():
 		var z0 = selected[0]

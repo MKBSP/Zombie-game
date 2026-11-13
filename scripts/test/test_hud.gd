@@ -200,7 +200,7 @@ func _adapt_eyes(delta: float) -> void:
 	var target := 1.0 if torch_on else adapt_gain
 	var rate := (adapt_gain - 1.0) / (dazzle_time if torch_on else adapt_time)
 	_attrs.exposure_multiplier = move_toward(_attrs.exposure_multiplier, target, rate * delta)
-	_hint.text = "ESC frees mouse · F flashlight · Tab hide   eyes: x%.2f  torch %s" % [
+	_hint.text = "ESC frees mouse · F flashlight · H hide   eyes: x%.2f  torch %s" % [
 		_attrs.exposure_multiplier, "ON" if torch_on else "OFF"]
 
 
@@ -209,5 +209,5 @@ func _unhandled_input(event: InputEvent) -> void:
 		match (event as InputEventKey).keycode:
 			KEY_F:
 				_player.flashlight_enabled = not _player.flashlight_enabled
-			KEY_TAB:
+			KEY_H:  # Tab swaps to the zombie commander (scripts/3d/commander.gd)
 				_panel.visible = not _panel.visible

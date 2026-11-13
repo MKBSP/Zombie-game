@@ -109,6 +109,15 @@ sidewalk / crosswalk / backlot surfaces. Rebuild it from the source .blend with
 then reimport. Look tuning lives in the shader uniforms (`lit_windows`,
 `window_glow`, `shop_chance`, ...).
 
+**Zombie commander (3D, first slice):** in the v6 scene press **TAB** to swap between
+the shooter and the commander. Camera: WASD / screen edge pan, Q/E or middle-drag
+rotate, wheel zoom. LMB select or drag a box (SHIFT adds), CTRL+A all, RMB move or
+attack, CTRL+1-9 / 1-9 groups, Z aggressive, X hold, C free, V patrol (2 clicks),
+B flee (1 click), F merge 2 -> fast, T merge 3 -> fat, G + RMB rally, ESC clear; the
+same orders are on the buttons bottom-right. Zombies are capsules until the models
+land; there's no fog of war, minimap or NPCs yet. Code: `scripts/3d/commander.gd`,
+`scripts/3d/zombie_3d.gd`.
+
 **Street lights:** the v6 scene's `StreetLights` node lines every kerb with lamps
 at runtime (working, blinking, dead, sparking, or fallen in four builds). Each lamp's
 state is rolled from its position, so it's the same on every run and every peer. Odds

@@ -121,6 +121,10 @@ scripts/3d/        # city_import.gd — post-import for the OSM city GLB: materi
                    #   street_light.gd — StreetLight (@tool): lamp + its states; roll() = deterministic
                    #     state from position (calm/wrecked odds by damage noise, Balance.STREET_LIGHTS)
                    #   street_lights.gd — lines the road mesh's kerbs with StreetLights at runtime
+                   #   commander.gd — 3D zombie commander (TAB swap with the FP shooter): RTS camera,
+                   #     selection/orders/stances/groups/rally/merge, building fade, runtime navmesh bake
+                   #   zombie_3d.gd — 3D zombie unit: capsule placeholder + 2D stance machine in metres
+                   #     (render layer 3 = commander-only markers; group "noise_listeners" hears gunshots)
 assets/weapons/    # CC0 weapon GLBs + fp_arms.glb (baked by assets/blender/other/build_fp_arms.py)
 shader/            # fog_zc.gdshader (zombie-controller fog; fog_of_war.gdshader removed)
                    #   city_building / city_ground.gdshader — procedural facades + ground,

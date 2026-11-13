@@ -6,6 +6,7 @@
 [ext_resource type="Script" uid="uid://jekxt6vjbrlq" path="res://scripts/3d/viewmodel.gd" id="4_0o553"]
 [ext_resource type="Script" uid="uid://dq3bb0gq8adq6" path="res://scripts/test/test_hud.gd" id="4_tl0yi"]
 [ext_resource type="Script" uid="uid://dmq1h0f5jehh" path="res://scripts/3d/street_lights.gd" id="6_64dut"]
+[ext_resource type="Script" uid="uid://d32lcqq3k0phf" path="res://scripts/3d/commander.gd" id="7_bedqs"]
 
 [sub_resource type="Environment" id="Environment_ps6bg"]
 background_mode = 1
@@ -114,3 +115,6 @@ script = ExtResource("4_tl0yi")
 
 [node name="StreetLights" type="Node3D" parent="." unique_id=1874908734]
 script = ExtResource("6_64dut")
+
+[node name="Commander" type="Node3D" parent="." unique_id=1626631633]
+script = ExtResource("7_bedqs")

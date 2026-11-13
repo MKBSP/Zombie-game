@@ -4,6 +4,27 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 10 — 3D conversion (in progress)
+- **Zombie commander in 3D, first slice (2026-11-13).** `scripts/3d/commander.gd` on the v6
+  scene: TAB swaps between the first-person shooter and a tilted, rotating RTS camera
+  (WASD/edge pan, Q/E or MMB rotate, wheel zoom; never drops below the roof under it).
+  The 2D commander's controls and stances are ported as they are: click / box / SHIFT
+  select, CTRL+A, RMB move (sunflower spread so a group doesn't fight for one spot) or
+  attack the enemy under the cursor, CTRL+1-9 / 1-9 groups, G + RMB rally, aggressive /
+  hold, free / patrol / flee (sight, hit, idle), merge 2 -> fast and 3 -> fat (walk
+  together, lock 2 s per zombie; several merges can run at once). Gunshots from the
+  first-person weapons pull aggressive zombies within 17 m (`noise_listeners` group).
+  Buildings between the camera and its focus or any zombie dither out to ~10%
+  (`instance uniform fade` in `city_building.gdshader`); zombies also get a rim
+  silhouette through walls. Commander-only markers (rings, stance dots, pings,
+  silhouettes) sit on render layer 3, which the shooter's camera never draws; the
+  commander's camera has its own fog-free, moonlit environment.
+  `scripts/3d/zombie_3d.gd`: placeholder capsule per variant (standard / fast / fat /
+  master) with the 2D stance machine ported in metres (Balance px / `FP.px_per_m`);
+  first-person hits land in `take_hit` (one HP pool until per-part HP, S5).
+  Navmesh baked at runtime from the city colliders (~0.4 s), horde of 15 + master
+  spawned on the street ~45 m from the shooter. The tuning panel's hide key moved from
+  Tab to H. Not yet: fog of war, minimap, HUD design, NPCs, networking.
+  `test/test_zombie_3d.gd`.
 - **Street lights (2026-11-12).** `scripts/3d/street_light.gd` (`StreetLight`, `@tool`):
   a 7 m cobra-head lamp built from primitives, with a sodium spot (shadowed, distance-faded)
   and collision. States: working, blinking (on, stutters out, dark, stutters back), dead

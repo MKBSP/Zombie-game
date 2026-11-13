@@ -8,6 +8,17 @@ shader_type spatial;
 // doors + (sometimes) shopfronts, backs get plain windows, party walls none.
 render_mode cull_disabled;
 
+// Commander view: a building between the camera and a zombie dissolves to ~10%
+// (screen-door dither, so it stays in the opaque pass). Set per building by
+// scripts/3d/commander.gd with set_instance_shader_parameter("fade", 0..1).
+instance uniform float fade = 0.0;
+
+float bayer4(vec2 p) {
+	ivec2 i = ivec2(mod(p, 4.0));
+	int m[16] = int[](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);
+	return (float(m[i.y * 4 + i.x]) + 0.5) / 16.0;
+}
+
 uniform bool is_roof = false;
 uniform int side = 0; // 0 back, 1 alley, 2 street, 3 main (shop) street, 4 party wall
 uniform bool use_tint = false; // OSM building:colour was set
@@ -47,6 +58,9 @@ vec3 sign_color(float t) {
 }
 
 void fragment() {
+	if (fade > 0.0 && bayer4(FRAGCOORD.xy) < fade) {
+		discard;
+	}
 	float seed = COLOR.r;
 	float seed2 = COLOR.g;
 	vec3 alb;

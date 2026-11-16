@@ -21,6 +21,7 @@ extends Node3D
 
 const Z := preload("res://scripts/3d/zombie_3d.gd")
 const Fog := preload("res://scripts/3d/commander_fog.gd")
+const Npc := preload("res://scripts/3d/npc_3d.gd")
 const B := preload("res://scripts/balance.gd")
 const VIEWMODEL_LAYER := 2
 const PITCH_NEAR := 0.87     # ~50 deg below the horizon, zoomed in
@@ -73,6 +74,7 @@ var _event_t := 0.0
 
 func _ready() -> void:
 	add_to_group("noise_listeners")
+	add_to_group("commander")  # npc_3d.gd hands its zombie over on conversion
 	_player = get_node_or_null(player_path)
 	_rig = get_node_or_null(fp_rig_path)
 	_fp_cam = get_viewport().get_camera_3d()
@@ -150,7 +152,18 @@ func _spawn_horde() -> void:
 		_hook(z)
 		if i == 0:
 			z.died.connect(_on_master_died)
-	_say("Horde ready: %d + master" % horde_size)
+	# Survivors (world setup, here until S2 gives the 3D world its own spawner).
+	var avoid := [spawn_point]
+	if _player:
+		avoid.append(_player.global_position)
+	var npcs := Npc.spawn_all(get_parent(), Balance.NPC_3D.count, avoid, Balance.NPC_3D.spawn_min_m)
+	_say("Horde ready: %d + master · %d survivors out there" % [horde_size, npcs.size()])
+
+
+## A zombie joining the horde from elsewhere (an NPC that turned).
+func add_zombie(z: Node3D) -> void:
+	add_child(z)
+	_hook(z)
 
 
 func _on_master_died(_z: Node) -> void:
@@ -451,6 +464,7 @@ func _update_merges(delta: float) -> void:
 				for z in alive.slice(1):
 					z.visible = false
 					z.collision_layer = 0
+					z.set_hittable(false)
 		else:
 			mg.t += delta
 			alive[0].set_merge_progress(mg.t / mg.dur)
@@ -475,6 +489,7 @@ func _end_merge(mg: Dictionary) -> void:
 		if is_instance_valid(z):
 			z.visible = true
 			z.collision_layer = 2
+			z.set_hittable(true)
 			z.set_merging(false)
 	_merges.erase(mg)
 

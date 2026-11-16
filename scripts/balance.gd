@@ -200,6 +200,40 @@ const ZOMBIE_3D := {
 	accel_mps2 = { standard = 5.0, fast = 8.0, fat = 3.0, master = 3.0 },
 }
 
+# --- 3D NPC survivors (scripts/3d/npc_3d.gd) — 3D-only numbers --------------
+# Everything else (hide times, conversion, follow / formation, NPC aim) is the
+# 2D Balance.NPC block, pixels converted at FP.px_per_m.
+const NPC_3D := {
+	count = 10,                 # 2D: npc_per_player x (shooters + 1)
+	speed_mps = 2.7,            # 10% under the shooter's 3 m/s walk, as in 2D
+	catchup_m = 4.0,            # a follower further behind than this runs (90% of sprint)
+	vision_m = 20.0,            # armed followers shoot zombies they can see this far
+	# 2D NPC spread (coeff x distance) missed sideways only; in 3D the same radius
+	# misses in two directions and almost never hit. This brings the hit rate back
+	# to roughly the 2D "sloppy but useful".
+	aim_scale = 0.25,
+	recruit_m = 1.3,            # walk into a survivor to make it follow you
+	give_m = 3.0,               # interact reach for handing over / taking back a gun
+	spawn_min_m = 30.0,         # survivors start at least this far from shooter and horde
+	corpse_s = 12.0,
+}
+
+# --- 3D zombie part HP (spec 3d-conversion-design §6) -----------------------
+# Six pools per zombie: head, body, arm x2, leg x2. The body pool is the
+# variant's max_hp above. Head or body at 0 kills; limbs never do and never
+# bleed into the body. Limb multipliers are first guesses, expected to move.
+const ZOMBIE_PARTS := {
+	standard = { head = 35, arm = 40, leg = 50 },
+	fast = { head = 30, arm = 35, leg = 35 },
+	fat = { head = 105, arm = 90, leg = 120 },
+	master = { head = 140, arm = 70, leg = 90 },
+	hobble_speed = 0.5,         # one leg gone
+	crawl_speed = 0.2,          # both legs gone: crawls, hitbox at ground height
+	one_arm_interval = 1.6,     # attack_interval x this with one arm gone
+	no_arm_interval = 2.4,      # ...and with both (still attacks)
+	corpse_s = 12.0,            # how long a body lies there
+}
+
 # --- 3D street lights (scripts/3d/street_light.gd + street_lights.gd) -------
 # A lamp's state comes from its position + seed, so every peer sees the same
 # lamps without syncing. Odds blend from `calm` to `wrecked` by a damage noise

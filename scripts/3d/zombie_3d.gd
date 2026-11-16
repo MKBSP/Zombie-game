@@ -1,15 +1,21 @@
 extends CharacterBody3D
-## 3D zombie unit (Phase 10 slice for the commander): a placeholder capsule per
-## variant, run by the 2D stance machine ported from scenes/zombie/zombie.gd —
+## 3D zombie unit (Phase 10 slice for the commander): the zombie model
+## (scripts/3d/zombie_body.gd) on a capsule collider per variant, run by the 2D
+## stance machine ported from scenes/zombie/zombie.gd —
 ## same Balance numbers, pixels converted at Balance.FP.px_per_m, except speed,
 ## sight and hearing, which are 3D-only (Balance.ZOMBIE_3D). Sight needs a clear
 ## line past the buildings (can_see). Orders come
-## from scripts/3d/commander.gd. First-person weapon hits land in take_hit()
-## (one HP pool for now; per-part HP is S5). Commander-only markers (selection
+## from scripts/3d/commander.gd. First-person weapon hits land on the body's
+## bone hitboxes -> take_part_hit(): six HP pools (spec §6, Balance.ZOMBIE_PARTS),
+## death on head or body, a lost leg hobbles, two crawl, lost arms slow the
+## attack. The movement capsule is on physics layer 2, which weapon rays skip,
+## so a shot always lands on a part. Commander-only markers (selection
 ## ring, stance dot, rim silhouette through walls) sit on render layer
 ## COMMANDER_LAYER, which the first-person camera never draws.
 
 const B := preload("res://scripts/balance.gd")
+const Body := preload("res://scripts/3d/zombie_body.gd")
+const LIMBS := ["arm_l", "arm_r", "leg_l", "leg_r"]
 
 enum Variant { STANDARD, FAST, FAT, MASTER }
 enum Combat { AGGRESSIVE, HOLD }
@@ -20,8 +26,8 @@ const COMMANDER_LAYER := 4  # render layer 3
 const EYE := Vector3(0, 1.6, 0)
 const FALLBACK_SPRINT := 6.0  # test_player.sprint_speed, if no shooter is around
 const STATS := [B.ZOMBIE, B.FAST, B.FAT, B.MASTER]
-## Placeholder capsule [radius, height] + colour per variant, until the models land.
-const BODY := [[0.3, 1.75], [0.27, 1.65], [0.5, 1.9], [0.42, 2.2]]
+## Movement capsule [radius, height] per variant; rim colour for the commander.
+const BODY := [[0.3, 1.75], [0.3, 1.0], [0.45, 2.1], [0.4, 2.0]]
 const TINT := [Color(0.33, 0.45, 0.3), Color(0.75, 0.68, 0.2), Color(0.5, 0.36, 0.24), Color(0.55, 0.15, 0.5)]
 const NAMES := ["standard", "fast", "fat", "master"]
 
@@ -67,7 +73,11 @@ var _seen_pos := Vector3.ZERO
 var _seen_valid := false
 var _search_t := 0.0           # after losing sight: keep going to where it was last seen
 var _agent: NavigationAgent3D
-var _body: MeshInstance3D
+var _body: Body
+var _shape: CapsuleShape3D
+var parts := {}                # part -> hp left (head, body, arm_l/r, leg_l/r)
+var _base_speed := 1.0
+var _base_interval := 1.0
 var _ring: MeshInstance3D
 var _dot: MeshInstance3D
 
@@ -85,33 +95,33 @@ func _ready() -> void:
 	var s: Dictionary = STATS[variant]
 	var sh := get_tree().get_first_node_in_group("shooter")
 	speed = speed_for(variant, sh.get("sprint_speed") if sh and sh.get("sprint_speed") else FALLBACK_SPRINT)
+	_base_speed = speed
 	max_hp = s.max_hp
 	hp = max_hp
+	var pt: Dictionary = B.ZOMBIE_PARTS[NAMES[variant]]
+	parts = {head = pt.head, body = max_hp, arm_l = pt.arm, arm_r = pt.arm, leg_l = pt.leg, leg_r = pt.leg}
 	vision_m = B.ZOMBIE_3D.vision_m[NAMES[variant]]
 	accel = B.ZOMBIE_3D.accel_mps2[NAMES[variant]]
 	reach_m = m(s.contact_px)
 	damage_per_hit = s.damage_per_hit
 	attack_interval = s.attack_interval
+	_base_interval = attack_interval
 	collision_layer = 2       # zombies
-	collision_mask = 1 | 2    # world + other zombies (no walking through each other)
+	collision_mask = 1 | 2 | 8  # world + other zombies + NPCs (solid vs both, as in 2D)
 	var r: float = BODY[variant][0]
 	var h: float = BODY[variant][1]
-	var shape := CapsuleShape3D.new()
-	shape.radius = r
-	shape.height = h
+	_shape = CapsuleShape3D.new()
+	_shape.radius = r
+	_shape.height = h
 	var cs := CollisionShape3D.new()
-	cs.shape = shape
+	cs.shape = _shape
 	cs.position.y = h / 2
 	add_child(cs)
 
-	var cap := CapsuleMesh.new()
-	cap.radius = r
-	cap.height = h
-	_body = _mesh(cap, Vector3(0, h / 2, 0), _mat("body%d" % variant, TINT[variant]))
-	_mesh(_box(Vector3(r * 0.9, 0.12, 0.12)), Vector3(0, h * 0.82, -r * 0.9), _mat("face", Color(0.08, 0.06, 0.05)))
-	var xr := _mesh(cap, Vector3(0, h / 2, 0), _xray(TINT[variant]))
-	xr.layers = COMMANDER_LAYER
-	xr.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_body = Body.new()
+	add_child(_body)
+	_body.setup(self, variant)
+	_body.overlay(_xray(TINT[variant]), COMMANDER_LAYER)
 	var ring := TorusMesh.new()
 	ring.inner_radius = r + 0.12
 	ring.outer_radius = r + 0.24
@@ -187,6 +197,11 @@ func _physics_process(delta: float) -> void:
 	else:
 		_free()
 	_move()
+
+
+func _process(delta: float) -> void:
+	if not is_dead:
+		_body.animate(delta, Vector2(velocity.x, velocity.z).length())
 
 
 func _move() -> void:
@@ -370,9 +385,7 @@ func _bite(delta: float) -> void:
 			target.take_damage(damage_per_hit)
 		bit.emit(self, target, damage_per_hit)
 		_cooldown = attack_interval
-		var tw := create_tween()  # lunge
-		tw.tween_property(_body, "position:z", -0.25, 0.06)
-		tw.tween_property(_body, "position:z", 0.0, 0.1)
+		_body.attack()
 
 
 # --- orders -----------------------------------------------------------------------
@@ -422,13 +435,17 @@ func set_merging(on: bool, dest := Vector3.ZERO) -> void:
 	set_collision_mask_value(2, not on)
 	_agent.target_position = dest if on else global_position
 	if not on:
-		_body.scale = Vector3.ONE
+		_body.pulse(-1.0)
 
 
 ## Lock-in pulse, 0..1.
 func set_merge_progress(p: float) -> void:
-	var s := 1.0 + 0.12 * absf(sin(p * 30.0))
-	_body.scale = Vector3(s, 1.0, s)
+	_body.pulse(p)
+
+
+## Merge members hidden inside another can't be shot.
+func set_hittable(on: bool) -> void:
+	_body.set_hittable(on)
 
 
 ## Sound aggro: an Aggressive zombie within earshot heads for a gunshot.
@@ -444,20 +461,58 @@ func set_selected(on: bool) -> void:
 	_dot.visible = on
 
 
-## First-person weapon hit (scripts/3d/viewmodel.gd).
-func take_hit(damage: float, _pos: Vector3, _dir: Vector3) -> void:
-	take_damage(roundi(damage))
-
-
-func take_damage(amount: int) -> void:
-	if is_dead:
+## A weapon hit on one part (zombie_body.gd's hitboxes). No bleed: a limb hit
+## never touches the body pool (spec D6).
+func take_part_hit(part: String, damage: float) -> void:
+	if is_dead or parts.get(part, 0.0) <= 0.0:
 		return
-	hp -= amount
 	_damaged_timer = B.STANCE.damage_flee_window
-	if hp <= 0:
-		is_dead = true
-		died.emit(self)
-		queue_free()
+	parts[part] -= damage
+	hp = maxi(roundi(parts.body), 0)
+	if parts[part] > 0.0:
+		return
+	_body.destroy(part)
+	if part == "head" or part == "body":
+		_die()
+		return
+	var lost := LIMBS.filter(func(l): return parts[l] <= 0.0)
+	var fx := limb_effects(lost.count("leg_l") + lost.count("leg_r"), lost.count("arm_l") + lost.count("arm_r"))
+	speed = _base_speed * fx.x
+	_agent.max_speed = speed
+	attack_interval = _base_interval * fx.y
+	if lost.count("leg_l") + lost.count("leg_r") == 2 and not _body.crawling:
+		_body.crawling = true  # both legs gone: down on the ground, hitbox with it
+		_shape.height = 0.7
+		for c in get_children():
+			if c is CollisionShape3D:
+				c.position.y = 0.35
+
+
+## (speed multiplier, attack-interval multiplier) for lost legs / arms (spec D7, D8).
+static func limb_effects(legs_lost: int, arms_lost: int) -> Vector2:
+	var P: Dictionary = B.ZOMBIE_PARTS
+	var sp: float = [1.0, P.hobble_speed, P.crawl_speed][clampi(legs_lost, 0, 2)]
+	var iv: float = [1.0, P.one_arm_interval, P.no_arm_interval][clampi(arms_lost, 0, 2)]
+	return Vector2(sp, iv)
+
+
+## Untargeted damage (no part): the body pool.
+func take_damage(amount: int) -> void:
+	take_part_hit("body", amount)
+
+
+func _die() -> void:
+	is_dead = true
+	hp = 0
+	set_selected(false)
+	remove_from_group("zombies")
+	remove_from_group("noise_listeners")
+	collision_layer = 0
+	_agent.avoidance_enabled = false
+	velocity = Vector3.ZERO
+	_body.die()
+	died.emit(self)
+	get_tree().create_timer(B.ZOMBIE_PARTS.corpse_s).timeout.connect(queue_free)
 
 
 # --- helpers ----------------------------------------------------------------------

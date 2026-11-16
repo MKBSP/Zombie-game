@@ -128,6 +128,10 @@ scripts/3d/        # city_import.gd — post-import for the OSM city GLB: materi
                    #     (render layer 4 = drawn by shooter cameras, not the commander's)
                    #   zombie_3d.gd — 3D zombie unit: capsule placeholder + 2D stance machine in metres
                    #   character_anim.gd — Idle/Walk/Run/Death for a Quaternius-rig model under a body
+                   #   npc_3d.gd — NPC survivor: 2D states (hide/relocate/follow/convert), formation,
+                   #     armed shooting, hand-over; spawn_all() scatters them at hiding spots
+                   #   zombie_body.gd — zombie model: clips per variant/speed, root-motion strip, six
+                   #     bone hitboxes (physics layer 6) -> zombie_3d.take_part_hit, limb hiding
                    #     (render layer 3 = commander-only markers; group "noise_listeners" hears gunshots)
 assets/weapons/    # CC0 weapon GLBs + fp_arms.glb (baked by assets/blender/other/build_fp_arms.py)
 assets/characters/ # character GLBs (adventurer.glb, Quaternius CC0); licences in CREDITS.md

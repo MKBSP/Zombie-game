@@ -589,6 +589,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event is InputEventKey and event.pressed and (event as InputEventKey).keycode == KEY_ENTER:
 			get_tree().reload_current_scene()
 		return
+	if event.is_action_pressed("interact"):
+		_hand_over()
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		var k := (event as InputEventKey).keycode
 		if k >= KEY_1 and k <= KEY_8:
@@ -628,6 +631,25 @@ func _captured() -> bool:
 func _apparent(local: Transform3D) -> Transform3D:
 	var t := _cam.global_transform * Transform3D(Basis.from_scale(Vector3(_vm_k, _vm_k, 1.0)), Vector3.ZERO) * local
 	return Transform3D(Basis.looking_at(-t.basis.z, t.basis.y), t.origin)
+
+
+## Interact on a survivor that follows you: hand it the gun in your hand (full
+## ammo; the 3D test loadouts are unlimited), or take its gun back.
+func _hand_over() -> void:
+	var from := _cam.global_position
+	var q := PhysicsRayQueryParameters3D.create(from, from - _cam.global_transform.basis.z * Balance.NPC_3D.give_m, 8)
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	if hit.is_empty() or not hit.collider.has_method("receive_weapon") or hit.collider.get("shooter") != _player:
+		return
+	var npc: Object = hit.collider
+	if npc.weapon_id != -1:
+		npc.surrender_weapon()
+		return
+	var id: int = L.WEAPON[loadout]
+	if id < 0 or L.data(loadout).is_melee:
+		return
+	var a: Dictionary = L.new_ammo(id)
+	npc.receive_weapon(id, a.mag + a.reserve)
 
 
 # --- per frame -----------------------------------------------------------------
@@ -1003,6 +1025,7 @@ func _shoot(d: Resource) -> void:
 		var target: Vector3 = _player.reticle_point + Vector3(randfn(0, 1), randfn(0, 1), randfn(0, 1)).normalized() * r
 		var dir := (target - origin).normalized()
 		var q := PhysicsRayQueryParameters3D.create(origin, origin + dir * Balance.FP.max_range_m)
+		q.collision_mask = 0xFFFFFFFF & ~2  # skip zombies' movement capsules: hit their part hitboxes
 		q.exclude = [_player.get_rid()]
 		var hit := space.intersect_ray(q)
 		if hit.is_empty():
@@ -1065,15 +1088,25 @@ func _strike() -> void:
 	sq.shape = shape
 	sq.transform = Transform3D(Basis(), origin + fwd * (reach - half))
 	sq.exclude = [_player.get_rid()]
+	sq.collision_mask = 0xFFFFFFFF & ~2  # zombie part hitboxes, not their movement capsules
 	var now := Time.get_ticks_msec() / 1000.0
-	for res in space.intersect_shape(sq, 8):
-		if res.collider.has_method("take_hit"):
-			landed = true
-			var dmg: float = Balance.MELEE.damage * (Balance.MELEE.fatigue_mult if _fatigued else 1.0)
-			res.collider.take_hit(dmg, res.collider.global_position, fwd)
-			_melee_hits.append(now)
-			if MeleeMath.recent_hit_count(_melee_hits, now, Balance.MELEE.fatigue_window) >= Balance.MELEE.fatigue_hits:
-				_fatigued = true
+	var best := {}  # one part per zombie per swing: the one nearest the swing
+	for res in space.intersect_shape(sq, 16):
+		var c: Object = res.collider
+		if not c.has_method("take_hit"):
+			continue
+		var who: Object = c.get("unit") if c.get("unit") else c
+		var d: float = (c as Node3D).global_position.distance_to(sq.transform.origin)
+		if not best.has(who) or d < best[who][1]:
+			best[who] = [c, d]
+	for who in best:
+		var c: Node3D = best[who][0]
+		landed = true
+		var dmg: float = Balance.MELEE.damage * (Balance.MELEE.fatigue_mult if _fatigued else 1.0)
+		c.take_hit(dmg, c.global_position, fwd)
+		_melee_hits.append(now)
+		if MeleeMath.recent_hit_count(_melee_hits, now, Balance.MELEE.fatigue_window) >= Balance.MELEE.fatigue_hits:
+			_fatigued = true
 	if landed:
 		_hitstop = HITSTOP
 		_shake = 1.0

@@ -121,6 +121,13 @@ same orders are on the buttons bottom-right. Zombies are capsules until the mode
 land; there's no minimap or NPCs yet. Speed / sight / hearing: `Balance.ZOMBIE_3D`. Code: `scripts/3d/commander.gd`,
 `scripts/3d/zombie_3d.gd`.
 
+**Survivors (3D):** 10 NPCs hide around the v6 map and wander between hiding spots.
+Walk into one and it follows you; press E on a follower to hand it the gun in your
+hand (E again takes it back) and it fights once you start shooting. A zombie's bite
+turns a survivor into a zombie after 5 s; shooting one never does. The commander
+only sees them when a zombie does. Code: `scripts/3d/npc_3d.gd`; numbers in
+`Balance.NPC` (2D, converted) and `Balance.NPC_3D`.
+
 **Street lights:** the v6 scene's `StreetLights` node lines every kerb with lamps
 at runtime (working, blinking, dead, sparking, or fallen in four builds). Each lamp's
 state is rolled from its position, so it's the same on every run and every peer. Odds

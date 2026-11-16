@@ -113,6 +113,9 @@ var aim_pitch_offset: float = 0.0
 ## take_damage(); hurt widens the reticle (2D debuff_injured / debuff_hurt);
 ## at 0 the shooter is dead, stops moving and emits `died`.
 signal died
+## Breadcrumbs (world XZ) that following NPCs retrace single file (npc_3d.gd),
+## every Balance.NPC.breadcrumb_px, newest last, capped at trail_max.
+var trail := PackedVector2Array()
 var max_hp: int = Balance.SHOOTER.max_hp
 var hp: int = max_hp
 var is_dead := false
@@ -234,6 +237,7 @@ func _physics_process(delta: float) -> void:
 	velocity.x = direction.x * speed
 	velocity.z = direction.z * speed
 	move_and_slide()
+	_drop_breadcrumb()
 
 	_blend = move_toward(_blend, 1.0 if aiming else 0.0, delta / maxf(reticle_settle, 0.01))
 	_spread = lerpf(_spread, _stance_spread(input.length() > 0.1), 1.0 - exp(-spread_settle * delta))
@@ -308,6 +312,14 @@ func _sync_mouse_mode() -> void:
 	elif not want_capture and captured:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		_warp_cursor_to_aim()
+
+
+func _drop_breadcrumb() -> void:
+	var p := Vector2(global_position.x, global_position.z)
+	if trail.is_empty() or p.distance_to(trail[-1]) >= Balance.NPC.breadcrumb_px / Balance.FP.px_per_m:
+		trail.append(p)
+		if trail.size() > Balance.NPC.trail_max:
+			trail.remove_at(0)
 
 
 func take_damage(amount: float) -> void:

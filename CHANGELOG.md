@@ -4,6 +4,35 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 10 — 3D conversion (in progress)
+- **NPC survivors in 3D (2026-11-13).** `scripts/3d/npc_3d.gd`, ported from
+  `scenes/npc/npc_human.gd` with the same states and `Balance.NPC` numbers (px -> m):
+  hide 10-20 s beside a building, wander to a new spot via jittered waypoints; walk
+  into one and it follows your breadcrumb trail (`test_player.trail`) single file,
+  taking formation slots behind you when a zombie is near (`NpcFollow`, sticky threat
+  with hysteresis), running at 90% of your sprint to catch up; a zombie's bite starts
+  a 5 s "TURNING" conversion into a standard zombie handed to the commander; bullets
+  kill them and never make a zombie. Interact (E) on a follower hands it the gun in
+  your hand (or takes it back); armed followers fight once you fire (engagement
+  latch), with 2D NPC aim (`NpcAim`) scaled for 3D (`NPC_3D.aim_scale`), hold fire
+  when you're in the way, and their shots draw zombies. 10 survivors spawn at hiding
+  spots >= 30 m from you and the horde, on the Quaternius Business Man / Hoodie / Man
+  models (`character_anim.gd`, CC0); hidden from the commander unless a zombie sees
+  them. Fixed on the way: agents' "reached" radius must exceed the navmesh's ~0.45 m
+  float above the ground. `Balance.NPC_3D` holds the 3D-only numbers.
+- **Zombie model + per-part damage (2026-11-13).** `assets/characters/zombie.glb`
+  (bachosoftdesign, CC-BY 3.0 — credited in CREDITS.md) replaces the capsules via
+  `scripts/3d/zombie_body.gd`: standard walks (Walk2), fast is the running crawler
+  (Running_Crawl), fat (x1.3, green) and master (x1.2, purple) lumber (Walk); clips
+  speed up to match the body's real speed, their root motion is stripped once, attacks
+  squeeze Attack into 0.9 s, deaths play Die / Die2 and leave a corpse for 12 s.
+  Spec §6 lands: six bone-attached hitboxes (head, body, arms, legs) on physics layer
+  6, with `Balance.ZOMBIE_PARTS` pools; head or body at 0 kills, limbs never bleed;
+  one leg hobbles (x0.5), two crawl (x0.2, Crawl clip, low capsule), one arm slows the
+  attack (x1.6), two x2.4. A destroyed limb's bone is scaled to ~0 (spec §8.1 fallback).
+  Weapon rays and the bat skip the zombies' movement capsules (layer 2) so every shot
+  lands on a part; the bat hits one part per zombie per swing. Commander rim
+  silhouettes now follow the model. NPC models (Quaternius Man / Business Man /
+  Hoodie, CC0) added for the survivors.
 - **Shooter health + first character model (2026-11-13).** `test_player.gd` gets the 2D
   shooter's health: `Balance.SHOOTER.max_hp` (100), whole-point damage with fractions
   carried, wounds widen the reticle (`debuff_injured` +20%, `debuff_hurt` +40% below

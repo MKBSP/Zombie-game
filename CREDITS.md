@@ -31,7 +31,13 @@ present inside `copenhagen_greybox.glb`.
 
 **Zombie** — bachosoftdesign, via Poly Pizza. **CC-BY 3.0: credit required**
 ("Zombie by bachosoftdesign, CC-BY 3.0, via Poly Pizza"). Supporter-only
-download. https://poly.pizza/m/xqEzosAVYX — not in the project yet.
+download. https://poly.pizza/m/xqEzosAVYX — `assets/characters/zombie.glb`
+(+ its `zombie_ColorPalette.jpg`), every 3D zombie variant.
+
+**Man**, **Business Man**, **Hoodie Character** — Quaternius, via Poly Pizza. CC0
+(public domain). https://poly.pizza/m/HMnuH5geEG, https://poly.pizza/m/JFrLIKqvCH,
+https://poly.pizza/m/gKLBoRsyKe — `assets/characters/man.glb`, `business_man.glb`,
+`hoodie.glb`, the 3D NPC survivors.
 
 ## Weapons
 

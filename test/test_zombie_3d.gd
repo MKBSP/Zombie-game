@@ -20,6 +20,21 @@ func _init() -> void:
 	_check("momentum for every variant", Z.NAMES.all(func(n): return Balance.ZOMBIE_3D.accel_mps2.get(n, 0.0) > 0.0))
 	_check("reaction slower than one frame", Balance.ZOMBIE_3D.reaction_s > 0.1 and Balance.ZOMBIE_3D.notice_s > 0.1)
 	_check("hearing beyond sight", Balance.ZOMBIE_3D.hearing_m > Balance.ZOMBIE_3D.vision_m.master)
+	# --- part HP (spec §6): limbs slow, never kill ---
+	_check("no limbs lost: unchanged", Z.limb_effects(0, 0) == Vector2(1.0, 1.0))
+	_check("one leg: hobble x0.5", is_equal_approx(Z.limb_effects(1, 0).x, 0.5))
+	_check("two legs: crawl x0.2", is_equal_approx(Z.limb_effects(2, 0).x, 0.2))
+	_check("one arm: attack interval x1.6", is_equal_approx(Z.limb_effects(0, 1).y, 1.6))
+	_check("two arms: still attacks, x2.4", is_equal_approx(Z.limb_effects(0, 2).y, 2.4))
+	for n in Z.NAMES:
+		var pt: Dictionary = Balance.ZOMBIE_PARTS[n]
+		_check("%s has head / arm / leg pools" % n, pt.head > 0 and pt.arm > 0 and pt.leg > 0)
+	_check("pistol headshot one-shots a standard (spec: pistol 35)", Balance.ZOMBIE_PARTS.standard.head <= 35)
+	_check("fat head survives a rifle shot (spec)", Balance.ZOMBIE_PARTS.fat.head > 87.5)
+	# --- survivors vs zombies: a walking survivor outpaces a shambler, but its
+	# catch-up run (90% of the 6 m/s sprint) can't outrun a fast zombie ---
+	_check("survivor walks faster than a standard zombie", Balance.NPC_3D.speed_mps > Z.speed_for(Z.Variant.STANDARD, 6.0))
+	_check("fast zombie catches a running survivor", Z.speed_for(Z.Variant.FAST, 6.0) > 6.0 * 0.9)
 	# melee reach still converts from 2D px (spec §5)
 	_check("melee reach ~1.09 m", absf(Z.m(Z.STATS[0].contact_px) - 1.09) < 0.01)
 	_check("one stat block + body per variant", Z.STATS.size() == 4 and Z.BODY.size() == 4 and Z.TINT.size() == 4)

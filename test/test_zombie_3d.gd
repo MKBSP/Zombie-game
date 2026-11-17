@@ -26,6 +26,19 @@ func _init() -> void:
 	_check("two legs: crawl x0.2", is_equal_approx(Z.limb_effects(2, 0).x, 0.2))
 	_check("one arm: attack interval x1.6", is_equal_approx(Z.limb_effects(0, 1).y, 1.6))
 	_check("two arms: still attacks, x2.4", is_equal_approx(Z.limb_effects(0, 2).y, 2.4))
+	# --- what a hit did (crosshair marker, blood) ---
+	_check("hit", Z.hit_result(30.0, 10.0, "body") == Z.Hit.HIT)
+	_check("arm off", Z.hit_result(10.0, -2.0, "arm_l") == Z.Hit.LIMB)
+	_check("head kill", Z.hit_result(10.0, 0.0, "head") == Z.Hit.KILL)
+	_check("body kill", Z.hit_result(5.0, -1.0, "body") == Z.Hit.KILL)
+	_check("dead part ignores", Z.hit_result(0.0, -5.0, "leg_r") == Z.Hit.NONE)
+	_check("flinch is short", Balance.ZOMBIE_PARTS.flinch_s > 0.0 and Balance.ZOMBIE_PARTS.flinch_s < 0.5)
+	# --- crosshair hitmarker per result (viewmodel.gd) ---
+	var V = load("res://scripts/3d/viewmodel.gd")
+	_check("no marker for a miss or a non-zombie", V.marker_look(Z.Hit.NONE).is_empty() and V.marker_look(null).is_empty())
+	_check("hit marker white", V.marker_look(Z.Hit.HIT).color == Color.WHITE)
+	_check("limb marker not white", V.marker_look(Z.Hit.LIMB).color != Color.WHITE)
+	_check("kill marker bigger", V.marker_look(Z.Hit.KILL).scale > V.marker_look(Z.Hit.HIT).scale)
 	for n in Z.NAMES:
 		var pt: Dictionary = Balance.ZOMBIE_PARTS[n]
 		_check("%s has head / arm / leg pools" % n, pt.head > 0 and pt.arm > 0 and pt.leg > 0)

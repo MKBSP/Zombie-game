@@ -16,6 +16,41 @@ const WEAPON := [-1, -1, W.PISTOL, W.PISTOL, W.SHOTGUN, W.RIFLE, W.MACHINEGUN, W
 const TORCH_HAND := ["", "R", "", "L", "", "", "", ""]
 ## Balance.FP.camera_kick_deg key per weapon id.
 const KEY := {W.PISTOL: "pistol", W.SHOTGUN: "shotgun", W.RIFLE: "rifle", W.MACHINEGUN: "uzi", W.MELEE: "bat"}
+## What the shooter spawns holding. Pistol and torch are always carried; on top
+## of them, one heavy (shotgun / rifle / uzi) and one melee (bat), as in 2D.
+const START := PISTOL_TORCH
+
+
+## Loadouts the shooter can select: hands, torch and pistol always, plus the
+## heavy and the bat if carried. `all` = the debug cheat.
+static func available(heavy: int, melee: int, all: bool) -> Array:
+	if all:
+		return range(COUNT)
+	var out := [EMPTY, TORCH, PISTOL, PISTOL_TORCH]
+	for n in [SHOTGUN, RIFLE, UZI]:
+		if WEAPON[n] == heavy:
+			out.append(n)
+	if melee != -1:
+		out.append(BAT)
+	return out
+
+
+## Picking up weapon `id`: the new slots, the weapon dropped to make room (-1 =
+## none), and whether it was one already carried (refill its ammo instead).
+static func take(heavy: int, melee: int, id: int) -> Dictionary:
+	var out := {heavy = heavy, melee = melee, dropped = -1, refill = false}
+	var slot := "melee" if id == W.MELEE else "heavy"
+	if out[slot] == id:
+		out.refill = true
+	else:
+		out.dropped = out[slot]
+		out[slot] = id
+	return out
+
+
+## Stay on `loadout` if still selectable, else back to START.
+static func fallback(loadout: int, avail: Array) -> int:
+	return loadout if loadout in avail else START
 
 
 static func two_handed(loadout: int) -> bool:

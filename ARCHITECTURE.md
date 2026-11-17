@@ -118,8 +118,18 @@ scripts/3d/        # city_import.gd — post-import for the OSM city GLB: materi
                    #   viewmodel.gd — first-person arms/weapons/firing (child of the v6 camera)
                    #     (skinned arms posed per frame on grips; own FOV via X/Y stretch; own lights on render layer 2)
                    #   fp_loadout.gd — pure loadout + 2D ammo/reload rules (headless-tested)
+                   #   loot_crate.gd — supply crate: E opens it into 1-3 Pickup3D (LootTable + Balance.LOOT
+                   #     weights, own seeded rng; guarantee_weapon crate always has a weapon)
+                   #   loot_scatter.gd — pure seeded jittered-grid scatter (crates: random but even);
+                   #     LootCrate.spawn_all() feeds it the navmesh bounds and slides spots to walls
+                   #   pickup_3d.gd — loot on the ground (physics layer 7 = interact ray only): ammo mag,
+                   #     bandage, medpack, or a weapon via viewmodel.give() (the one it replaces drops)
+                   #   impact_fx.gd — shared hit effects: surface_of() (collider meta "surface", else
+                   #     normal -> ground/wall) + spawn() burst & bullet hole per Balance.IMPACT; used by
+                   #     shooter and survivor shots; particles() = idle one-shot burst (caller emits)
                    #   street_light.gd — StreetLight (@tool): lamp + its states; roll() = deterministic
-                   #     state from position (calm/wrecked odds by damage noise, Balance.STREET_LIGHTS)
+                   #     state from position (calm/wrecked odds by damage noise, Balance.STREET_LIGHTS);
+                   #     shatter() when a bullet hits its LensHitbox (glass gone -> dark or sparking)
                    #   street_lights.gd — lines the road mesh's kerbs with StreetLights at runtime
                    #   commander.gd — 3D zombie commander (TAB swap with the FP shooter): RTS camera,
                    #     selection/orders/stances/groups/rally/merge, building fade, runtime navmesh bake
@@ -128,10 +138,12 @@ scripts/3d/        # city_import.gd — post-import for the OSM city GLB: materi
                    #     (render layer 4 = drawn by shooter cameras, not the commander's)
                    #   zombie_3d.gd — 3D zombie unit: capsule placeholder + 2D stance machine in metres
                    #   character_anim.gd — Idle/Walk/Run/Death for a Quaternius-rig model under a body
-                   #   npc_3d.gd — NPC survivor: 2D states (hide/relocate/follow/convert), formation,
-                   #     armed shooting, hand-over; spawn_all() scatters them at hiding spots
+                   #   npc_3d.gd — NPC survivor: 2D states (hide/relocate/follow/convert) + flee/cower when a
+                   #     zombie sees it (react(): 20% cower); formation, armed shooting, hand-over;
+                   #     spot helpers shared with crates: spot_by_wall, cover_score, outdoors, reachable
                    #   zombie_body.gd — zombie model: clips per variant/speed, root-motion strip, six
-                   #     bone hitboxes (physics layer 6) -> zombie_3d.take_part_hit, limb hiding
+                   #     bone hitboxes (physics layer 6) -> zombie_3d.take_part_hit (returns Zombie3D.Hit),
+                   #     limb hiding + gore burst, flinch() on a hit that takes nothing off
                    #     (render layer 3 = commander-only markers; group "noise_listeners" hears gunshots)
 assets/weapons/    # CC0 weapon GLBs + fp_arms.glb (baked by assets/blender/other/build_fp_arms.py)
 assets/characters/ # character GLBs (adventurer.glb, Quaternius CC0); licences in CREDITS.md

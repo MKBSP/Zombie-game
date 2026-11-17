@@ -21,6 +21,8 @@ enum Variant { STANDARD, FAST, FAT, MASTER }
 enum Combat { AGGRESSIVE, HOLD }
 enum Movement { FREE, FLEE, PATROL }
 enum FleeTrigger { ON_SIGHT, ON_DAMAGE, IDLE }
+## What a hit did: nothing (part already gone / dead), hurt it, took a limb, killed it.
+enum Hit { NONE, HIT, LIMB, KILL }
 
 const COMMANDER_LAYER := 4  # render layer 3
 const EYE := Vector3(0, 1.6, 0)
@@ -463,18 +465,21 @@ func set_selected(on: bool) -> void:
 
 ## A weapon hit on one part (zombie_body.gd's hitboxes). No bleed: a limb hit
 ## never touches the body pool (spec D6).
-func take_part_hit(part: String, damage: float) -> void:
+func take_part_hit(part: String, damage: float) -> int:
 	if is_dead or parts.get(part, 0.0) <= 0.0:
-		return
+		return Hit.NONE
 	_damaged_timer = B.STANCE.damage_flee_window
+	var before: float = parts[part]
 	parts[part] -= damage
 	hp = maxi(roundi(parts.body), 0)
-	if parts[part] > 0.0:
-		return
+	var result := hit_result(before, parts[part], part)
+	if result == Hit.HIT:
+		_body.flinch()
+		return result
 	_body.destroy(part)
-	if part == "head" or part == "body":
+	if result == Hit.KILL:
 		_die()
-		return
+		return result
 	var lost := LIMBS.filter(func(l): return parts[l] <= 0.0)
 	var fx := limb_effects(lost.count("leg_l") + lost.count("leg_r"), lost.count("arm_l") + lost.count("arm_r"))
 	speed = _base_speed * fx.x
@@ -486,6 +491,15 @@ func take_part_hit(part: String, damage: float) -> void:
 		for c in get_children():
 			if c is CollisionShape3D:
 				c.position.y = 0.35
+	return result
+
+
+static func hit_result(before: float, after: float, part: String) -> int:
+	if before <= 0.0:
+		return Hit.NONE
+	if after > 0.0:
+		return Hit.HIT
+	return Hit.KILL if part == "head" or part == "body" else Hit.LIMB
 
 
 ## (speed multiplier, attack-interval multiplier) for lost legs / arms (spec D7, D8).

@@ -38,10 +38,10 @@ Keep this current: check items off here, move finished ones to the changelog.
       shooter and zombies (`NpcFollow.formation_slot`).
     - [x] 1 armed NPC → behind player, offset to one side; unarmed NPCs stack behind.
     - [x] 2 armed NPCs → one on each side of the player.
-- [ ] NPCs run away when spotted by zombies.
+- [x] NPCs run away when spotted by zombies (2026-11-17, 3D): 80% run for cover away from the zombie, 20% freeze and cower.
 - [ ] Order menu: `E` near an NPC → Stay / Equip / Go to point / Hold ground &
       shoot on sight / Hide (don't shoot unless attacked).
-- [ ] Fix the weapon "handover" to NPCs.
+- [x] Fix the weapon "handover" to NPCs (2026-11-17, 3D): the heavy and its real ammo move over and back.
 - [ ] NPC aim upgradeable in skill tree (base 20% aim debuff exists).
 - [ ] Tooltip: "Press E to equip {weapon}" when near an NPC (box tooltip done).
 - [ ] Humans can adopt dogs.
@@ -51,9 +51,9 @@ Keep this current: check items off here, move finished ones to the changelog.
 - [ ] Headshots: stop one-shotting zombies; too common. Options: smaller head
       hitbox / "tunnel" (bullet must fully cross the head box) / 5% proc chance
       on head hit, upgradeable via skill tree. (Smaller bullets alone didn't fix it.)
-- [ ] Damage animation (hit feedback).
+- [x] Damage animation (hit feedback) (2026-11-17, 3D): blood, flinch, limb gore, crosshair hitmarker.
 - [ ] Speed debuffs when injured: 50–99% hp → −10% speed; 1–49% hp → −20% speed.
-- [ ] Carry limits: max 2 handguns + 1 two-handed (rifle/shotgun/MG). (Melee limit of 1 done.)
+- [x] Carry limits (2026-11-17, 3D): pistol + torch always, one heavy, one melee (only one handgun exists in 3D). F9 cheat for all, debug builds.
 - [ ] Melee: knockback, combos, charge attacks.
 - [ ] Fear system (impact TBD).
 

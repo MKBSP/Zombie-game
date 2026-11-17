@@ -248,7 +248,7 @@ func _hip_pitch() -> float:
 		ViewMode.OVER_SHOULDER:
 			return _shoulder_pitch()
 		ViewMode.FIRST_PERSON:
-			return clampf(_pitch_offset(), -89.0, 60.0)
+			return clampf(_pitch_offset(), -89.0, 89.0)
 		_:
 			return -90.0
 
@@ -256,7 +256,7 @@ func _hip_pitch() -> float:
 func _aim_pitch_now() -> float:
 	match view_mode:
 		ViewMode.FIRST_PERSON:
-			return clampf(_pitch_offset(), -89.0, 60.0)
+			return clampf(_pitch_offset(), -89.0, 89.0)
 		_:
 			return _shoulder_pitch()
 

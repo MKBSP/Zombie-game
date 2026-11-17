@@ -172,6 +172,7 @@ const MELEE := {
 const FP := {
 	px_per_m = 35.0,          # 2D pixels per 3D metre (3d-conversion-design §5)
 	max_range_m = 150.0,      # hitscan ray length
+	pitch_deg = 85.0,         # how far the view looks up and down
 	pistol_reserve = 15,      # spare pistol rounds at start (2D shooter: one spare mag)
 	camera_kick_deg = {       # view punch per shot (peak, springs back), degrees
 		pistol = 1.6, shotgun = 5.0, rifle = 4.0, uzi = 0.8, bat = 0.0,
@@ -180,12 +181,53 @@ const FP := {
 		pistol = 0.3, shotgun = 1.0, rifle = 0.8, uzi = 0.22, bat = 0.0,
 	},
 	scope_fov = 20.0,         # rifle aim FOV; everything else keeps the rig's aim_fov
+	cheat_key = KEY_F9,       # debug builds only: every weapon, T refills (no carry limit)
+	hitmarker = {             # crosshair tick when a shot lands on a zombie
+		show_s = 0.18, hit = Color.WHITE, limb = Color(1.0, 0.6, 0.2), kill = Color(1.0, 0.15, 0.1), kill_scale = 1.5,
+	},
 }
 
 # --- 3D zombies (scripts/3d/zombie_3d.gd) — 3D-only numbers -----------------
 # HP, damage and attack timing still come from ZOMBIE/FAST/FAT/MASTER above;
 # these replace the px-converted speed / sight / hearing, which read too slow
 # and too short in first person (2026-11-13 playtest).
+# --- 3D loot (scripts/3d/loot_crate.gd + pickup_3d.gd) ---------------------
+# Crate contents use LOOT's item counts and weights; this is only the 3D placing.
+const LOOT_3D := {
+	crate_count = 14,          # spread evenly over the map (loot_scatter.gd)
+	min_sep_m = 30.0,          # no two crates closer
+	spawn_clear_m = 25.0,      # none this close to the shooter's start
+	burst_m = 1.5,             # items land this far around an opened crate
+	wall_reach_m = 8.0,        # a crate spot slides to a wall this close (else the spot is skipped)
+	seed = 1,                  # map layout; S10 passes the match seed instead
+}
+
+# --- 3D impacts (scripts/3d/impact_fx.gd) -----------------------------------
+# One look per surface a shot can hit. decal = leaves a bullet hole; count/life/
+# speed (min, max m/s)/gravity (m/s2)/size (min, max m) shape the burst; unshaded
+# glows (sparks), shaded only shows where light falls (dust).
+const IMPACT := {
+	decal_cap = 60,             # bullet holes kept, shooter and survivors together
+	ground = {decal = true, count = 12, life = 0.6, color = Color(0.62, 0.57, 0.5), unshaded = false,
+			speed = Vector2(0.8, 2.2), gravity = 4.0, size = Vector2(0.04, 0.09)},
+	wall = {decal = true, count = 10, life = 0.6, color = Color(0.72, 0.68, 0.6), unshaded = false,
+			speed = Vector2(0.8, 2.2), gravity = 4.0, size = Vector2(0.04, 0.09)},
+	metal = {decal = true, count = 14, life = 0.45, color = Color(1.0, 0.5, 0.12), unshaded = true,
+			speed = Vector2(1.0, 3.0), gravity = 5.0, size = Vector2(0.03, 0.07)},
+	glass = {decal = false, count = 24, life = 0.9, color = Color(0.8, 0.9, 1.0), unshaded = true,
+			speed = Vector2(0.5, 2.0), gravity = 9.8, size = Vector2(0.02, 0.05)},
+	wood = {decal = true, count = 10, life = 0.6, color = Color(0.45, 0.3, 0.17), unshaded = false,
+			speed = Vector2(1.0, 2.5), gravity = 7.0, size = Vector2(0.03, 0.07)},
+	# flesh = a hit on a zombie part or a survivor; gore = a part blown off. splat =
+	# blood lands on whatever is up to splat_m behind the hit (no hole in the body).
+	flesh = {decal = false, splat = true, count = 16, life = 0.5, color = Color(0.55, 0.03, 0.03), unshaded = false,
+			speed = Vector2(1.0, 3.0), gravity = 9.8, size = Vector2(0.03, 0.08)},
+	gore = {decal = false, splat = true, count = 40, life = 0.8, color = Color(0.5, 0.03, 0.03), unshaded = false,
+			speed = Vector2(1.5, 4.0), gravity = 9.8, size = Vector2(0.04, 0.12)},
+	splat_m = 2.5,
+	splat_size_m = 0.6,
+}
+
 const ZOMBIE_3D := {
 	speed_mps = { standard = 2.0, fat = 1.6, master = 1.3 },
 	fast_vs_sprint = 1.01,      # fast zombie = the shooter's sprint speed + 1%
@@ -215,6 +257,16 @@ const NPC_3D := {
 	recruit_m = 1.3,            # walk into a survivor to make it follow you
 	give_m = 3.0,               # interact reach for handing over / taking back a gun
 	spawn_min_m = 30.0,         # survivors start at least this far from shooter and horde
+	cover_ray_m = 4.0,          # cover_score: 8 rays this long count building walls around a spot
+	min_cover = 3,              # hiding spots need at least this (against a wall = 3, alley = 6)
+	spot_samples = 16,          # candidate spots tried per hiding-spot search
+	wall_reach_m = 8.0,         # a candidate slides to the nearest wall this close
+	# spotted by a zombie (hidden or relocating): one roll per sighting
+	freeze_chance = 0.2,        # cower where they are; else run for cover
+	flee_mps = 4.5,             # beats standard zombies (2.0), not fast ones (6.06)
+	flee_min_m = 18.0,          # the cover they run to is at least this far from the zombie
+	calm_s = 6.0,               # unseen this long: back to hiding
+	spot_check_s = 0.2,         # how often they look for zombies watching them
 	corpse_s = 12.0,
 }
 
@@ -232,6 +284,7 @@ const ZOMBIE_PARTS := {
 	one_arm_interval = 1.6,     # attack_interval x this with one arm gone
 	no_arm_interval = 2.4,      # ...and with both (still attacks)
 	corpse_s = 12.0,            # how long a body lies there
+	flinch_s = 0.25,            # a hit that doesn't take a part off jerks the zombie this long
 }
 
 # --- 3D street lights (scripts/3d/street_light.gd + street_lights.gd) -------
@@ -248,6 +301,7 @@ const STREET_LIGHTS := {
 	wrecked = { working = 6.0, blinking = 14.0, dead = 30.0, sparking = 16.0, fallen = 34.0 },
 	fallen_sparks = 0.35,     # chance a fallen lamp still has live wires
 	smashed_glass = 0.5,      # chance a dead / fallen lamp's lens is gone
+	shatter_spark_chance = 0.3,  # a lamp shot out keeps sparking (else just goes dark)
 	energy = 12.0,
 	range_m = 20.0,
 	angle_deg = 62.0,

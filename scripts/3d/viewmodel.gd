@@ -31,10 +31,14 @@ extends Node3D
 const L := preload("res://scripts/3d/fp_loadout.gd")
 const W := preload("res://scripts/weapons.gd")
 const MeleeMath := preload("res://scripts/melee.gd")
+const ImpactFx := preload("res://scripts/3d/impact_fx.gd")
+const Zombie3D := preload("res://scripts/3d/zombie_3d.gd")
+const Pickup3D := preload("res://scripts/3d/pickup_3d.gd")
 const ARMS: PackedScene = preload("res://assets/weapons/fp_arms.glb")
 
 const VIEW_SCALE := 0.1
 const VIEWMODEL_LAYER := 2           # keep in sync with test_player.VIEWMODEL_LAYER
+const INTERACT_LAYER := 64           # = ImpactFx.LOOT_LAYER: pickups; only the interact ray sees them
 const WORLD_LAYERS := 0xFFFFF & ~VIEWMODEL_LAYER
 const VM_FOV := 62.0
 const VM_FOV_ADS := 50.0
@@ -171,9 +175,12 @@ class Spring:
 
 
 @export var player_path: NodePath = ^"../../../TestPlayer"
-@export var start_loadout: int = L.PISTOL_TORCH
+@export var start_loadout: int = L.START
 
-var loadout := L.PISTOL_TORCH
+var loadout := L.START
+var heavy := -1          # carried heavy: Weapons.SHOTGUN / RIFLE / MACHINEGUN, or -1
+var melee := -1          # Weapons.MELEE when the bat is carried
+var cheat := false       # debug builds, F9: every weapon, no carry limit, T refills
 var _player: CharacterBody3D
 var _cam: Camera3D
 var _rig: Node
@@ -220,9 +227,7 @@ var _fill: OmniLight3D
 var _spill: OmniLight3D
 var _beam: MeshInstance3D
 var _beam_mesh: CylinderMesh
-var _decal_tex: Texture2D
 var _smoke_tex: Texture2D
-var _decals: Array[Decal] = []
 var _shells: Array[Node3D] = []
 var _hud_ammo: Label
 var _hud_hp: Label
@@ -230,6 +235,9 @@ var _hurt: ColorRect        # red flash on each bite
 var _dead: Label
 var _last_hp := -1
 var _scope: ColorRect
+var _marker: Control        # hitmarker: four ticks around the crosshair
+var _prompt: Label          # "E  open crate" etc. under the crosshair
+var _marker_t := 0.0
 
 
 func _ready() -> void:
@@ -240,6 +248,7 @@ func _ready() -> void:
 		set_process(false)
 		return
 	_rig = _cam.get_parent()
+	_player.aim_pitch_range = Balance.FP.pitch_deg
 	if _rig != null and "aim_fov" in _rig:
 		_base_aim_fov = _rig.aim_fov
 	_cam.near = 0.01
@@ -394,14 +403,6 @@ func _build_flash() -> void:
 	_flash_root.add_child(_flash_flame)
 	_flash_root.visible = false
 
-	# bullet hole: dark core, scorched rim
-	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
-	for y in 64:
-		for x in 64:
-			var r := Vector2(x - 31.5, y - 31.5).length() / 32.0
-			var a := 1.0 if r < 0.22 else clampf(1.0 - (r - 0.22) / 0.3, 0.0, 1.0) * 0.7
-			img.set_pixel(x, y, Color(0.03, 0.03, 0.03, a) if r < 0.22 else Color(0.12, 0.11, 0.1, a))
-	_decal_tex = ImageTexture.create_from_image(img)
 	var grad := Gradient.new()
 	grad.set_color(0, Color(1, 1, 1, 1))
 	grad.set_color(1, Color(1, 1, 1, 0))
@@ -580,6 +581,49 @@ void fragment() {
 	_dead.text = "YOU DIED - the zombies win\nENTER to restart"
 	_dead.visible = false
 	layer.add_child(_dead)
+	_marker = Control.new()
+	_marker.set_anchors_preset(Control.PRESET_CENTER)
+	_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for d in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+		var tick := Line2D.new()
+		tick.width = 2.5
+		tick.points = PackedVector2Array([d * 7.0, d * 15.0])
+		_marker.add_child(tick)
+	_marker.modulate.a = 0.0
+	layer.add_child(_marker)
+	var ps := LabelSettings.new()
+	ps.font_size = 16
+	ps.outline_size = 5
+	ps.outline_color = Color(0, 0, 0, 0.85)
+	_prompt = Label.new()
+	_prompt.label_settings = ps
+	_prompt.set_anchors_preset(Control.PRESET_CENTER)
+	_prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_prompt.position.y = 40
+	layer.add_child(_prompt)
+
+
+## Colour and size of the hitmarker for a Zombie3D.Hit; empty = no marker.
+static func marker_look(result) -> Dictionary:
+	var M: Dictionary = Balance.FP.hitmarker
+	match result:
+		Zombie3D.Hit.HIT:
+			return {color = M.hit, scale = 1.0}
+		Zombie3D.Hit.LIMB:
+			return {color = M.limb, scale = 1.0}
+		Zombie3D.Hit.KILL:
+			return {color = M.kill, scale = M.kill_scale}
+	return {}
+
+
+func _mark(result) -> void:
+	var look := marker_look(result)
+	if look.is_empty():
+		return
+	_marker.modulate = look.color
+	_marker.scale = Vector2.ONE * look.scale
+	_marker_t = Balance.FP.hitmarker.show_s
 
 
 # --- input -------------------------------------------------------------------
@@ -590,7 +634,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_tree().reload_current_scene()
 		return
 	if event.is_action_pressed("interact"):
-		_hand_over()
+		_interact()
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		var k := (event as InputEventKey).keycode
@@ -598,21 +642,28 @@ func _unhandled_input(event: InputEvent) -> void:
 			select(k - KEY_1)
 		elif k == KEY_R:
 			_try_reload()
-		elif k == KEY_T:
+		elif k == KEY_T and cheat:
 			for id in MODELS:
 				_ammo[id] = L.new_ammo(id)
+		elif k == Balance.FP.cheat_key and OS.is_debug_build():
+			cheat = not cheat
+			if cheat:
+				for id in MODELS:
+					_ammo[id] = L.new_ammo(id)
+			else:
+				select(L.fallback(_target(), _avail()))
 	elif event is InputEventMouseButton and event.pressed:
 		var b := event as InputEventMouseButton
 		if b.button_index == MOUSE_BUTTON_WHEEL_UP:
-			select(L.cycle(_target(), -1))
+			select(_cycle(-1))
 		elif b.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			select(L.cycle(_target(), 1))
+			select(_cycle(1))
 		elif b.button_index == MOUSE_BUTTON_LEFT and _captured():
 			_trigger()
 
 
 func select(n: int) -> void:
-	if n == _target():
+	if n == _target() or not n in _avail():
 		return
 	_pending = n
 	_reload_left = 0.0  # switching cancels a reload, as in 2D
@@ -620,6 +671,32 @@ func select(n: int) -> void:
 
 func _target() -> int:
 	return _pending if _pending >= 0 else loadout
+
+
+func _avail() -> Array:
+	return L.available(heavy, melee, cheat)
+
+
+## Next / previous selectable loadout (the wheel).
+func _cycle(step: int) -> int:
+	var av := _avail()
+	return av[posmod(av.find(_target()) + step, av.size())]
+
+
+## Pick up weapon `id` and draw it: fresh ammo, or `ammo` ({mag, reserve}) when
+## a survivor hands it back. Carry rules in fp_loadout.take(); returns the weapon
+## dropped to make room (-1 = none).
+func give(id: int, ammo := {}) -> int:
+	var t: Dictionary = L.take(heavy, melee, id)
+	heavy = t.heavy
+	melee = t.melee
+	_ammo[id] = ammo if not ammo.is_empty() else L.new_ammo(id)
+	select(L.WEAPON.find(id))
+	return t.dropped
+
+
+func add_pistol_mag() -> void:
+	_ammo[W.PISTOL].reserve += W.get_data(W.PISTOL).mag_size
 
 
 func _captured() -> bool:
@@ -633,23 +710,78 @@ func _apparent(local: Transform3D) -> Transform3D:
 	return Transform3D(Basis.looking_at(-t.basis.z, t.basis.y), t.origin)
 
 
-## Interact on a survivor that follows you: hand it the gun in your hand (full
-## ammo; the 3D test loadouts are unlimited), or take its gun back.
-func _hand_over() -> void:
+## What the interact ray (E) points at within reach: a crate, a pickup, a
+## survivor, or a wall (nothing to do). Pickups sit on INTERACT_LAYER only.
+func _interact_target() -> Object:
 	var from := _cam.global_position
-	var q := PhysicsRayQueryParameters3D.create(from, from - _cam.global_transform.basis.z * Balance.NPC_3D.give_m, 8)
+	var q := PhysicsRayQueryParameters3D.create(from, from - _cam.global_transform.basis.z * Balance.NPC_3D.give_m, 1 | 8 | INTERACT_LAYER)
+	q.exclude = [_player.get_rid()]
 	var hit := get_world_3d().direct_space_state.intersect_ray(q)
-	if hit.is_empty() or not hit.collider.has_method("receive_weapon") or hit.collider.get("shooter") != _player:
+	return null if hit.is_empty() else hit.collider
+
+
+func _interact() -> void:
+	var c := _interact_target()
+	if c == null:
 		return
-	var npc: Object = hit.collider
+	if c.has_method("open"):
+		c.open()
+	elif c.has_method("collect"):
+		c.collect(self)
+	elif c.has_method("receive_weapon") and c.get("shooter") == _player:
+		_hand_over(c)
+
+
+func _prompt_text(c: Object) -> String:
+	if c == null:
+		return ""
+	if c.has_method("open"):
+		return "" if c.opened else "E  open crate"
+	if c.has_method("collect"):
+		return "E  take " + c.label()
+	if c.has_method("receive_weapon") and c.get("shooter") == _player:
+		if c.weapon_id != -1:
+			return "E  take back " + L.NAMES[L.WEAPON.find(c.weapon_id)]
+		if _giveable() != -1:
+			return "E  give " + L.NAMES[L.WEAPON.find(_giveable())]
+	return ""
+
+
+## The weapon in hand a follower may take: the carried heavy (any gun but the
+## pistol under the cheat), else -1.
+func _giveable() -> int:
+	var id: int = L.WEAPON[_target()]
+	if id < 0 or id == W.PISTOL or id == W.MELEE or not (id == heavy or cheat):
+		return -1
+	return id
+
+
+## A follower gets the heavy in your hand with its ammo, as in 2D; E on an
+## armed follower takes it back (your current heavy, if different, drops).
+func _hand_over(npc: Object) -> void:
 	if npc.weapon_id != -1:
-		npc.surrender_weapon()
+		var d: Dictionary = npc.surrender_weapon()
+		var mag: int = mini(W.get_data(d.id).mag_size, d.total)
+		var dropped := give(d.id, {mag = mag, reserve = d.total - mag})
+		if dropped != -1:
+			_drop(dropped)
 		return
-	var id: int = L.WEAPON[loadout]
-	if id < 0 or L.data(loadout).is_melee:
+	var id := _giveable()
+	if id == -1:
 		return
-	var a: Dictionary = L.new_ammo(id)
+	var a: Dictionary = _ammo[id]
 	npc.receive_weapon(id, a.mag + a.reserve)
+	if id == heavy:
+		heavy = -1
+	_ammo[id] = L.new_ammo(id)
+	select(L.fallback(_target(), _avail()))
+
+
+## A weapon you had to let go of lands at your feet.
+func _drop(id: int) -> void:
+	var fwd := -_cam.global_transform.basis.z
+	fwd.y = 0.0
+	Pickup3D.drop(_fx_root(), _player.global_position + fwd.normalized() * 0.7, Pickup3D.weapon_kind(id))
 
 
 # --- per frame -----------------------------------------------------------------
@@ -668,6 +800,9 @@ func _update_health(delta: float) -> void:
 
 func _process(delta: float) -> void:
 	_update_health(delta)
+	_marker_t = maxf(_marker_t - delta, 0.0)
+	_marker.modulate.a = _marker_t / Balance.FP.hitmarker.show_s
+	_prompt.text = _prompt_text(_interact_target())
 	if _player.get("is_dead"):
 		_geo.visible = false
 		return
@@ -995,7 +1130,7 @@ func _fire_fx(id: int) -> void:
 
 	var w: Dictionary = _w[id]
 	var holder: Node3D = w.holder
-	var muzzle := _apparent(Transform3D(holder.transform.basis, holder.transform * w.muzzle))
+	var muzzle := _muzzle(id)
 	_smoke(muzzle.origin, -muzzle.basis.z, m.smoke)
 	if w.eject != null:
 		_shell(_apparent(holder.transform * Transform3D(Basis(), w.eject)), false)
@@ -1017,22 +1152,45 @@ func _try_reload() -> void:
 
 
 ## Hitscan from the eye through random points of the reticle volume.
+## Where a bullet starts: the gun's muzzle, or the eye when anything (a wall, a
+## zombie in your face) sits between eye and muzzle, so the barrel never
+## shoots from inside or beyond it.
+static func shot_origin(space: PhysicsDirectSpaceState3D, eye: Vector3, muzzle: Vector3, exclude: Array[RID]) -> Vector3:
+	var q := PhysicsRayQueryParameters3D.create(eye, muzzle, ImpactFx.SHOT_MASK)
+	q.exclude = exclude
+	return eye if not space.intersect_ray(q).is_empty() else muzzle
+
+
+## The gun's muzzle as it appears in the world (the viewmodel is drawn squashed).
+func _muzzle(id: int) -> Transform3D:
+	var w: Dictionary = _w[id]
+	var holder: Node3D = w.holder
+	return _apparent(Transform3D(holder.transform.basis, holder.transform * w.muzzle))
+
+
+## Each pellet flies in a straight line from the muzzle to a random point inside
+## the reticle sphere (test_player.gd: it grows with distance).
 func _shoot(d: Resource) -> void:
-	var origin := _cam.global_position
 	var space := get_world_3d().direct_space_state
+	var exclude: Array[RID] = [_player.get_rid()]
+	var origin := shot_origin(space, _cam.global_position, _muzzle(L.WEAPON[loadout]).origin, exclude)
+	var best := Zombie3D.Hit.NONE  # a shotgun blast shows its strongest pellet
 	for i in d.pellets:
 		var r: float = _player.reticle_radius * pow(randf(), 1.0 / 3.0)
 		var target: Vector3 = _player.reticle_point + Vector3(randfn(0, 1), randfn(0, 1), randfn(0, 1)).normalized() * r
 		var dir := (target - origin).normalized()
 		var q := PhysicsRayQueryParameters3D.create(origin, origin + dir * Balance.FP.max_range_m)
-		q.collision_mask = 0xFFFFFFFF & ~2  # skip zombies' movement capsules: hit their part hitboxes
+		q.collision_mask = ImpactFx.SHOT_MASK
 		q.exclude = [_player.get_rid()]
 		var hit := space.intersect_ray(q)
 		if hit.is_empty():
 			continue
-		_impact(hit.position, hit.normal, true)
+		ImpactFx.spawn(_fx_root(), hit.position, hit.normal, ImpactFx.surface_of(hit.collider, hit.normal), true, dir)
 		if hit.collider.has_method("take_hit"):
-			hit.collider.take_hit(d.damage * L.falloff(d, origin.distance_to(hit.position)), hit.position, dir)
+			var res = hit.collider.take_hit(d.damage * L.falloff(d, origin.distance_to(hit.position)), hit.position, dir)
+			if res is int:
+				best = maxi(best, res)
+	_mark(best)
 
 
 # --- bat -------------------------------------------------------------------------
@@ -1076,11 +1234,11 @@ func _strike() -> void:
 	var fwd := -_cam.global_transform.basis.z
 	var space := get_world_3d().direct_space_state
 	var landed := false
-	var q := PhysicsRayQueryParameters3D.create(origin, origin + fwd * reach)
+	var q := PhysicsRayQueryParameters3D.create(origin, origin + fwd * reach, ImpactFx.SHOT_MASK)
 	q.exclude = [_player.get_rid()]
 	var wall := space.intersect_ray(q)
 	if not wall.is_empty():
-		_impact(wall.position, wall.normal, false)
+		ImpactFx.spawn(_fx_root(), wall.position, wall.normal, ImpactFx.surface_of(wall.collider, wall.normal), false, fwd)
 		landed = true
 	var shape := SphereShape3D.new()
 	shape.radius = half
@@ -1088,7 +1246,7 @@ func _strike() -> void:
 	sq.shape = shape
 	sq.transform = Transform3D(Basis(), origin + fwd * (reach - half))
 	sq.exclude = [_player.get_rid()]
-	sq.collision_mask = 0xFFFFFFFF & ~2  # zombie part hitboxes, not their movement capsules
+	sq.collision_mask = ImpactFx.SHOT_MASK
 	var now := Time.get_ticks_msec() / 1000.0
 	var best := {}  # one part per zombie per swing: the one nearest the swing
 	for res in space.intersect_shape(sq, 16):
@@ -1103,7 +1261,9 @@ func _strike() -> void:
 		var c: Node3D = best[who][0]
 		landed = true
 		var dmg: float = Balance.MELEE.damage * (Balance.MELEE.fatigue_mult if _fatigued else 1.0)
-		c.take_hit(dmg, c.global_position, fwd)
+		var r = c.take_hit(dmg, c.global_position, fwd)
+		if r is int:
+			_mark(r)
 		_melee_hits.append(now)
 		if MeleeMath.recent_hit_count(_melee_hits, now, Balance.MELEE.fatigue_window) >= Balance.MELEE.fatigue_hits:
 			_fatigued = true
@@ -1119,38 +1279,9 @@ func _fx_root() -> Node:
 	return get_tree().current_scene if get_tree().current_scene else get_tree().root
 
 
-func _impact(pos: Vector3, normal: Vector3, bullet: bool) -> void:
-	var root := _fx_root()
-	if bullet:
-		var dec := Decal.new()
-		dec.texture_albedo = _decal_tex
-		dec.size = Vector3(0.12, 0.3, 0.12)
-		var y := normal.normalized()
-		var x := y.cross(Vector3.UP if absf(y.y) < 0.9 else Vector3.RIGHT).normalized()
-		root.add_child(dec)
-		dec.global_transform = Transform3D(Basis(x, y, x.cross(y)), pos)
-		_decals.append(dec)
-		if _decals.size() > 60:
-			_decals.pop_front().queue_free()
-	var p := _particles(14 if bullet else 10, 0.45, null)
-	p.direction = normal
-	p.spread = 40.0
-	p.initial_velocity_min = 1.0
-	p.initial_velocity_max = 3.0
-	p.gravity = Vector3(0, -5, 0)
-	p.scale_amount_min = 0.03
-	p.scale_amount_max = 0.07
-	p.color = Color(1.0, 0.7, 0.35) if bullet else Color(0.6, 0.58, 0.55)
-	(p.mesh.surface_get_material(0) as StandardMaterial3D).shading_mode = \
-		BaseMaterial3D.SHADING_MODE_UNSHADED if bullet else BaseMaterial3D.SHADING_MODE_PER_PIXEL
-	root.add_child(p)
-	p.global_position = pos + normal * 0.02
-	p.emitting = true
-
-
 ## Lit (not glowing) smoke: you only see it in the flash or the torch beam.
 func _smoke(pos: Vector3, fwd: Vector3, count: int) -> void:
-	var p := _particles(count, 1.4, _smoke_tex)
+	var p := ImpactFx.particles(count, 1.4, _smoke_tex)
 	p.direction = fwd + Vector3.UP * 0.3
 	p.spread = 18.0
 	p.initial_velocity_min = 0.4
@@ -1171,27 +1302,6 @@ func _smoke(pos: Vector3, fwd: Vector3, count: int) -> void:
 	_fx_root().add_child(p)
 	p.global_position = pos
 	p.emitting = true
-
-
-func _particles(amount: int, life: float, tex: Texture2D) -> CPUParticles3D:
-	var p := CPUParticles3D.new()
-	p.one_shot = true
-	p.amount = maxi(amount, 1)
-	p.lifetime = life
-	p.explosiveness = 1.0
-	p.local_coords = false
-	var pm := QuadMesh.new()
-	pm.size = Vector2.ONE
-	var mat := StandardMaterial3D.new()
-	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-	mat.vertex_color_use_as_albedo = true
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	if tex:
-		mat.albedo_texture = tex
-	pm.material = mat
-	p.mesh = pm
-	get_tree().create_timer(life + 0.6).timeout.connect(p.queue_free)
-	return p
 
 
 ## Spent case flung out of the port: a real little rigid body, so it bounces.
@@ -1247,7 +1357,8 @@ func _update_hud() -> void:
 		if _reload_left > 0.0:
 			line += "   RELOADING"
 		elif a.mag == 0 and a.reserve == 0:
-			line += "   EMPTY (T refills)"
+			line += "   EMPTY (T refills)" if cheat else "   EMPTY"
 	elif loadout == L.BAT and _fatigued:
 		line += "   TIRED"
-	_hud_ammo.text = "1 hands · 2 torch · 3 pistol · 4 pistol+torch · 5 shotgun · 6 rifle · 7 uzi · 8 bat · R reload\n" + line
+	var keys := " · ".join(_avail().map(func(n): return "%d %s" % [n + 1, String(L.NAMES[n]).to_lower()]))
+	_hud_ammo.text = ("CHEAT  " if cheat else "") + keys + " · R reload · E use\n" + line

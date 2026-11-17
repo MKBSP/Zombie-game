@@ -7,6 +7,8 @@ extends Node3D
 ## fallback: no stump, but no Blender work and it works on any rig).
 
 const MODEL := preload("res://assets/characters/zombie.glb")
+const B := preload("res://scripts/balance.gd")
+const ImpactFx := preload("res://scripts/3d/impact_fx.gd")
 const HEIGHT := 1.8
 const HITBOX_LAYER := 32       # physics layer 6: weapon rays hit it, bodies never do
 const P := "Armature|"
@@ -55,8 +57,8 @@ class Hitbox extends StaticBody3D:
 	var unit: Node3D
 	var part := ""
 
-	func take_hit(damage: float, _pos: Vector3, _dir: Vector3) -> void:
-		unit.take_part_hit(part, damage)
+	func take_hit(damage: float, _pos: Vector3, _dir: Vector3) -> int:
+		return unit.take_part_hit(part, damage)
 
 
 ## Runs after the animation each frame: squashes destroyed limbs to nothing.
@@ -132,6 +134,17 @@ func attack() -> void:
 	_attack_t = ATTACK_S
 
 
+## A hit that took nothing off: a quick jerk (the start of Hit_reaction), then
+## back to walking. Not while attacking, crawling or dead.
+func flinch() -> void:
+	if _dead or crawling or _attack_t > 0.0:
+		return
+	_ap.play(P + "Hit_reaction", 0.05)
+	_ap.seek(0.0, true)
+	_ap.speed_scale = 1.5
+	_attack_t = B.ZOMBIE_PARTS.flinch_s
+
+
 func die() -> void:
 	_dead = true
 	set_hittable(false)
@@ -141,6 +154,10 @@ func die() -> void:
 
 func destroy(part: String) -> void:
 	_destroyed.append(part)
+	var bone := _sk.find_bone(PARTS[part][0][0])
+	if bone >= 0:
+		var at := (_sk.global_transform * _sk.get_bone_global_pose(bone)).origin
+		ImpactFx.spawn(ImpactFx.root_of(self), at, Vector3.UP, "gore", false)
 	for hb in _hitboxes.get(part, []):
 		hb.collision_layer = 0
 	if LIMB_ROOT.has(part):
@@ -183,6 +200,7 @@ func _build_hitboxes() -> void:
 			hb.part = part
 			hb.collision_layer = HITBOX_LAYER
 			hb.collision_mask = 0
+			hb.set_meta("surface", "flesh")
 			var cap := CapsuleShape3D.new()
 			cap.radius = seg[2] * size / _scale
 			cap.height = maxf(tip.length() + cap.radius, cap.radius * 2.0 + 0.01)

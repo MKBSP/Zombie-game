@@ -42,8 +42,47 @@ func _init() -> void:
 	_check("spots are off the road", spots.all(func(s): return not P.on_road(s.pos, tris)))
 	_check("road centre is on the road", P.on_road(Vector3(50, 0, 1.2), tris))
 
+
+## Lamps build in _ready, and the root joins the tree only after the first frame.
+func _initialize() -> void:
+	await process_frame
+	# --- bullets shatter the lamp head (the glass is the target) ---
+	var lit = _lamp(L.State.WORKING, Vector3(3, 0, 5))
+	_check("working lamp has a lens hitbox", _lens_boxes(lit).size() == 1)
+	lit.shatter()
+	_check("shattered lamp goes dark", lit.kind in [L.State.DEAD, L.State.SPARKING] and (lit._light == null or not lit._light.visible))
+	_check("shattered lamp loses its glass", not lit._lens.visible)
+	_check("shattered lamp's hitbox is off", _lens_boxes(lit).all(func(b): return b.collision_layer == 0))
+	lit.shatter()
+	_check("second shot is a no-op", lit.shattered)
+	var glassy := _lamp(L.State.DEAD, _spot_with_glass(true))
+	_check("dead lamp with glass can still be shot", _lens_boxes(glassy).size() == 1)
+	var bare := _lamp(L.State.DEAD, _spot_with_glass(false))
+	_check("lamp with no glass has no lens hitbox", _lens_boxes(bare).is_empty())
+
 	print("FAILURES: %d" % _failures if _failures else "ALL PASS")
 	quit(1 if _failures else 0)
+
+
+func _lamp(st: int, pos: Vector3) -> Node3D:
+	var l = L.new()
+	l.state = st
+	l.position = pos
+	root.add_child(l)
+	return l
+
+
+func _lens_boxes(lamp: Node) -> Array:
+	return lamp.find_children("*", "StaticBody3D", true, false).filter(func(b): return b.has_method("take_hit"))
+
+
+## A position whose roll keeps (or smashed) the lens glass.
+func _spot_with_glass(want: bool) -> Vector3:
+	for i in 500:
+		var p := Vector3(i * 2.3, 0, 17.0)
+		if L.roll(p).glass == want:
+			return p
+	return Vector3.ZERO
 
 
 func _tally(damage: float) -> Dictionary:

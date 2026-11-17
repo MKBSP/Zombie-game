@@ -10,6 +10,9 @@ extends CharacterBody3D
 ##               the shooter opens fire (engagement latch), with sloppy NPC aim
 ##   CONVERTING  bitten: frozen for convert_duration, then a standard zombie takes
 ##               its place (handed to the commander)
+##   FLEEING     a zombie saw it (hidden / relocating), 80%: runs for cover away from
+##               that zombie and out of its sight, then hides again
+##   COWERING    ...20%: freezes where it is until no zombie has seen it for calm_s
 ## Bullets can kill it at any time, and that never makes a zombie. The shooter's
 ## interact key hands a follower the gun in hand, or takes it back (viewmodel.gd).
 ## Model: one of MODELS, animated by character_anim.gd.
@@ -18,13 +21,17 @@ const Z := preload("res://scripts/3d/zombie_3d.gd")
 const L := preload("res://scripts/3d/fp_loadout.gd")
 const W := preload("res://scripts/weapons.gd")
 const Anim := preload("res://scripts/3d/character_anim.gd")
+const ImpactFx := preload("res://scripts/3d/impact_fx.gd")
 const LAYER := 8                # physics layer 4, as the 2D NPCs
 const EYE := Vector3(0, 1.5, 0)
 ## [model, clip prefix, scale] — Quaternius, CC0 (CREDITS.md)
+## [model, clip prefix, scale, cower clip, cower frame (0..1 of the clip)]. No
+## model has a crouch, so the cower is a frozen frame: the crouch before a Roll,
+## or the squat at the start of getting up.
 const MODELS := [
-	["res://assets/characters/business_man.glb", "CharacterArmature|", 1.0],
-	["res://assets/characters/hoodie.glb", "CharacterArmature|", 1.0],
-	["res://assets/characters/man.glb", "HumanArmature|Man_", 0.4],
+	["res://assets/characters/business_man.glb", "CharacterArmature|", 1.0, "Roll", 0.12],
+	["res://assets/characters/hoodie.glb", "CharacterArmature|", 1.0, "Roll", 0.12],
+	["res://assets/characters/man.glb", "HumanArmature|Man_", 0.4, "Standing", 0.0],
 ]
 ## weapon id -> [model, real length in m]; fitted and laid along -Z on hand-over
 const GUNS := {
@@ -34,7 +41,7 @@ const GUNS := {
 	W.MACHINEGUN: ["res://assets/weapons/uzi.glb", 0.4],
 }
 
-enum State { HIDDEN, RELOCATING, FOLLOWING, CONVERTING }
+enum State { HIDDEN, RELOCATING, FOLLOWING, CONVERTING, FLEEING, COWERING }
 
 signal converted(zombie: Node3D)
 
@@ -55,6 +62,7 @@ var _hide_t := 0.0
 var _waypoints: Array[Vector3] = []
 var _convert_t := 0.0
 var _label: Label3D
+var _anim: Node3D           # the model, running character_anim.gd
 var _gun: Node3D
 var _flash: OmniLight3D
 var _engaged := false
@@ -67,6 +75,11 @@ var _threat: Node3D = null
 var _threat_lock := 0.0
 var _form_dir := Vector2.ZERO
 var _last_dir := Vector2(0, 1)
+var _spot_t := 0.0          # next look for zombies watching
+var _calm_t := 0.0          # cowering: how long no zombie has seen it
+var _flee_tries := 0
+var _leg_t := 0.0           # since the current relocate / flee leg began
+var _leg_d := 0.0           # ...and how far it was (flat): a leg far overdue is blocked
 
 
 static func m(px: float) -> float:
@@ -76,6 +89,7 @@ static func m(px: float) -> float:
 func _ready() -> void:
 	add_to_group("npcs")
 	add_to_group("noise_listeners")
+	set_meta("surface", "flesh")
 	max_hp = Balance.NPC.max_hp
 	hp = max_hp
 	_speed = Balance.NPC_3D.speed_mps
@@ -96,6 +110,7 @@ func _ready() -> void:
 	body.scale = Vector3.ONE * md[2]
 	body.rotation.y = PI  # Quaternius models face +Z
 	add_child(body)
+	_anim = body
 
 	_label = Label3D.new()
 	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -134,6 +149,9 @@ func _physics_process(delta: float) -> void:
 		return
 	_flash.light_energy = move_toward(_flash.light_energy, 0.0, delta * 60.0)
 	_check_recruit()
+	_watch_for_zombies(delta)
+	if _anim.frozen and state != State.COWERING:
+		_anim.unfreeze()
 	match state:
 		State.CONVERTING:
 			_converting(delta)
@@ -144,11 +162,15 @@ func _physics_process(delta: float) -> void:
 				_plan_relocation()
 			_stop()
 		State.RELOCATING:
-			if _agent.is_navigation_finished():
+			_leg_t += delta
+			if leg_overdue(_leg_t, _leg_d, _speed):
+				_start_hidden(randf_range(Balance.NPC.hide_min, Balance.NPC.hide_max))  # blocked: hide here
+				_stop()
+			elif _agent.is_navigation_finished() and _leg_t > 0.3:
 				if _waypoints.is_empty():
 					_start_hidden(randf_range(Balance.NPC.hide_min, Balance.NPC.hide_max))
 				else:
-					_agent.target_position = _waypoints.pop_front()
+					_go(_waypoints.pop_front())
 				_stop()
 			else:
 				_nav_move(_speed)
@@ -156,6 +178,19 @@ func _physics_process(delta: float) -> void:
 			_following(delta)
 			if weapon_id != -1:
 				_shooting(delta)
+		State.FLEEING:
+			_leg_t += delta
+			if (_agent.is_navigation_finished() and _leg_t > 0.3) or leg_overdue(_leg_t, _leg_d, Balance.NPC_3D.flee_mps):
+				var z := _spotter()
+				if z:
+					_flee_from(z)  # still seen: run on (or give up and cower)
+				else:
+					_start_hidden(randf_range(Balance.NPC.hide_min, Balance.NPC.hide_max))
+				_stop()
+			else:
+				_nav_move(Balance.NPC_3D.flee_mps)
+		State.COWERING:
+			_stop()
 
 
 func _nav_move(spd: float) -> void:
@@ -185,23 +220,106 @@ func _start_hidden(duration: float) -> void:
 	_waypoints.clear()
 
 
-## A hiding spot: on the navmesh, with a building wall within 1.5 m.
+## A hiding spot near here: the deepest cover (alleys, corners, then plain walls)
+## among a few spots slid against walls, outdoors and out of every zombie's
+## sight. INF if there is none.
 func _hiding_spot() -> Vector3:
+	return _best_spot(func(_p: Vector3) -> bool: return true)
+
+
+## Best-covered of NPC_3D.spot_samples wall spots within the hide radius that
+## pass `ok(p)`, with cover_score >= min_cover and unseen by the horde; ties at random.
+func _best_spot(ok: Callable) -> Vector3:
+	var N3: Dictionary = Balance.NPC_3D
 	var map := get_world_3d().navigation_map
+	var space := get_world_3d().direct_space_state
 	var r := m(Balance.NPC.hide_radius * 64.0)
-	for i in 40:
-		var p := NavigationServer3D.map_get_closest_point(map, global_position + Vector3(randf_range(-r, r), 0, randf_range(-r, r)))
-		if p != Vector3.ZERO and next_to_building(get_world_3d().direct_space_state, p):
-			return p
-	return Vector3.INF
+	var best := Vector3.INF
+	var best_score := float(N3.min_cover) - 0.5
+	for i in N3.spot_samples:
+		var p := spot_by_wall(map, space, global_position + Vector3(randf_range(-r, r), 0, randf_range(-r, r)), N3.wall_reach_m)
+		if p == Vector3.INF or not ok.call(p) or Z.seen_by_horde(get_tree(), p) or not reachable(map, global_position, p):
+			continue
+		var score := cover_score(space, p) + randf() * 0.5
+		if score > best_score:
+			best_score = score
+			best = p
+	return best
 
 
+## Walkable outdoor ground against the building wall nearest to p (within
+## reach): where survivors hide and crates stand. INF if there is none.
+static func spot_by_wall(map: RID, space: PhysicsDirectSpaceState3D, p: Vector3, reach: float) -> Vector3:
+	var q := NavigationServer3D.map_get_closest_point(map, p)
+	if q == Vector3.ZERO or not outdoors(space, q):
+		return Vector3.INF
+	var w := wall_spot(space, q, reach)
+	if w == Vector3.INF:
+		return Vector3.INF
+	var s := NavigationServer3D.map_get_closest_point(map, w)
+	if Vector2(s.x, s.z).distance_to(Vector2(w.x, w.z)) > 0.8 or not outdoors(space, s):
+		return Vector3.INF
+	return s
+
+
+## A path over the navmesh really gets there, not just to the nearest point of
+## another island (an enclosed courtyard is its own island).
+static func reachable(map: RID, from: Vector3, to: Vector3) -> bool:
+	return path_arrives(NavigationServer3D.map_get_path(map, from, to, true), NavigationServer3D.map_get_closest_point(map, to))
+
+
+## Every corner of the route stays at least min_d (flat) from the threat: a
+## flight that doesn't loop round the block back past the zombie.
+static func path_keeps_away(path: PackedVector3Array, threat: Vector3, min_d: float) -> bool:
+	return Array(path).all(func(p: Vector3) -> bool: return Z._flat(p, threat) >= min_d)
+
+
+static func path_arrives(path: PackedVector3Array, end: Vector3) -> bool:
+	return not path.is_empty() and path[path.size() - 1].distance_to(end) < 1.0
+
+
+## Under open sky: nothing overhead. The building shells are hollow, so the
+## navmesh has islands inside them that only this tells apart from a street.
+static func outdoors(space: PhysicsDirectSpaceState3D, p: Vector3) -> bool:
+	return space.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3.UP * 60.0, p + Vector3.UP, 1)).is_empty()
+
+
+## How deep in cover p is: of 8 rays (every 45 deg, 1 m up, NPC_3D.cover_ray_m
+## long), how many hit a building. Open street 0, against a wall 3, alley 6.
+static func cover_score(space: PhysicsDirectSpaceState3D, p: Vector3) -> int:
+	return _wall_hits(space, p, Balance.NPC_3D.cover_ray_m).size()
+
+
+## A building wall within 1.5 m (looking 8 ways: the street grid isn't axis-aligned).
 static func next_to_building(space: PhysicsDirectSpaceState3D, p: Vector3) -> bool:
-	for d in [Vector3.RIGHT, Vector3.LEFT, Vector3.FORWARD, Vector3.BACK]:
-		var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3.UP, p + Vector3.UP + d * 1.5, 1))
+	return not _wall_hits(space, p, 1.5).is_empty()
+
+
+## The nearest building wall within `reach` of p: a ground spot 0.45 m out from
+## it, or Vector3.INF if there is none.
+static func wall_spot(space: PhysicsDirectSpaceState3D, p: Vector3, reach: float) -> Vector3:
+	var best := Vector3.INF
+	var best_d := INF
+	for hit: Dictionary in _wall_hits(space, p, reach):
+		var dist: float = (hit.position - p - Vector3.UP).length()
+		if dist < best_d:
+			var n: Vector3 = hit.normal
+			n.y = 0.0
+			best_d = dist
+			best = Vector3(hit.position.x, p.y, hit.position.z) + n.normalized() * 0.45
+	return best
+
+
+## The 8 horizontal rays from 1 m above p, every 45 deg, out to `reach`: their
+## hits on a building wall.
+static func _wall_hits(space: PhysicsDirectSpaceState3D, p: Vector3, reach: float) -> Array:
+	var out := []
+	for i in 8:
+		var d := Vector3.FORWARD.rotated(Vector3.UP, i * PI / 4)
+		var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3.UP, p + Vector3.UP + d * reach, 1))
 		if not hit.is_empty() and String(hit.collider.get_parent().name).begins_with("Building"):
-			return true
-	return false
+			out.append(hit)
+	return out
 
 
 ## A nervous wander to a new hiding spot: 2-4 waypoints jittered off the line.
@@ -220,7 +338,90 @@ func _plan_relocation() -> void:
 				on_line + Vector3(randf_range(-jitter, jitter), 0, randf_range(-jitter, jitter))))
 	_waypoints.append(spot)
 	state = State.RELOCATING
-	_agent.target_position = _waypoints.pop_front()
+	_go(_waypoints.pop_front())
+
+
+# --- spotted: flee or freeze ------------------------------------------------------
+
+static func react(r: float) -> State:
+	return State.COWERING if r < Balance.NPC_3D.freeze_chance else State.FLEEING
+
+
+## Every spot_check_s while hiding, relocating or cowering: is a zombie watching?
+func _watch_for_zombies(delta: float) -> void:
+	if not state in [State.HIDDEN, State.RELOCATING, State.COWERING]:
+		return
+	_spot_t -= delta
+	if _spot_t > 0.0:
+		return
+	var N3: Dictionary = Balance.NPC_3D
+	_spot_t = N3.spot_check_s
+	var z := _spotter()
+	if state == State.COWERING:
+		_calm_t = 0.0 if z else _calm_t + N3.spot_check_s
+		if _calm_t >= N3.calm_s:
+			_start_hidden(randf_range(Balance.NPC.hide_min, Balance.NPC.hide_max))
+	elif z:
+		_waypoints.clear()
+		_flee_tries = 0
+		if react(randf()) == State.COWERING:
+			_cower()
+		else:
+			_flee_from(z)
+
+
+## The nearest zombie that can see this survivor right now, or null.
+func _spotter() -> Node3D:
+	var best: Node3D = null
+	var best_d := INF
+	for z in get_tree().get_nodes_in_group("zombies"):
+		if z.is_dead or not z.visible:
+			continue
+		var d := Z._flat(z.global_position, global_position)
+		if d < best_d and z.can_see(global_position):
+			best_d = d
+			best = z
+	return best
+
+
+## Run for cover away from `threat`: a wall spot at least flee_min_m from it, on
+## this side of it, out of every zombie's sight. None (or the 3rd go): cower.
+func _flee_from(threat: Node3D) -> void:
+	_flee_tries += 1
+	var at := threat.global_position
+	var away := global_position - at
+	var keep := Z._flat(global_position, at) - 1.0
+	var map := get_world_3d().navigation_map
+	var spot := Vector3.INF
+	if _flee_tries <= 3:
+		spot = _best_spot(func(p: Vector3) -> bool:
+			return Z._flat(p, at) >= Balance.NPC_3D.flee_min_m and (p - global_position).dot(away) > 0.0 \
+					and path_keeps_away(NavigationServer3D.map_get_path(map, global_position, p, true), at, keep))
+	if spot == Vector3.INF:
+		_cower()
+		return
+	state = State.FLEEING
+	_go(spot)
+
+
+## Start a relocate / flee leg. The agent reports "finished" before it has its
+## first path, so arrival only counts after 0.3 s; a leg far over its expected
+## time (a crate or a body in the way) counts as blocked.
+func _go(target: Vector3) -> void:
+	_agent.target_position = target
+	_leg_t = 0.0
+	_leg_d = Z._flat(global_position, target)
+
+
+static func leg_overdue(elapsed: float, dist: float, speed: float) -> bool:
+	return elapsed > dist / maxf(speed, 0.1) * 2.0 + 2.0
+
+
+func _cower() -> void:
+	state = State.COWERING
+	_calm_t = 0.0
+	_stop()
+	_anim.freeze(MODELS[model][3], MODELS[model][4])
 
 
 # --- following + formation (2D npc_human.gd / NpcFollow) ------------------------
@@ -351,10 +552,13 @@ func _shooting(delta: float) -> void:
 		var p := aim + Vector3(randfn(0, 1), randfn(0, 1), randfn(0, 1)).normalized() * radius * pow(randf(), 1.0 / 3.0)
 		var dir := (p - from).normalized()
 		var q := PhysicsRayQueryParameters3D.create(from, from + dir * Balance.FP.max_range_m)
-		q.collision_mask = 0xFFFFFFFF & ~2  # zombie part hitboxes, not their capsules
+		q.collision_mask = ImpactFx.SHOT_MASK
 		q.exclude = [get_rid()]
 		var hit := space.intersect_ray(q)
-		if not hit.is_empty() and hit.collider.has_method("take_hit"):
+		if hit.is_empty():
+			continue
+		ImpactFx.spawn(ImpactFx.root_of(self), hit.position, hit.normal, ImpactFx.surface_of(hit.collider, hit.normal), true, dir)
+		if hit.collider.has_method("take_hit"):
 			hit.collider.take_hit(w.damage * L.falloff(w, from.distance_to(hit.position)), hit.position, dir)
 	_flash.light_energy = 4.0
 	get_tree().call_group("noise_listeners", "hear_gunshot", global_position)
@@ -505,10 +709,12 @@ static func spawn_all(parent: Node3D, count: int, avoid: Array, min_dist: float)
 	for tries in count * 60:
 		if out.size() >= count:
 			break
-		var p := NavigationServer3D.map_get_random_point(map, 1, true)
-		if avoid.any(func(a): return Z._flat(a, p) < min_dist) or out.any(func(n): return Z._flat(n.position, p) < 12.0):
+		var p := spot_by_wall(map, space, NavigationServer3D.map_get_random_point(map, 1, true), Balance.NPC_3D.wall_reach_m)
+		if p == Vector3.INF or cover_score(space, p) < Balance.NPC_3D.min_cover:
 			continue
-		if not next_to_building(space, p):
+		if not avoid.is_empty() and not reachable(map, avoid.back(), p):
+			continue  # a courtyard nobody can walk into
+		if avoid.any(func(a): return Z._flat(a, p) < min_dist) or out.any(func(n): return Z._flat(n.position, p) < 12.0):
 			continue
 		var npc = load("res://scripts/3d/npc_3d.gd").new()
 		npc.model = out.size() % MODELS.size()

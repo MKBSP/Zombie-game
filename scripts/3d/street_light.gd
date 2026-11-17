@@ -11,9 +11,12 @@ extends Node3D
 ## from Balance.STREET_LIGHTS and blend from "calm" to "wrecked" by a slow noise
 ## over the map. Fallen lamps come in four builds (lean, snapped, toppled,
 ## folded), each with its own random angle / break height / direction, and may
-## keep live, sparking wires. Checked headless by test/test_street_lights.gd.
+## keep live, sparking wires. A shot to the lens shatters it (shatter()): the
+## glass bursts and the lamp goes dark, or sparks. Checked headless by
+## test/test_street_lights.gd.
 
 const B := preload("res://scripts/balance.gd")  # consts only: works in the editor too
+const ImpactFx := preload("res://scripts/3d/impact_fx.gd")
 
 enum State { AUTO, WORKING, BLINKING, DEAD, SPARKING, LEANING, SNAPPED, TOPPLED, FOLDED }
 const FALLEN := [State.LEANING, State.SNAPPED, State.TOPPLED, State.FOLDED]
@@ -39,8 +42,10 @@ const DEBRIS_LAYER := 16    # physics layer 5: hit by bullet rays (all layers), 
 			_build()
 
 var kind: State = State.WORKING  # the state actually built (AUTO resolved)
+var shattered := false
 var _light: SpotLight3D
 var _lens: MeshInstance3D
+var _lens_box: StaticBody3D
 var _sparks: GPUParticles3D
 var _flash: OmniLight3D
 var _rng := RandomNumberGenerator.new()
@@ -106,6 +111,7 @@ func _build() -> void:
 		c.free()
 	_light = null
 	_sparks = null
+	_lens_box = null
 	_flash = null
 	var r := roll(global_position, salt)
 	kind = (r.state as State) if state == State.AUTO else state
@@ -152,6 +158,18 @@ func _build() -> void:
 	if _lens:
 		_lens.visible = kind == State.WORKING or kind == State.BLINKING or (kind == State.DEAD and r.glass) \
 				or (fallen and r.glass)
+	if _lens.visible:
+		_lens_box = LensHitbox.new()
+		_lens_box.light = self
+		_lens_box.collision_layer = DEBRIS_LAYER
+		_lens_box.set_meta("surface", "glass")
+		var cs := CollisionShape3D.new()
+		var sh := SphereShape3D.new()
+		sh.radius = 0.22
+		cs.shape = sh
+		_lens_box.add_child(cs)
+		_lens_box.position = LENS
+		_lens.get_parent().add_child(_lens_box)
 	if kind == State.WORKING or kind == State.BLINKING:
 		var c: Color = B.STREET_LIGHTS.color
 		_light.light_color = Color(c.r, c.g + r.tint * 0.04, c.b + r.tint * 0.06)
@@ -163,6 +181,36 @@ func _build() -> void:
 	if kind == State.BLINKING:
 		_t = _rng.randf_range(0.5, 5.0)
 	set_process(_sparks != null or kind == State.BLINKING)
+
+
+## The lens was shot: glass bursts, the light dies, and some lamps keep sparking.
+## ponytail: local only; S10 has to replicate which lamps are shattered.
+func shatter() -> void:
+	if shattered or not _lens.visible:
+		return
+	shattered = true
+	_lens_box.collision_layer = 0
+	ImpactFx.spawn(self, _lens.global_position, Vector3.DOWN, "glass")
+	_lens.visible = false
+	if _light:
+		_light.queue_free()
+		_light = null
+	if _rng.randf() < B.STREET_LIGHTS.shatter_spark_chance:
+		kind = State.SPARKING
+		if _sparks == null:
+			_make_sparks(_lens.get_parent(), LENS)
+		_t = 0.0
+	else:
+		kind = State.DEAD
+	set_process(_sparks != null)
+
+
+## The lens's hit zone: weapon rays land here (DEBRIS_LAYER, which bodies ignore).
+class LensHitbox extends StaticBody3D:
+	var light: Node3D
+
+	func take_hit(_damage: float, _pos: Vector3, _dir: Vector3) -> void:
+		light.shatter()
 
 
 func _process(delta: float) -> void:
@@ -288,6 +336,7 @@ func _segment(parent: Node3D, y0: float, y1: float, debris := false) -> void:
 	var h := y1 - y0
 	_mesh(parent, _cyl(_r(y1), _r(y0), h), Vector3(0, h / 2, 0), "metal")
 	var body := StaticBody3D.new()
+	body.set_meta("surface", "metal")
 	if debris:
 		body.collision_layer = DEBRIS_LAYER
 	var cs := CollisionShape3D.new()

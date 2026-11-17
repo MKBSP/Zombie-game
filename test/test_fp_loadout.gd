@@ -55,6 +55,26 @@ func _init() -> void:
 	_check("rifle tighter", L.spread_mult(W.get_data(W.RIFLE)) < 0.5)
 	_check("shotgun wider", L.spread_mult(W.get_data(W.SHOTGUN)) > 1.5)
 
+	# --- carry rules: always pistol + torch, one heavy, one melee (2D slots) ---
+	_check("start is pistol+torch", L.START == L.PISTOL_TORCH)
+	_check("start has no heavies", L.available(-1, -1, false) == [L.EMPTY, L.TORCH, L.PISTOL, L.PISTOL_TORCH])
+	_check("rifle adds rifle only", L.RIFLE in L.available(W.RIFLE, -1, false) and not L.SHOTGUN in L.available(W.RIFLE, -1, false))
+	_check("uzi is the machine-gun slot", L.UZI in L.available(W.MACHINEGUN, -1, false))
+	_check("bat adds bat", L.BAT in L.available(-1, W.MELEE, false))
+	_check("cheat has all 8", L.available(-1, -1, true).size() == 8)
+	var t: Dictionary = L.take(W.RIFLE, -1, W.SHOTGUN)
+	_check("second heavy swaps", t.heavy == W.SHOTGUN and t.dropped == W.RIFLE and not t.refill)
+	t = L.take(W.RIFLE, -1, W.RIFLE)
+	_check("same heavy refills", t.heavy == W.RIFLE and t.dropped == -1 and t.refill)
+	t = L.take(-1, -1, W.MELEE)
+	_check("bat fills melee", t.melee == W.MELEE and t.heavy == -1 and t.dropped == -1)
+	t = L.take(W.RIFLE, W.MELEE, W.MELEE)
+	_check("second bat refills nothing, drops nothing", t.melee == W.MELEE and t.heavy == W.RIFLE and t.dropped == -1)
+	t = L.take(-1, -1, W.RIFLE)
+	_check("first heavy drops nothing", t.heavy == W.RIFLE and t.dropped == -1)
+	_check("gave rifle away -> pistol+torch", L.fallback(L.RIFLE, L.available(-1, -1, false)) == L.START)
+	_check("kept loadout stays", L.fallback(L.PISTOL, L.available(-1, -1, false)) == L.PISTOL)
+
 	print("FAILURES: %d" % _failures if _failures else "ALL PASS")
 	quit(1 if _failures else 0)
 

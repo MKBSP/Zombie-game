@@ -46,7 +46,8 @@ extends CharacterBody3D
 @export var rig_path: NodePath = ^"../CameraRig"
 @export_range(0.0005, 0.02, 0.0005) var mouse_sensitivity: float = 0.0035
 ## How far up/down mouse Y can swing the aim, in degrees either side of rest.
-@export_range(0.0, 80.0, 1.0) var aim_pitch_range: float = 28.0
+## First person widens it (viewmodel.gd sets Balance.FP.pitch_deg).
+@export_range(0.0, 89.0, 1.0) var aim_pitch_range: float = 28.0
 ## Seconds for the reticle to narrow to its aimed size. Deliberately slow — the
 ## aim settles gradually rather than snapping, so committing costs you time.
 @export_range(0.05, 5.0, 0.05) var reticle_settle: float = 2.0
@@ -59,10 +60,12 @@ extends CharacterBody3D
 @export_range(5.0, 120.0, 1.0) var reticle_max_distance: float = 45.0
 ## Height of the sphere centre — chest/belly on the target.
 @export_range(0.3, 2.5, 0.05) var reticle_height: float = 1.2
-## Sphere radius when hip-firing (loose).
-@export_range(0.05, 3.0, 0.05) var reticle_radius_hip: float = 0.95
-## Sphere radius while aiming (tight). Weapon/skill/stats feed this later.
-@export_range(0.05, 3.0, 0.05) var reticle_radius_aim: float = 0.28
+## Spread when hip-firing (loose), in degrees. The sphere's radius is its
+## distance from the gun x tan(spread), so it grows with range: a close shot
+## is sure, a far one is not (spread_radius).
+@export_range(0.1, 15.0, 0.1) var spread_deg_hip: float = 3.5
+## Spread while aiming (tight), degrees. Weapon/skill/stats feed this later.
+@export_range(0.1, 15.0, 0.1) var spread_deg_aim: float = 1.0
 ## Global fade on the reticle. Drop it at night, where a bright ball of colour
 ## is the only thing competing with the flashlight for your attention.
 @export_range(0.0, 1.0, 0.05) var reticle_opacity: float = 1.0
@@ -139,6 +142,7 @@ var light_anchor: Node3D = null
 ## Render layer the first-person viewmodel draws on. The world lights skip it,
 ## so the torch never lights its own handle; the viewmodel brings its own lights.
 const VIEWMODEL_LAYER := 2
+const LOOT_LAYER := 64  # pickups (scripts/3d/impact_fx.gd): the reticle looks through them
 
 var _rig: Node3D = null
 var _collision: CollisionShape3D = null
@@ -337,6 +341,12 @@ func take_damage(amount: float) -> void:
 		died.emit()
 
 
+## Bandage / medpack. The dead stay dead.
+func heal(amount: int) -> void:
+	if not is_dead:
+		hp = mini(hp + amount, max_hp)
+
+
 ## Reticle growth from wounds, as the 2D aim debuffs: badly hurt below
 ## injured_hp_frac, lightly below full.
 func hurt_spread() -> float:
@@ -473,10 +483,15 @@ func _translucent(color: Color) -> StandardMaterial3D:
 	return mat
 
 
+## Radius of the spread sphere `dist` metres from the gun: a cone of
+## `angle_deg` half-angle.
+static func spread_radius(angle_deg: float, dist: float) -> float:
+	return dist * tan(deg_to_rad(angle_deg))
+
+
 func _update_reticle() -> void:
 	var t := smoothstep(0.0, 1.0, _blend)
-	var radius := lerpf(reticle_radius_hip, reticle_radius_aim, t) * _spread * spread_mult * hurt_spread()
-	reticle_radius = radius
+	var spread_deg := lerpf(spread_deg_hip, spread_deg_aim, t) * _spread * spread_mult * hurt_spread()
 	var muzzle := global_position + Vector3(0.0, reticle_height, 0.0)
 
 	# Under a straight-down camera the centre ray points at the player's own
@@ -488,7 +503,7 @@ func _update_reticle() -> void:
 	# far side of a wall — indoors you end up aiming through the room at the
 	# OUTSIDE of it, which reads as the aim jumping past the geometry.
 	var space := get_world_3d().direct_space_state
-	var wall_query := PhysicsRayQueryParameters3D.create(muzzle, point)
+	var wall_query := PhysicsRayQueryParameters3D.create(muzzle, point, 0xFFFFFFFF & ~LOOT_LAYER)
 	wall_query.exclude = [get_rid()]
 	var wall_hit := space.intersect_ray(wall_query)
 	if not wall_hit.is_empty():
@@ -498,10 +513,12 @@ func _update_reticle() -> void:
 	if camera != null:
 		var pitch_deg := rad_to_deg(camera.global_rotation.x)
 		var centre_weight := clampf((pitch_deg + 90.0) / 55.0, 0.0, 1.0)
+		if _rig != null and _rig.is_first_person():
+			centre_weight = 1.0  # first person: the aim is wherever you look, even straight down
 		if centre_weight > 0.0:
 			var origin := camera.global_position
 			var far := origin + (-camera.global_transform.basis.z) * reticle_max_distance
-			var query := PhysicsRayQueryParameters3D.create(origin, far)
+			var query := PhysicsRayQueryParameters3D.create(origin, far, 0xFFFFFFFF & ~LOOT_LAYER)
 			query.exclude = [get_rid()]
 			var hit := space.intersect_ray(query)
 			# Sit on whatever the ray actually meets. Placing it at a fixed
@@ -511,6 +528,8 @@ func _update_reticle() -> void:
 			point = point.lerp(locked, centre_weight)
 
 	reticle_point = point
+	var radius := spread_radius(spread_deg, muzzle.distance_to(point))
+	reticle_radius = radius
 
 	_sphere_mesh.radius = radius
 	_sphere_mesh.height = radius * 2.0

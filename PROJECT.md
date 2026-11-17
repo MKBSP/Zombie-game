@@ -94,11 +94,20 @@ collision / occlusion work feeds the zombie-commander rig rather than the
 shooter. Also settled on the way: the camera drops *below* the roofline rather
 than widening the lens, and aiming and being under a roof want the same pose.
 
-**First-person weapons:** in the v6 scene, keys 1–8 / mouse wheel switch hands,
-torch, pistol, pistol + torch, shotgun, rifle, uzi, bat; LMB fire / swing, RMB
-aim, R reload, F torch, T refill ammo. Poses (hip, aim, swing keyframes, grip
+**First-person weapons:** in the v6 scene you spawn with the pistol and torch; keys
+1–8 / mouse wheel switch between what you carry (hands, torch, pistol, pistol + torch,
+plus one heavy — shotgun, rifle or uzi — and the bat once picked up; a second heavy
+swaps out the first). LMB fire / swing, RMB aim, R reload, F torch, E use. **F9**
+(debug builds only) is the cheat: every weapon, no carry limit, and T refills ammo.
+About 13 supply crates are spread evenly over the map, against walls. Where they go
+is seeded (`Balance.LOOT_3D`), and one always holds a weapon. Look at a crate and press E to open it: 1–3 items fall out (pistol ammo,
+bandage, medpack, or a weapon), and E takes each one. A prompt under the crosshair
+says what E will do. Poses (hip, aim, swing keyframes, grip
 points) are constants at the top of `scripts/3d/viewmodel.gd`; 3D-only tuning in
-`Balance.FP`. No zombies yet, so hits only leave marks (`take_hit` is the hook).
+`Balance.FP`. Hits show where they land: dust off ground and walls, sparks off metal,
+glass off lamp heads, blood on zombies and survivors (a part blown off bursts, and a
+zombie hit without losing a part flinches). A tick around the crosshair confirms a hit:
+white, orange when a part comes off, big red on a kill.
 
 **Small dressed city (current test map):** `scenes/test/camera_test_v6_small_city.tscn`
 runs the first-person rig on `assets/city/westvillage_small.glb`, a 250 x 170 m
@@ -122,8 +131,11 @@ land; there's no minimap or NPCs yet. Speed / sight / hearing: `Balance.ZOMBIE_3
 `scripts/3d/zombie_3d.gd`.
 
 **Survivors (3D):** 10 NPCs hide around the v6 map and wander between hiding spots.
-Walk into one and it follows you; press E on a follower to hand it the gun in your
-hand (E again takes it back) and it fights once you start shooting. A zombie's bite
+They pick the deepest cover they can reach (alleys and corners first, then a plain wall),
+out of any zombie's sight. If a zombie spots one, it either runs for cover away from
+that zombie (80%) or freezes and cowers until no zombie has seen it for 6 s (20%).
+Walk into one and it follows you; press E on a follower to hand it the heavy gun in your
+hand with its ammo (E again takes it back; a different heavy you picked up meanwhile drops) and it fights once you start shooting. A zombie's bite
 turns a survivor into a zombie after 5 s; shooting one never does. The commander
 only sees them when a zombie does. Code: `scripts/3d/npc_3d.gd`; numbers in
 `Balance.NPC` (2D, converted) and `Balance.NPC_3D`.
@@ -133,7 +145,8 @@ at runtime (working, blinking, dead, sparking, or fallen in four builds). Each l
 state is rolled from its position, so it's the same on every run and every peer. Odds
 and light numbers are in `Balance.STREET_LIGHTS`. To place one by hand, add a Node3D
 with `scripts/3d/street_light.gd` (class `StreetLight`), with -Z facing the road; `state`
-forces a state, and `salt` rerolls the variant.
+forces a state, and `salt` rerolls the variant. Shoot a lamp's head and the glass shatters:
+the lamp goes dark, and about 3 in 10 keep sparking.
 
 The full design — first-person shooter, top-down commander over the 3D world
 with buildings going ~90% transparent when a zombie is underneath, per-part

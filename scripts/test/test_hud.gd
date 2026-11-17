@@ -7,6 +7,8 @@ extends CanvasLayer
 ## The visibility model these knobs are tuning is written up in
 ## docs/superpowers/specs/2026-09-16-visibility-and-eye-adaptation.md.
 
+const Z := preload("res://scripts/3d/zombie_3d.gd")
+
 @export var player_path: NodePath = ^"../TestPlayer"
 @export var environment_path: NodePath = ^"../WorldEnvironment"
 ## Metres from the player to the minimap edge.
@@ -91,6 +93,7 @@ func _build_minimap() -> void:
 	_map_cam.size = minimap_radius * 2.0
 	_map_cam.near = 1.0
 	_map_cam.far = 400.0
+	_map_cam.cull_mask &= ~Z.COMMANDER_LAYER  # the zombie player's fog of war and markers
 	# Flat, bright, fog-free: the map must not inherit the night look.
 	var map_env := Environment.new()
 	map_env.background_mode = Environment.BG_COLOR

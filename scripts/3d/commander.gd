@@ -22,6 +22,7 @@ extends Node3D
 const Z := preload("res://scripts/3d/zombie_3d.gd")
 const Fog := preload("res://scripts/3d/commander_fog.gd")
 const Npc := preload("res://scripts/3d/npc_3d.gd")
+const Crate := preload("res://scripts/3d/loot_crate.gd")
 const B := preload("res://scripts/balance.gd")
 const VIEWMODEL_LAYER := 2
 const PITCH_NEAR := 0.87     # ~50 deg below the horizon, zoomed in
@@ -157,7 +158,13 @@ func _spawn_horde() -> void:
 	if _player:
 		avoid.append(_player.global_position)
 	var npcs := Npc.spawn_all(get_parent(), Balance.NPC_3D.count, avoid, Balance.NPC_3D.spawn_min_m)
-	_say("Horde ready: %d + master · %d survivors out there" % [horde_size, npcs.size()])
+	# Supply crates over the walkable area (the baked navmesh's bounds).
+	var verts := _region.navigation_mesh.get_vertices()
+	var walk := Rect2(verts[0].x, verts[0].z, 0, 0)
+	for v in verts:
+		walk = walk.expand(Vector2(v.x, v.z))
+	var crates := Crate.spawn_all(get_parent(), walk, Balance.LOOT_3D.seed, [_player.global_position] if _player else [])
+	_say("Horde ready: %d + master · %d survivors, %d crates out there" % [horde_size, npcs.size(), crates.size()])
 
 
 ## A zombie joining the horde from elsewhere (an NPC that turned).

@@ -4,6 +4,117 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 10 — 3D conversion (in progress)
+- **First-person aim fixes (2026-11-17).**
+  - **Minimap:** its camera drew the commander's render layer, so the shooter saw the
+    zombies' fog of war (black, streets hidden) and their markers. `test_hud.gd` now
+    leaves out `Zombie3D.COMMANDER_LAYER`.
+  - **Spread:** the reticle sphere had a fixed radius in metres (0.95 hip, 0.28 aimed),
+    so close shots sprayed and far ones were near-perfect. Spread is now an angle
+    (`spread_deg_hip` 3.5, `spread_deg_aim` 1.0, `TestPlayer.spread_radius`): the sphere
+    grows with distance. Each pellet flies from the gun's muzzle to a random point in
+    the sphere (`viewmodel.shot_origin`; from the eye when something sits between eye
+    and muzzle).
+  - **Pitch:** first person looks 85° up and down (`Balance.FP.pitch_deg`, was ±28° from
+    the shoulder-cam trial). Looking steeply down, the aim stays where you look
+    instead of jumping 12 m ahead. Test: `test/test_fp_aim.gd`.
+- **Review fixes (2026-11-17).**
+  - **Crate items:** they could land inside the building behind a crate (navmesh islands
+    in the hollow shells) or inside the crate itself, which hit 25 of 65 items on the v6
+    map. `LootCrate._landing` now tries 8 directions and accepts only an outdoor,
+    reachable spot at least 0.7 m from the crate; failing that, the item rests on the
+    open crate. Re-check: 66 of 66 good.
+  - **Shots and loot:** pickups no longer stop bullets or catch the reticle. The new
+    `ImpactFx.SHOT_MASK` covers everything but zombie capsules and loot, and is used by
+    the shooter, the survivors and the bat. Bat hits on zombies now bleed.
+  - **Blocked survivors:** a relocate or flee leg far over its expected time
+    (`Npc3D.leg_overdue`) now counts as blocked, so a crate in the way can't trap a
+    survivor. Relocation also gets the 0.3 s "finished before the first path" grace.
+  - **Death clip:** it no longer replays on a loop on a dead survivor (pre-existing).
+- **Survivor cower pose (2026-11-17).** None of the survivor models has a crouch, so
+  `character_anim.gd` gets `freeze(clip, at)` / `unfreeze()`, which hold one frame of any
+  clip. The frames were picked from contact sheets: Business Man and Hoodie use the crouch
+  just before a Roll (0.12), Man the squat at the start of Standing (0.0). Each is in
+  `Npc3D.MODELS`. A cowering survivor drops into it with no blend, and gets up as soon
+  as it leaves COWERING (calm, recruited or bitten). Tested in `test_npc_hiding.gd`.
+- **Survivors hide in cover, flee or freeze when spotted (2026-11-17).** `npc_3d.gd`:
+  - **Hiding spots:** a hiding spot is now the best of 16 candidates, each slid against
+    the nearest wall (`spot_by_wall`) and scored by `cover_score`. That counts how many of
+    8 rays, 4 m long, hit a building: against a wall 3, alley 6. A spot needs 3, must be
+    outdoors, unseen by the horde, and `reachable`.
+  - **Courtyards:** enclosed courtyards are navmesh islands nobody can walk into. They
+    used to win on cover, so survivors "arrived" without moving. Survivor spawns and
+    crates now require reachability from the shooter too.
+  - **Spotted:** every 0.2 s a hidden or relocating survivor checks whether a zombie can
+    see it (`can_see`, the fog's test). One roll per sighting (`react()`, `NPC_3D.freeze_chance` 0.2).
+  - **FLEEING:** the survivor runs at 4.5 m/s to cover at least 18 m from that zombie, on
+    the far side of it, along a route that never loops back past it
+    (`path_keeps_away`). It hides again on arrival if unseen, or runs on (up to 3 legs,
+    then cowers).
+  - **COWERING:** it freezes until no zombie has seen it for 6 s.
+  - **Unchanged:** followers never react; walking into one still recruits it; a bite
+    still converts it.
+  - **Fixed:** "navigation finished" is ignored for the first 0.3 s of a leg, since the
+    agent says so before its first path.
+  - **Tests:** `test_npc_hiding.gd` (cover, outdoors, angled walls, `path_arrives`,
+    `path_keeps_away`, `react`).
+- **Crates spread evenly over the map (2026-11-17).** `scripts/3d/loot_scatter.gd` is a pure,
+  seeded jittered grid: about `crate_count` near-square cells in a seeded order, one point
+  per cell, at least `min_sep_m` apart. A cell with nowhere valid stays empty.
+  `LootCrate.spawn_all()` runs it over the baked navmesh's bounds once the commander has
+  spawned the horde. Each spot snaps to the navmesh, must be under open sky
+  (`Npc3D.outdoors`), and slides to the nearest building wall within 8 m
+  (`Npc3D.wall_spot`). It also stays 25 m from the shooter. The v6 map gets 13 crates,
+  at least 36 m apart, with one guaranteed weapon. Found on the way: the navmesh has
+  floor islands inside the hollow building shells (crates landed indoors until
+  `outdoors()`), and `next_to_building` only looked along the X/Z axes (the streets
+  aren't), so it now casts 8 rays. Tests: `test_loot_scatter.gd`, `test_npc_hiding.gd`.
+- **3D loot crates and pickups (2026-11-17).** `scripts/3d/loot_crate.gd`: a solid wooden
+  crate (wood impacts). E opens it into 1–3 items rolled by the 2D rules (`LootTable`,
+  `Balance.LOOT` counts and weights; a `guarantee_weapon` crate always holds one). The
+  rolls use the crate's own seeded rng, so every peer gets the same loot. Items land
+  around it on walkable ground. `scripts/3d/pickup_3d.gd`: ammo mag (+1 pistol mag),
+  bandage / medpack (`test_player.heal`), or a weapon via `viewmodel.give()`, with the
+  weapon it replaces dropping in its place. Pickups sit on physics layer 7 (64), which
+  only the interact ray sees. The crosshair prompt reads "E  open crate", "E  take Rifle",
+  "E  give Rifle" or "E  take back Rifle". 3D kinds mirror the 2D `Pickup.Kind` order
+  (the 2D script can't load headless). Test: `test/test_loot_3d.gd`.
+- **Start with pistol + torch, carry limit, debug cheat (2026-11-17).** The shooter now
+  spawns on `L.START` (pistol + torch) and can only select what they carry. The 2D slots
+  are pure rules in `fp_loadout.gd` (`available` / `take` / `fallback`): pistol + torch
+  always, one heavy (a second one swaps it out and drops the first), one bat. E is now a
+  general "use" (`viewmodel._interact()`: crate, pickup or survivor). Hand-over moves the
+  real heavy and its ammo, as in 2D, and taking it back restores them. **F9** toggles a
+  cheat (`OS.is_debug_build()` only): every weapon, no carry limit, T refills; without
+  it T does nothing. `test_player.heal()` added. Tests: `test_fp_loadout.gd`,
+  `test_shooter_health.gd`.
+- **Crosshair hitmarker (2026-11-17).** Four ticks around the crosshair flash when a shot
+  or swing lands on a zombie. They're white on a hit, orange when a part comes off, and
+  red and 1.5x on a kill, fading over 0.18 s (`Balance.FP.hitmarker`). A shotgun blast
+  shows its strongest pellet. `viewmodel.marker_look()` is tested in `test_zombie_3d.gd`.
+  No sound yet: there's no 3D audio.
+- **Zombie hit feedback: blood, flinch, hit results (2026-11-17).** `Zombie3D.take_part_hit`
+  (and `Hitbox.take_hit`) now return `Zombie3D.Hit` (`NONE` / `HIT` / `LIMB` / `KILL`, from
+  the pure `hit_result()`). A shot into a zombie part or a survivor sprays blood
+  (`Balance.IMPACT.flesh`), and a splat lands on whatever is up to 2.5 m behind along
+  the shot. A part blown off bursts `gore` at its bone. A hit that takes nothing off
+  jerks the zombie (`ZombieBody.flinch()`: start of `Hit_reaction`, `ZOMBIE_PARTS.flinch_s`
+  0.25), with no stun. Tests: `test_zombie_3d.gd` (hit results), `test_impact_fx.gd`.
+- **Shoot out street lamps (2026-11-17).** Any lamp with its lens glass still there
+  (working, blinking, sparking, or a dead or fallen one whose roll kept the glass) carries a lens hitbox
+  (`StreetLight.LensHitbox`, debris layer, meta `surface = "glass"`). A bullet calls
+  `shatter()`: glass bursts, the light is freed, and the lamp goes `DEAD`, or `SPARKING`
+  with `Balance.STREET_LIGHTS.shatter_spark_chance` (0.3, from the lamp's own seeded
+  rng). A second shot does nothing. Local only until S10 replicates shattered lamps.
+  Tests in `test/test_street_lights.gd` (lamps built after the first frame).
+- **Surface-aware bullet impacts (2026-11-17).** `scripts/3d/impact_fx.gd` now owns hit
+  effects for the shooter's guns and bat and for armed survivors (who left nothing
+  before). Each surface gets its own burst from `Balance.IMPACT`: dust off ground and
+  walls, sparks off metal (lamp poles carry meta `surface = "metal"`), shards off glass,
+  chips off wood. Holes share one 60-decal budget. Found on the way: the impact sparks
+  and muzzle smoke **never rendered**. A new `CPUParticles3D` already reports
+  `emitting = true`, so the old "set emitting = true" did nothing. And without
+  `billboard_keep_scale` each particle would have drawn 1 m wide. Both are fixed in
+  `ImpactFx.particles()`; test: `test/test_impact_fx.gd`.
 - **NPC survivors in 3D (2026-11-13).** `scripts/3d/npc_3d.gd`, ported from
   `scenes/npc/npc_human.gd` with the same states and `Balance.NPC` numbers (px -> m):
   hide 10-20 s beside a building, wander to a new spot via jittered waypoints; walk

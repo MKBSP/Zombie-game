@@ -74,6 +74,15 @@ func _initialize() -> void:
 	click.button_index = MOUSE_BUTTON_RIGHT
 	map._gui_input(click)
 	_check("RMB on the map sends the selection there", z.command_mode and Vector2(z.command_target.x, z.command_target.z).distance_to(Vector2(target.x, target.z)) < 2.0)
+	# the shooter's own view (torch beam, aim sphere, bullet cone) must not give
+	# them away to the commander: only the first-person camera draws them
+	var pl = sc.find_child("TestPlayer", true, false)
+	var vm = sc.find_children("*", "Node3D", true, false).filter(func(n): return n.get_script() and n.get_script().resource_path.ends_with("viewmodel.gd"))[0]
+	var fp_cam: Camera3D = vm.get_parent()
+	for g in [[vm._beam, "torch beam"], [pl._sphere, "aim sphere"], [pl._cone, "bullet cone"]]:
+		var base: int = g[0].get_meta("fog_layers", g[0].layers)  # the fog swaps layers while unseen
+		_check("commander can't see the shooter's %s, even when seen" % g[1], base & cmd._cam.cull_mask == 0)
+		_check("the shooter still sees their %s" % g[1], base & fp_cam.cull_mask != 0)
 	cmd.hear_gunshot(Vector3.ZERO)
 	_check("a gunshot draws a ring on the map", map.rings.size() == 1)
 	_check("the ring is zombie hearing", is_equal_approx(map.ring_px(), Balance.ZOMBIE_3D.hearing_m / map.rect.size.x * map.size.x))

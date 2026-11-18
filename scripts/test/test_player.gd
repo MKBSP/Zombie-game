@@ -446,6 +446,9 @@ func _build_reticle() -> void:
 	_cone.mesh = _cone_mesh
 	_cone.material_override = _translucent(Color(1.0, 0.85, 0.35))
 	add_child(_cone)
+	# first-person only: the zombie commander must never see where the shooter aims
+	_sphere.layers = VIEWMODEL_LAYER
+	_cone.layers = VIEWMODEL_LAYER
 
 	# Both live in world space: once the camera sits over one shoulder, the
 	# reticle is on the CAMERA's centre ray, not on the player's forward axis.

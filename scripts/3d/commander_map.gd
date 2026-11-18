@@ -132,7 +132,7 @@ func _process(delta: float) -> void:
 	if not is_visible_in_tree():
 		return
 	_explore_t -= delta
-	if _explore_t <= 0.0:  # ponytail: a GPU readback once a second; count on the GPU if it ever shows up as a hitch
+	if _explore_t <= 0.0 and DisplayServer.get_name() != "headless":  # ponytail: a GPU readback once a second; count on the GPU if it ever shows up as a hitch
 		_explore_t = 1.0
 		var img: Image = _fog.seen_tex.get_image() if _fog.seen_tex else null
 		if img and not img.is_empty():

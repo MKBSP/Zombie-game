@@ -522,6 +522,7 @@ void fragment() {
 	_beam.mesh = _beam_mesh
 	_beam.material_override = bm
 	_beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_beam.layers = VIEWMODEL_LAYER  # the shooter's own view: drawn after the commander's fog, it showed through it anywhere
 	add_child(_beam)
 
 

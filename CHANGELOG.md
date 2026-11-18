@@ -4,6 +4,14 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 10 — 3D conversion (in progress)
+- **Shooter's torch beam leaked through the commander's fog (2026-11-18).** The visible
+  beam mesh hangs off the camera rig, not the shooter's body, so the fog never hid it,
+  and being drawn after the fog quad it showed bright even in never-seen black: the
+  commander could find the shooter anywhere. The aim sphere and bullet cone showed
+  once a zombie saw the shooter. All three now sit on the first-person-only render layer
+  (`VIEWMODEL_LAYER`), which the commander camera skips. The torch's light still glows
+  faintly through explored fog, by design (2D spec 2026-07-29 §4). Test:
+  `test_commander_map.gd`.
 - **Commander zoom + minimap, casing crash (2026-11-18).**
   - **Crash:** after about 30 shots in a session the game froze into the editor's
     debugger ("Trying to assign invalid previously freed instance" in `viewmodel._shell`):

@@ -1340,7 +1340,7 @@ func _shell(at: Transform3D, shotgun: bool) -> void:
 	body.angular_velocity = Vector3(randfn(0, 15), randfn(0, 15), randfn(0, 15))
 	_shells.append(body)
 	if _shells.size() > 30:
-		var old: Node3D = _shells.pop_front()
+		var old = _shells.pop_front()  # untyped: its 4 s timer may have freed it already
 		if is_instance_valid(old):
 			old.queue_free()
 	get_tree().create_timer(4.0).timeout.connect(func() -> void:

@@ -135,6 +135,8 @@ scripts/3d/        # city_import.gd — post-import for the OSM city GLB: materi
                    #     selection/orders/stances/groups/rally/merge, building fade, runtime navmesh bake
                    #   commander_fog.gd — commander fog of war: 2D light/occluder SubViewports -> vis +
                    #     explored textures -> full-screen quad (shader/commander_fog.gdshader); hides unseen enemies
+                   #   commander_map.gd — commander minimap (top right): city snapshot under the fog's vis/explored
+                   #     textures, units, seen enemies, camera view, gunshot hearing rings; LMB look, RMB send
                    #     (render layer 4 = drawn by shooter cameras, not the commander's)
                    #   zombie_3d.gd — 3D zombie unit: capsule placeholder + 2D stance machine in metres
                    #   character_anim.gd — Idle/Walk/Run/Death for a Quaternius-rig model under a body

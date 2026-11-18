@@ -4,12 +4,14 @@ extends Node3D
 ## scripts/zombie_controller.gd. TAB swaps between it and the first-person
 ## shooter in the same scene, so one person can test both sides. Bakes the
 ## navmesh and spawns the horde (scripts/3d/zombie_3d.gd) itself for now.
-## Fog of war: scripts/3d/commander_fog.gd. Not here yet: minimap, networking,
+## Fog of war: scripts/3d/commander_fog.gd. Not here yet: networking,
 ## the real HUD.
 ##
 ## Camera  WASD / arrows / screen edge pan, Q/E (hold) or middle-drag rotate freely
 ##         (90-degree snaps didn't line up with the street grid), HOME back to
-##         north, wheel zoom; the camera tilts toward top-down as it zooms out.
+##         north, wheel / trackpad scroll / pinch / -= zoom; the camera tilts
+##         toward top-down as it zooms out.
+## Map     top right (commander_map.gd): LMB look there, RMB send the selection
 ## Select  LMB click or drag a box (SHIFT adds), CTRL+A all, ESC clear / cancel
 ## Orders  RMB move, or attack the enemy under the cursor
 ## Groups  CTRL+1-9 save, 1-9 recall
@@ -21,6 +23,7 @@ extends Node3D
 
 const Z := preload("res://scripts/3d/zombie_3d.gd")
 const Fog := preload("res://scripts/3d/commander_fog.gd")
+const Map := preload("res://scripts/3d/commander_map.gd")
 const Npc := preload("res://scripts/3d/npc_3d.gd")
 const Crate := preload("res://scripts/3d/loot_crate.gd")
 const B := preload("res://scripts/balance.gd")
@@ -29,6 +32,7 @@ const PITCH_NEAR := 0.87     # ~50 deg below the horizon, zoomed in
 const PITCH_FAR := 1.26      # ~72 deg, zoomed out
 const DIST_MIN := 10.0
 const DIST_MAX := 110.0
+const ZOOM_STEP := 0.9       # one wheel click: camera distance x this
 const EDGE_PX := 24.0
 const PICK_PX := 28.0
 const FADE_TO := 0.9         # spec D3: ~90% transparent
@@ -70,6 +74,7 @@ var _banner: Label
 var _box: Panel
 var _region: NavigationRegion3D
 var _fog: Fog
+var _map: Map
 var _event_t := 0.0
 
 
@@ -108,6 +113,9 @@ func _ready() -> void:
 		_fog = Fog.new()
 		add_child(_fog)
 		_fog.setup(city, _cam)
+		_map = Map.new()
+		_hud.add_child(_map)
+		_map.setup(self, _fog)
 	set_active(start_active)
 
 
@@ -236,6 +244,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not active:
 		return
 	get_viewport().set_input_as_handled()  # the frozen shooter's HUD keys stay quiet
+	var zoom := zoom_factor(event)
+	if zoom != 1.0:
+		_dist = clampf(_dist * zoom, DIST_MIN, DIST_MAX)
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		_key(event)
 	elif event is InputEventMouseButton:
@@ -276,12 +288,29 @@ func _key(e: InputEventKey) -> void:
 		KEY_HOME: _yaw_target = roundf(_yaw / TAU) * TAU
 
 
+## How much one input event zooms (x the camera distance; 1.0 = not a zoom): the
+## wheel, trackpad two-finger scroll (macOS sends that as a pan gesture, not
+## wheel clicks), pinch, and the -/= (+) keys.
+static func zoom_factor(e: InputEvent) -> float:
+	if e is InputEventMouseButton and e.pressed:
+		if e.button_index == MOUSE_BUTTON_WHEEL_UP:
+			return ZOOM_STEP
+		if e.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			return 1.0 / ZOOM_STEP
+	elif e is InputEventPanGesture:
+		return pow(ZOOM_STEP, -clampf(e.delta.y, -3.0, 3.0))
+	elif e is InputEventMagnifyGesture:
+		return 1.0 / e.factor
+	elif e is InputEventKey and e.pressed:
+		if e.keycode in [KEY_EQUAL, KEY_PLUS, KEY_KP_ADD]:
+			return ZOOM_STEP
+		if e.keycode in [KEY_MINUS, KEY_KP_SUBTRACT]:
+			return 1.0 / ZOOM_STEP
+	return 1.0
+
+
 func _mouse_button(e: InputEventMouseButton) -> void:
-	if e.pressed and e.button_index == MOUSE_BUTTON_WHEEL_UP:
-		_dist = maxf(_dist * 0.9, DIST_MIN)
-	elif e.pressed and e.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-		_dist = minf(_dist / 0.9, DIST_MAX)
-	elif e.button_index == MOUSE_BUTTON_LEFT:
+	if e.button_index == MOUSE_BUTTON_LEFT:
 		if _pending >= 0:  # placing patrol / flee points, not selecting
 			if e.pressed:
 				_place_point(_ground(e.position))
@@ -363,7 +392,8 @@ func _pan(delta: float) -> void:
 		_yaw_target -= delta * 1.6
 	var mp := get_viewport().get_mouse_position()
 	var vs := get_viewport().get_visible_rect().size
-	if DisplayServer.window_is_focused() and Rect2(Vector2.ZERO, vs).has_point(mp) and not _dragging:
+	var on_map := _map != null and _map.get_global_rect().has_point(mp)
+	if DisplayServer.window_is_focused() and Rect2(Vector2.ZERO, vs).has_point(mp) and not _dragging and not on_map:
 		if mp.x < EDGE_PX: dir.x -= 1
 		if mp.x > vs.x - EDGE_PX: dir.x += 1
 		if mp.y < EDGE_PX: dir.y -= 1
@@ -507,6 +537,8 @@ func _end_merge(mg: Dictionary) -> void:
 ## commander hears it anywhere, as in 2D (ripple), even through the fog.
 func hear_gunshot(pos: Vector3) -> void:
 	_ping(pos, Color(1.0, 0.55, 0.1), 5.0)
+	if _map:
+		_map.hear(pos)
 	_say("Gunshot")
 
 
@@ -575,7 +607,7 @@ func _build_hud() -> void:
 	add_child(_hud)
 	var help := Label.new()
 	help.position = Vector2(14, 10)
-	help.text = "ZOMBIE COMMANDER  (TAB: shooter)\nWASD/edge pan · Q/E or MMB-drag rotate · HOME north · wheel zoom\nLMB select / box (SHIFT add) · CTRL+A all · RMB move / attack\nCTRL+1-9 save group · 1-9 recall · ESC clear"
+	help.text = "ZOMBIE COMMANDER  (TAB: shooter)\nWASD/edge pan · Q/E or MMB-drag rotate · HOME north · scroll/pinch or -/= zoom\nMap (top right): LMB look there · RMB send selection\nLMB select / box (SHIFT add) · CTRL+A all · RMB move / attack\nCTRL+1-9 save group · 1-9 recall · ESC clear"
 	_outline(help)
 	_hud.add_child(help)
 	_status = Label.new()

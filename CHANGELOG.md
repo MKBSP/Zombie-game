@@ -4,6 +4,18 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 10 — 3D conversion (in progress)
+- **Commander zoom + minimap, casing crash (2026-11-18).**
+  - **Crash:** after about 30 shots in a session the game froze into the editor's
+    debugger ("Trying to assign invalid previously freed instance" in `viewmodel._shell`):
+    the casing list kept casings their 4 s timer had freed, and the cap pulled one into a
+    typed variable. Now untyped. Test: `test_fp_aim.gd`.
+  - **Zoom:** only real wheel clicks zoomed; a MacBook trackpad sends two-finger scroll as
+    a pan gesture. `Commander.zoom_factor` takes the wheel, trackpad scroll, pinch and -/=.
+  - **Minimap** (`scripts/3d/commander_map.gd`, top right): the whole city under the
+    horde's fog (black never seen, dim explored, clear seen) with "Explored N%"; zombies
+    (selected white), enemies only while seen, the camera's view, and each gunshot as a
+    ring of zombie hearing (70 m) for 4 s. LMB/drag looks there, RMB sends the selection.
+    Test: `test/test_commander_map.gd`.
 - **Dust puffs instead of sparks (2026-11-17).** Shots into walls, ground and wood threw
   10-12 tiny fast specks that the torch lit up like sparks. They now raise a soft dust
   puff: 3-5 blobs that drift slowly off the surface, grow 2.5x and fade over about 1 s,

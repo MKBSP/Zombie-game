@@ -26,7 +26,12 @@ const LIGHT_TEX := 256
 const OCCLUDER_CULL := OccluderPolygon2D.CULL_COUNTER_CLOCKWISE
 
 var visible_enemies: Array = []
-var _rect := Rect2()        # map, world XZ
+var vis_tex: Texture2D      # white = a zombie sees it now (the minimap reads these two)
+var seen_tex: Texture2D     # white = seen at some point
+var rect: Rect2:            # map, world XZ
+	get:
+		return _rect
+var _rect := Rect2()
 var _vis: SubViewport
 var _lights := {}           # zombie -> PointLight2D
 var _light_tex: GradientTexture2D
@@ -97,8 +102,10 @@ func setup(city: Node3D, cam: Camera3D) -> void:
 	var fog := ShaderMaterial.new()
 	fog.shader = load("res://shader/commander_fog.gdshader")
 	fog.render_priority = Material.RENDER_PRIORITY_MIN  # before the commander's markers
-	fog.set_shader_parameter("vis_tex", _vis.get_texture())
-	fog.set_shader_parameter("seen_tex", seen.get_texture())
+	vis_tex = _vis.get_texture()
+	seen_tex = seen.get_texture()
+	fog.set_shader_parameter("vis_tex", vis_tex)
+	fog.set_shader_parameter("seen_tex", seen_tex)
 	fog.set_shader_parameter("map_rect", Vector4(_rect.position.x, _rect.position.y, _rect.size.x, _rect.size.y))
 	var mi := MeshInstance3D.new()
 	mi.mesh = quad

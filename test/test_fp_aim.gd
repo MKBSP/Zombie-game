@@ -30,6 +30,17 @@ func _initialize() -> void:
 	var flat := Vector2(pl.reticle_point.x - pl.global_position.x, pl.reticle_point.z - pl.global_position.z).length()
 	_check("looking down, the aim is where you look (got %.1f m ahead)" % flat, flat < 2.0)
 
+	# --- spent casings: one already freed by its 4 s timer must not break the
+	# next shot (it did once 30 were out: the game froze into the debugger) ---
+	var vm = sc.find_children("*", "Node3D", true, false).filter(func(n): return n.get_script() == VM)[0]
+	var at := Transform3D(Basis(), pl.global_position + Vector3.UP * 3.0)
+	for i in 31:
+		vm._shell(at, false)
+	for c in vm._shells.slice(0, 3):
+		c.free()
+	vm._shell(at, false)
+	_check("casings stay capped", vm._shells.size() <= 31)
+
 	# --- spread is an angle: the sphere grows with distance from the gun ---
 	_check("a 10 m sphere is twice a 5 m one", is_equal_approx(P.spread_radius(2.0, 10.0), 2.0 * P.spread_radius(2.0, 5.0)))
 	_check("radius = distance x tan(angle)", is_equal_approx(P.spread_radius(45.0, 3.0), 3.0))

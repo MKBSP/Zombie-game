@@ -30,6 +30,21 @@ func _init() -> void:
 	_check("burst starts idle", not p.emitting)
 	_check("billboard keeps particle scale", (p.mesh.surface_get_material(0) as StandardMaterial3D).billboard_keep_scale)
 	p.free()
+	# walls, ground, wood: a soft dust puff, not sparks — a few blobs that drift
+	# slowly off the surface (no arc), grow, fade out, and show only in light
+	for s in ["ground", "wall", "wood"]:
+		var b: CPUParticles3D = F.burst(B.IMPACT[s])
+		var mat := b.mesh.surface_get_material(0) as StandardMaterial3D
+		_check("%s: a few blobs (got %d)" % [s, b.amount], b.amount <= 5)
+		_check("%s: slow drift" % s, b.initial_velocity_max <= 1.0)
+		_check("%s: no arc" % s, b.gravity.length() < 0.5)
+		_check("%s: grows" % s, b.scale_amount_curve != null and b.scale_amount_curve.sample(0.0) < b.scale_amount_curve.sample(1.0))
+		_check("%s: fades out" % s, b.color_ramp != null and b.color_ramp.sample(1.0).a < 0.05 and b.color_ramp.sample(0.0).a <= 0.6)
+		_check("%s: lit, not glowing" % s, mat.shading_mode != BaseMaterial3D.SHADING_MODE_UNSHADED)
+		b.free()
+	var m: CPUParticles3D = F.burst(B.IMPACT.metal)
+	_check("metal still sparks (glows)", (m.mesh.surface_get_material(0) as StandardMaterial3D).shading_mode == BaseMaterial3D.SHADING_MODE_UNSHADED and m.color_ramp == null)
+	m.free()
 	print("FAILURES: %d" % _failures if _failures else "ALL PASS")
 	quit(1 if _failures else 0)
 

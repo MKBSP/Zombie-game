@@ -1,7 +1,7 @@
 extends RefCounted
 ## Where a shot or a bat lands: a burst shaped by the surface it hit
-## (Balance.IMPACT: dust off ground and walls, sparks off metal, shards off
-## glass, chips off wood) and, on most surfaces, a bullet hole. Shared by the
+## (Balance.IMPACT: a dust puff off ground, walls and wood, sparks off metal,
+## shards off glass) and, on most surfaces, a bullet hole. Shared by the
 ## shooter (viewmodel.gd) and armed survivors (npc_3d.gd), so their holes share
 ## one budget. A collider names its surface with meta "surface"; otherwise the
 ## hit normal decides ground vs wall. Checked headless by test/test_impact_fx.gd.
@@ -35,6 +35,20 @@ static func spawn(root: Node, pos: Vector3, normal: Vector3, surface: String, de
 	var s: Dictionary = B.IMPACT.get(surface, B.IMPACT.wall)
 	if decal and s.decal:
 		_hole(root, pos, normal)
+	var p := burst(s)
+	p.direction = normal
+	root.add_child(p)
+	p.global_position = pos + normal * 0.02
+	p.emitting = true
+	if s.get("splat", false):
+		_splat(p, pos, dir if dir != Vector3.ZERO else Vector3.DOWN)
+
+
+## The idle, unplaced particles for one hit on surface look `s` (Balance.IMPACT).
+## A puff (walls, ground, wood) is a soft dust cloud: it starts small, grows
+## IMPACT.puff_grow times and fades out. The rest (sparks, shards, blood) fly
+## out and drop.
+static func burst(s: Dictionary) -> CPUParticles3D:
 	if _dot_tex == null:
 		var g := Gradient.new()
 		g.set_color(0, Color.WHITE)
@@ -48,7 +62,6 @@ static func spawn(root: Node, pos: Vector3, normal: Vector3, surface: String, de
 		t.height = 32
 		_dot_tex = t
 	var p := particles(s.count, s.life, _dot_tex)
-	p.direction = normal
 	p.spread = 40.0
 	p.initial_velocity_min = s.speed.x
 	p.initial_velocity_max = s.speed.y
@@ -58,11 +71,19 @@ static func spawn(root: Node, pos: Vector3, normal: Vector3, surface: String, de
 	p.color = s.color
 	(p.mesh.surface_get_material(0) as StandardMaterial3D).shading_mode = \
 		BaseMaterial3D.SHADING_MODE_UNSHADED if s.unshaded else BaseMaterial3D.SHADING_MODE_PER_PIXEL
-	root.add_child(p)
-	p.global_position = pos + normal * 0.02
-	p.emitting = true
-	if s.get("splat", false):
-		_splat(p, pos, dir if dir != Vector3.ZERO else Vector3.DOWN)
+	if s.get("puff", false):
+		var grow: float = B.IMPACT.puff_grow
+		p.scale_amount_min *= grow
+		p.scale_amount_max *= grow
+		var c := Curve.new()
+		c.add_point(Vector2(0.0, 1.0 / grow))
+		c.add_point(Vector2(1.0, 1.0))
+		p.scale_amount_curve = c
+		var g := Gradient.new()
+		g.set_color(0, Color(1, 1, 1, B.IMPACT.puff_alpha))
+		g.set_color(1, Color(1, 1, 1, 0))
+		p.color_ramp = g
+	return p
 
 
 ## A one-shot burst of billboard quads that frees itself when done. It starts

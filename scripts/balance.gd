@@ -205,19 +205,23 @@ const LOOT_3D := {
 # --- 3D impacts (scripts/3d/impact_fx.gd) -----------------------------------
 # One look per surface a shot can hit. decal = leaves a bullet hole; count/life/
 # speed (min, max m/s)/gravity (m/s2)/size (min, max m) shape the burst; unshaded
-# glows (sparks), shaded only shows where light falls (dust).
+# glows (sparks), shaded only shows where light falls (dust). puff = a soft dust
+# cloud (size is where it starts; it grows puff_grow times and fades from
+# puff_alpha to nothing). Sparks only off metal.
 const IMPACT := {
 	decal_cap = 60,             # bullet holes kept, shooter and survivors together
-	ground = {decal = true, count = 12, life = 0.6, color = Color(0.62, 0.57, 0.5), unshaded = false,
-			speed = Vector2(0.8, 2.2), gravity = 4.0, size = Vector2(0.04, 0.09)},
-	wall = {decal = true, count = 10, life = 0.6, color = Color(0.72, 0.68, 0.6), unshaded = false,
-			speed = Vector2(0.8, 2.2), gravity = 4.0, size = Vector2(0.04, 0.09)},
+	puff_grow = 2.5,
+	puff_alpha = 0.5,
+	ground = {decal = true, puff = true, count = 5, life = 1.1, color = Color(0.72, 0.68, 0.62), unshaded = false,
+			speed = Vector2(0.3, 0.7), gravity = 0.0, size = Vector2(0.18, 0.26)},
+	wall = {decal = true, puff = true, count = 4, life = 1.0, color = Color(0.55, 0.52, 0.47), unshaded = false,
+			speed = Vector2(0.2, 0.6), gravity = 0.0, size = Vector2(0.15, 0.22)},
 	metal = {decal = true, count = 14, life = 0.45, color = Color(1.0, 0.5, 0.12), unshaded = true,
 			speed = Vector2(1.0, 3.0), gravity = 5.0, size = Vector2(0.03, 0.07)},
 	glass = {decal = false, count = 24, life = 0.9, color = Color(0.8, 0.9, 1.0), unshaded = true,
 			speed = Vector2(0.5, 2.0), gravity = 9.8, size = Vector2(0.02, 0.05)},
-	wood = {decal = true, count = 10, life = 0.6, color = Color(0.45, 0.3, 0.17), unshaded = false,
-			speed = Vector2(1.0, 2.5), gravity = 7.0, size = Vector2(0.03, 0.07)},
+	wood = {decal = true, puff = true, count = 3, life = 0.9, color = Color(0.42, 0.32, 0.22), unshaded = false,
+			speed = Vector2(0.2, 0.5), gravity = 0.0, size = Vector2(0.12, 0.18)},
 	# flesh = a hit on a zombie part or a survivor; gore = a part blown off. splat =
 	# blood lands on whatever is up to splat_m behind the hit (no hole in the body).
 	flesh = {decal = false, splat = true, count = 16, life = 0.5, color = Color(0.55, 0.03, 0.03), unshaded = false,

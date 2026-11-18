@@ -4,6 +4,11 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 10 — 3D conversion (in progress)
+- **Dust puffs instead of sparks (2026-11-17).** Shots into walls, ground and wood threw
+  10-12 tiny fast specks that the torch lit up like sparks. They now raise a soft dust
+  puff: 3-5 blobs that drift slowly off the surface, grow 2.5x and fade over about 1 s,
+  shown only where light falls (`Balance.IMPACT` `puff`, `puff_grow`, `puff_alpha`;
+  `ImpactFx.burst`). Sparks only off metal (lamp posts); glass and blood unchanged.
 - **First-person aim fixes (2026-11-17).**
   - **Minimap:** its camera drew the commander's render layer, so the shooter saw the
     zombies' fog of war (black, streets hidden) and their markers. `test_hud.gd` now

@@ -27,6 +27,7 @@ const Map := preload("res://scripts/3d/commander_map.gd")
 const Npc := preload("res://scripts/3d/npc_3d.gd")
 const Crate := preload("res://scripts/3d/loot_crate.gd")
 const B := preload("res://scripts/balance.gd")
+const GS := preload("res://scripts/game_state.gd")  # the autoload by name breaks headless tests
 const VIEWMODEL_LAYER := 2
 const PITCH_NEAR := 0.87     # ~50 deg below the horizon, zoomed in
 const PITCH_FAR := 1.26      # ~72 deg, zoomed out
@@ -44,7 +45,10 @@ const ROOF_CLEAR := 4.0      # camera keeps this far above the roof under it
 @export var lights_path: NodePath = ^"../StreetLights"  # standing poles go into the navmesh
 @export var horde_size := 15            # Balance.WORLD.base_zombie_count; + 1 master
 @export var spawn_point := Vector3(-35, 0, -4)  # on the long diagonal street, ~45 m from the shooter
-@export var start_active := false
+@export var start_active := false     # also true when the menu picked the zombie role
+@export var spawn_horde := true      # the test museum turns these off and places its own
+@export var spawn_npcs := true
+@export var spawn_crates := true
 
 var active := false
 var selected: Array = []
@@ -116,7 +120,8 @@ func _ready() -> void:
 		_map = Map.new()
 		_hud.add_child(_map)
 		_map.setup(self, _fog)
-	set_active(start_active)
+	var gs := get_node_or_null("/root/GameState")
+	set_active(start_active or (gs != null and gs.role == GS.Role.ZOMBIE))
 
 
 func _bake_nav() -> void:
@@ -150,10 +155,11 @@ func _spawn_horde() -> void:
 	# iterations); until then every query answers (0, 0, 0).
 	var map := get_world_3d().navigation_map
 	for f in 300:
-		if NavigationServer3D.map_get_closest_point(map, spawn_point) != Vector3.ZERO:
+		if NavigationServer3D.map_get_iteration_id(map) > 0 \
+				and NavigationServer3D.map_get_closest_point(map, spawn_point) != Vector3.ZERO:
 			break
 		await get_tree().physics_frame
-	for i in horde_size + 1:
+	for i in (horde_size + 1 if spawn_horde else 0):
 		var z := Z.new()
 		z.variant = Z.Variant.MASTER if i == 0 else Z.Variant.STANDARD
 		z.position = NavigationServer3D.map_get_closest_point(map, spawn_point + _spiral(i, 1.2))
@@ -165,13 +171,15 @@ func _spawn_horde() -> void:
 	var avoid := [spawn_point]
 	if _player:
 		avoid.append(_player.global_position)
-	var npcs := Npc.spawn_all(get_parent(), Balance.NPC_3D.count, avoid, Balance.NPC_3D.spawn_min_m)
+	var npcs: Array = Npc.spawn_all(get_parent(), Balance.NPC_3D.count, avoid, Balance.NPC_3D.spawn_min_m) if spawn_npcs else []
 	# Supply crates over the walkable area (the baked navmesh's bounds).
 	var verts := _region.navigation_mesh.get_vertices()
 	var walk := Rect2(verts[0].x, verts[0].z, 0, 0)
 	for v in verts:
 		walk = walk.expand(Vector2(v.x, v.z))
-	var crates := Crate.spawn_all(get_parent(), walk, Balance.LOOT_3D.seed, [_player.global_position] if _player else [])
+	var crates: Array = Crate.spawn_all(get_parent(), walk, Balance.LOOT_3D.seed, [_player.global_position] if _player else []) if spawn_crates else []
+	if not (spawn_horde or spawn_npcs or spawn_crates):
+		return
 	_say("Horde ready: %d + master · %d survivors, %d crates out there" % [horde_size, npcs.size(), crates.size()])
 
 
@@ -201,7 +209,7 @@ func set_active(on: bool) -> void:
 		_rig.process_mode = Node.PROCESS_MODE_DISABLED if on else Node.PROCESS_MODE_INHERIT
 	if _fp_layers.is_empty():
 		for cl in get_tree().current_scene.find_children("*", "CanvasLayer", true, false):
-			if cl != _hud:
+			if cl != _hud and not cl.is_in_group("keep_visible"):
 				_fp_layers.append(cl)
 	for cl in _fp_layers:
 		cl.visible = not on
@@ -274,7 +282,6 @@ func _key(e: InputEventKey) -> void:
 		return
 	match k:
 		KEY_A when e.ctrl_pressed: _select(_units())
-		KEY_ESCAPE: _escape()
 		KEY_Z: _combat(Z.Combat.AGGRESSIVE)
 		KEY_X: _combat(Z.Combat.HOLD)
 		KEY_C: _movement(Z.Movement.FREE, 0)
@@ -442,16 +449,21 @@ func _place_point(p: Vector3) -> void:
 	_pending = -1
 
 
-func _escape() -> void:
+## ESC (called by scenes/ui/game_menu.gd): cancel a pending order, else the
+## selection and its walking merges. False = nothing to clear, open the menu.
+func escape() -> bool:
 	if _pending >= 0 or _rally_armed:
 		_pending = -1
 		_rally_armed = false
 		_say("Cancelled")
-		return
+		return true
+	if selected.is_empty():
+		return false
 	for mg in _merges.duplicate():  # ESC cancels the selection's walking merges
 		if mg.t < 0.0 and mg.zombies.any(func(z): return z in selected):
 			_end_merge(mg)
 	_select([])
+	return true
 
 
 # --- merging (2D merge_manager.gd: walk together, lock 2 s per zombie) ---------------

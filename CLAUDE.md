@@ -11,7 +11,11 @@ every file each session. Keep them current as part of your work.
 | [CHANGELOG.md](CHANGELOG.md) | What was built, phase by phase |
 
 ## Fast facts
-- **Engine:** Godot 4.6.3 (GL Compatibility, 2D). Main scene: `scenes/ui/main_menu.tscn`.
+- **Engine:** Godot 4.6.3, Forward+. Main scene: `scenes/ui/loading_screen.tscn` →
+  `main_menu.tscn`. **PLAY starts the 3D game** (`scenes/game/city.tscn`). The old 2D
+  game (`scenes/world/`) is only reached by the online flow (hidden in the menu)
+  and the dedicated server, until the 3D game is networked; see
+  `docs/superpowers/plans/2026-11-25-3d-game.md`.
 - **Editing:** A live editor is usually running — prefer the **godot-ai MCP**
   (`script_patch`, `node_*`, `scene_*`, `test_run`, `editor_screenshot`) over
   blind file edits. Check `editor_state` first.

@@ -1,0 +1,37 @@
+[gd_scene format=3 uid="uid://dpvely524ldrh"]
+
+[ext_resource type="PackedScene" uid="uid://cmvqd8b8sm3q6" path="res://assets/city/westvillage_small.glb" id="1_cot1k"]
+[ext_resource type="Script" uid="uid://dmq1h0f5jehh" path="res://scripts/3d/street_lights.gd" id="6_64dut"]
+[ext_resource type="PackedScene" path="res://scenes/game/rig.tscn" id="9_rig"]
+
+[sub_resource type="Environment" id="Environment_ps6bg"]
+background_mode = 1
+background_color = Color(0.008, 0.011, 0.02, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.09, 0.11, 0.17, 1)
+ambient_light_energy = 0.04
+tonemap_mode = 3
+glow_enabled = true
+glow_intensity = 0.45
+glow_bloom = 0.06
+fog_enabled = true
+fog_light_color = Color(0.13, 0.15, 0.21, 1)
+fog_density = 0.022
+fog_sky_affect = 0.0
+volumetric_fog_enabled = true
+volumetric_fog_albedo = Color(0.66, 0.68, 0.74, 1)
+volumetric_fog_anisotropy = 0.3
+volumetric_fog_length = 96.0
+volumetric_fog_ambient_inject = 0.25
+
+[node name="Game" type="Node3D" unique_id=1812326258]
+
+[node name="City" parent="." unique_id=1913698188 instance=ExtResource("1_cot1k")]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1916244625]
+environment = SubResource("Environment_ps6bg")
+
+[node name="StreetLights" type="Node3D" parent="." unique_id=1874908734]
+script = ExtResource("6_64dut")
+
+[node name="Rig" parent="." unique_id=402117396 instance=ExtResource("9_rig")]

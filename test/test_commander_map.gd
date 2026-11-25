@@ -51,7 +51,7 @@ func _initialize() -> void:
 	_check("explored share", is_equal_approx(M.explored_frac(img), 0.3))
 
 	# --- in the city ---
-	change_scene_to_file("res://scenes/test/camera_test_v6_small_city.tscn")
+	change_scene_to_file("res://scenes/game/city.tscn")
 	for i in 10:
 		await process_frame
 	while get_nodes_in_group("zombies").size() == 0:

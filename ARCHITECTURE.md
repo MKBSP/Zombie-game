@@ -13,17 +13,31 @@ the simulation; clients send input and render replicated state. A match is up to
 `gl_compatibility` for the Brief 11 night test: volumetric fog, which the
 flashlight look depends on, does not exist on GL Compatibility. The 2D game
 renders correctly through it (verified: menu, fog of war, Light2D vision
-cones, HUD). Web export was already dropped in favour of downloadable
-itch.io builds, so the GL Compat constraint no longer applies.
+cones, HUD). Web export is dropped: testers get native macOS / Windows builds
+(`export_presets.cfg`, DEPLOY.md Part 3). Apple Silicon builds need
+`textures/vram_compression/import_etc2_astc`.
 
 ## Boot flow
 `project.godot` → main scene `scenes/ui/loading_screen.tscn` (brand/boot screen;
 skipped for `--server`/`--host`/`--join`/`--role`/`--autojoin` launches) →
-`scenes/ui/main_menu.tscn`. The menu sets
-`GameState` (role, multiplayer flags, world seed) and asks `Net` to host/join.
-When a match starts, `scenes/world/world.tscn` (`world.gd`) loads and spawns one
-shooter per assigned peer (from `GameState.shooter_peers`), the zombies, NPCs and
-items, then runs the authoritative loop.
+`scenes/ui/main_menu.tscn`. **PLAY** sets `GameState.role` and loads the 3D
+game, `scenes/game/city.tscn` (offline). The commander reads the role at
+`_ready` (zombie = start as commander). The MULTIPLAYER row is hidden until the 3D
+game is networked (plan phase 5). The launch flags (`--host`/`--join`/`--autojoin`)
+and the dedicated server still drive the old 2D online flow: `Net` loads
+`scenes/world/world.tscn` (`world.gd`), which spawns one shooter per assigned
+peer, the zombies, NPCs and items, then runs the authoritative loop.
+
+**3D game:** `scenes/game/city.tscn` = `City` (the GLB) + `WorldEnvironment` +
+`StreetLights` + **`Rig`** (`scenes/game/rig.tscn`, shared with the test
+museum). The rig holds `TestPlayer`, `CameraRig`/`Camera3D`/`Viewmodel`,
+`DebugHUD`, `TuningHUD`, `Commander` and `GameMenu`. Its NodePaths to `City`,
+`StreetLights` and `WorldEnvironment` point one level up (`../../`), so any scene
+with those three siblings can host it. `GameMenu` (`scenes/ui/game_menu.gd`) is
+the ESC menu: it pauses, switches role (`commander.set_active`), toggles cheats
+(`viewmodel.set_cheat`), opens settings, restarts and quits. It is in group
+`keep_visible` so the commander's role switch doesn't hide it. The commander's
+`spawn_horde` / `spawn_npcs` / `spawn_crates` exports let a scene place its own.
 
 ## Netcode model (who owns what)
 - **Your own shooter's movement is client-authoritative** (Among Us model): the
@@ -109,12 +123,21 @@ scenes/            # Game scenes, each .tscn paired with its .gd
 scripts/           # Shared logic, autoloads, RefCounted helpers (see below)
   loot_table.gd    # LootTable — pure roll helpers (roll_item_count, roll_kind); headless-safe
   interact_pick.gd # Interact — choose_nearest() contextual interact resolver
+scenes/game/       # the 3D game: city.tscn (map + environment + Rig), rig.tscn (player,
+                   #   camera, viewmodel, HUDs, commander, ESC menu; shared with the museum)
+scenes/museum/     # museum.tscn: test museum = City (built by scripts/museum/museum.gd)
+                   #   + WorldEnvironment + Rig. Zoo / lighting lab / facade wall / survivors;
+                   #   areas() + go() feed the ESC menu's "Go to" list
 scenes/test/       # 3D camera/aim test scenes (Brief 11) - 4 daylight + 4 night
                    #   + test_structures.tscn (overhang + room). Standalone, F6.
 scripts/test/      # camera_rig.gd (4 view modes) + test_player.gd (locomotion,
-                   #   aim, flashlight) + flicker_light.gd; test-only — no game
-                   #   code imports any of it
+                   #   aim, flashlight) + flicker_light.gd + test_hud.gd. Despite the
+                   #   folder name, the 3D game's rig (scenes/game/rig.tscn) uses them
 scripts/3d/        # city_import.gd — post-import for the OSM city GLB: material name -> city shader
+                   #   prop_3d.gd — Prop3D (@tool): an assets/props model set on the ground, box
+                   #     collider on layer 1 (cover + navmesh), `surface` meta for hit FX, state
+                   #     INTACT / BURNT (charred override) / BURNING (+ Fire3D)
+                   #   fire_3d.gd — Fire3D: CPU-particle flames + smoke + flickering shadowed light
                    #   viewmodel.gd — first-person arms/weapons/firing (child of the v6 camera)
                    #     (skinned arms posed per frame on grips; own FOV via X/Y stretch; own lights on render layer 2)
                    #   fp_loadout.gd — pure loadout + 2D ammo/reload rules (headless-tested)

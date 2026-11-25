@@ -1,0 +1,34 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/museum/museum.gd" id="1_museum"]
+[ext_resource type="PackedScene" path="res://scenes/game/rig.tscn" id="2_rig"]
+
+[sub_resource type="Environment" id="Environment_night"]
+background_mode = 1
+background_color = Color(0.008, 0.011, 0.02, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.09, 0.11, 0.17, 1)
+ambient_light_energy = 0.04
+tonemap_mode = 3
+glow_enabled = true
+glow_intensity = 0.45
+glow_bloom = 0.06
+fog_enabled = true
+fog_light_color = Color(0.13, 0.15, 0.21, 1)
+fog_density = 0.022
+fog_sky_affect = 0.0
+volumetric_fog_enabled = true
+volumetric_fog_albedo = Color(0.66, 0.68, 0.74, 1)
+volumetric_fog_anisotropy = 0.3
+volumetric_fog_length = 96.0
+volumetric_fog_ambient_inject = 0.25
+
+[node name="Museum" type="Node3D" unique_id=1100000001]
+script = ExtResource("1_museum")
+
+[node name="City" type="Node3D" parent="." unique_id=1100000002]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1100000003]
+environment = SubResource("Environment_night")
+
+[node name="Rig" parent="." unique_id=1100000004 instance=ExtResource("2_rig")]

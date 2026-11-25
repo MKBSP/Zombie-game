@@ -1,34 +1,13 @@
-[gd_scene format=3 uid="uid://dpvely524ldrh"]
+[gd_scene format=3]
 
-[ext_resource type="PackedScene" uid="uid://cmvqd8b8sm3q6" path="res://assets/city/westvillage_small.glb" id="1_cot1k"]
 [ext_resource type="Script" uid="uid://bwmmjf27gn5tp" path="res://scripts/test/test_player.gd" id="2_1k36r"]
 [ext_resource type="PackedScene" uid="uid://t110r54a0777" path="res://assets/characters/adventurer.glb" id="3_iq7d3"]
 [ext_resource type="Script" uid="uid://bd7ij1kbr57xb" path="res://scripts/test/camera_rig.gd" id="3_t84ee"]
 [ext_resource type="Script" uid="uid://jekxt6vjbrlq" path="res://scripts/3d/viewmodel.gd" id="4_0o553"]
 [ext_resource type="Script" uid="uid://dpfxs50vyds1d" path="res://scripts/3d/character_anim.gd" id="4_he66c"]
 [ext_resource type="Script" uid="uid://dq3bb0gq8adq6" path="res://scripts/test/test_hud.gd" id="4_tl0yi"]
-[ext_resource type="Script" uid="uid://dmq1h0f5jehh" path="res://scripts/3d/street_lights.gd" id="6_64dut"]
 [ext_resource type="Script" uid="uid://d32lcqq3k0phf" path="res://scripts/3d/commander.gd" id="7_bedqs"]
-
-[sub_resource type="Environment" id="Environment_ps6bg"]
-background_mode = 1
-background_color = Color(0.008, 0.011, 0.02, 1)
-ambient_light_source = 2
-ambient_light_color = Color(0.09, 0.11, 0.17, 1)
-ambient_light_energy = 0.04
-tonemap_mode = 3
-glow_enabled = true
-glow_intensity = 0.45
-glow_bloom = 0.06
-fog_enabled = true
-fog_light_color = Color(0.13, 0.15, 0.21, 1)
-fog_density = 0.022
-fog_sky_affect = 0.0
-volumetric_fog_enabled = true
-volumetric_fog_albedo = Color(0.66, 0.68, 0.74, 1)
-volumetric_fog_anisotropy = 0.3
-volumetric_fog_length = 96.0
-volumetric_fog_ambient_inject = 0.25
+[ext_resource type="Script" path="res://scenes/ui/game_menu.gd" id="8_gmenu"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_k84qv"]
 radius = 0.3
@@ -56,12 +35,7 @@ font_size = 15
 outline_size = 5
 outline_color = Color(0, 0, 0, 0.8)
 
-[node name="CameraTestSmallCity" type="Node3D" unique_id=1812326258]
-
-[node name="City" parent="." unique_id=1913698188 instance=ExtResource("1_cot1k")]
-
-[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1916244625]
-environment = SubResource("Environment_ps6bg")
+[node name="Rig" type="Node3D" unique_id=402117395]
 
 [node name="TestPlayer" type="CharacterBody3D" parent="." unique_id=1756679669]
 transform = Transform3D(-0.9781476, 0, -0.2079117, 0, 1, 0, 0.2079117, 0, -0.9781476, 8, 1, 12)
@@ -118,9 +92,12 @@ metadata/_edit_use_anchors_ = true
 
 [node name="TuningHUD" type="CanvasLayer" parent="." unique_id=1787629046]
 script = ExtResource("4_tl0yi")
-
-[node name="StreetLights" type="Node3D" parent="." unique_id=1874908734]
-script = ExtResource("6_64dut")
+environment_path = NodePath("../../WorldEnvironment")
 
 [node name="Commander" type="Node3D" parent="." unique_id=1626631633]
 script = ExtResource("7_bedqs")
+city_path = NodePath("../../City")
+lights_path = NodePath("../../StreetLights")
+
+[node name="GameMenu" type="CanvasLayer" parent="." unique_id=1530482617 groups=["keep_visible"]]
+script = ExtResource("8_gmenu")

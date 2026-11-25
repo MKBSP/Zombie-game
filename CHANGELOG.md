@@ -4,6 +4,38 @@ Phase-organized history (newest first), reconstructed from git. Append a line
 here as part of finishing any meaningful change.
 
 ## Phase 10 — 3D conversion (in progress)
+- **Test museum + stand-in props (2026-11-25).** Plan phase 2. Main menu → TEST
+  MUSEUM, built in code by `scripts/museum/museum.gd`:
+  - A zoo of every asset under any light.
+  - A lighting lab (L panel: sun / moon / ambient / haze / mist, three presets,
+    carryable lamp, fire, street light and grey/chrome/chart stand on G).
+  - A wall of every facade variant on the real shader, with live sliders.
+  - Survivors and crates in the open.
+  - The ESC menu's "Go to" list jumps between areas.
+
+  37 stand-in props come from Poly Pizza (9 vehicles, 17 street props, 11
+  plants), all CC0 except the bus and shopping cart (CC-BY, credited). Each is
+  scaled to real metres in its `.glb.import`. New `Prop3D` (ground, collider,
+  hit surface, intact/burnt/burning) and `Fire3D`. The H tuning panel now frees
+  the mouse, as the lab panel does. The commander's spawn waits for the navmesh
+  map to sync (removes a startup error). Checked by screenshot tours in DAY,
+  NIGHT and TORCH. The commander view of the museum is black until phase 3 adds
+  zombies.
+- **The 3D city is the game (2026-11-25).** Plan phase 1 of
+  `docs/superpowers/plans/2026-11-25-3d-game.md`.
+  - The menu's PLAY → role → `scenes/game/city.tscn` (the v6 test map, moved). The
+    player, camera, HUDs, commander and a new ESC menu are split into a shared
+    `scenes/game/rig.tscn`. MULTIPLAYER is hidden; the 2D files stay for the old
+    online flow and server.
+  - The ESC menu pauses and has: switch shooter ↔ commander, cheats, settings,
+    restart and quit. As the commander, ESC first clears an order or the selection.
+  - Cheats now really give unlimited ammo (the mag no longer drops) and work from
+    the menu in any build.
+  - Debug sliders and the camera readout are hidden until H.
+  - Settings lists the 3D keys.
+  - The design system doc matches the v2 palette.
+  - macOS and Windows export presets replace Web. The Mac build boots to the menu
+    (checked from the exported app). The Windows build exports but hasn't been run.
 - **Shooter's torch beam leaked through the commander's fog (2026-11-18).** The visible
   beam mesh hangs off the camera rig, not the shooter's body, so the fog never hid it,
   and being drawn after the fog quad it showed bright even in never-seen black: the

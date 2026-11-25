@@ -1,8 +1,10 @@
 extends Control
 
-## Title → mode select.
-## Single player → role select → world (offline).
-## Multiplayer → connect to the dedicated server → Host or Join:
+## Title: PLAY · TEST MUSEUM · SETTINGS · QUIT.
+## PLAY → role select → the 3D city (scenes/game/city.tscn), offline.
+## Multiplayer (hidden until the 3D game is online, plan phase 5; the --host /
+## --join / --autojoin flags still reach it and run the old 2D world) →
+## connect to the dedicated server → Host or Join:
 ##   Host → server makes a room + code (share it) → lobby → pick role.
 ##   Join → enter code → lobby → pick role.
 ## When both roles are picked, the server starts the match.
@@ -31,6 +33,9 @@ extends Control
 @onready var join_title: Label = $JoinPanel/CenterContainer/VBoxContainer/JoinTitle
 @onready var join_confirm_button: Button = $JoinPanel/CenterContainer/VBoxContainer/ConnectButton
 @onready var join_status: Label = $JoinPanel/CenterContainer/VBoxContainer/JoinStatus
+
+const GAME_SCENE := "res://scenes/game/city.tscn"
+const MUSEUM_SCENE := "res://scenes/museum/museum.tscn"
 
 var _room_code: String = ""
 # Launch-flag automation (local two-window testing).
@@ -109,7 +114,7 @@ func _on_single_pressed() -> void:
 
 func _on_solo_role_chosen(role: GameState.Role) -> void:
 	GameState.role = role
-	get_tree().change_scene_to_file("res://scenes/world/world.tscn")
+	get_tree().change_scene_to_file(GAME_SCENE)
 
 
 # ----------------------------------------------------------------------- Multiplayer
@@ -285,13 +290,24 @@ func _style_title_panel() -> void:
 
 	single_button.reparent(vbox)
 	multi_button.reparent(vbox)
-	MenuWidgets.menu_row(single_button, "SINGLE PLAYER", "Solo match, choose your faction")
+	MenuWidgets.menu_row(single_button, "PLAY", "Shooter or zombie commander")
 	MenuWidgets.menu_row(multi_button, "MULTIPLAYER", "Host or join a networked match")
+	multi_button.visible = false  # back when the 3D game is online (plan phase 5)
+
+	var museum_btn := Button.new()
+	vbox.add_child(museum_btn)
+	MenuWidgets.menu_row(museum_btn, "TEST MUSEUM", "Every asset, the lighting lab, the facades")
+	museum_btn.pressed.connect(func() -> void: get_tree().change_scene_to_file(MUSEUM_SCENE))
 
 	var settings_btn := Button.new()
 	vbox.add_child(settings_btn)
 	MenuWidgets.menu_row(settings_btn, "SETTINGS", "Controls, interface, profile")
 	settings_btn.pressed.connect(_on_settings_pressed)
+
+	var quit_btn := Button.new()
+	vbox.add_child(quit_btn)
+	MenuWidgets.menu_row(quit_btn, "QUIT", "Back to the desktop")
+	quit_btn.pressed.connect(get_tree().quit)
 
 	vbox.add_child(MenuWidgets.spacer(18.0))
 	var footer := MenuWidgets.breadcrumb("2026  ·  V1.0.0")
@@ -309,7 +325,7 @@ func _style_role_panel() -> void:
 	v.add_theme_constant_override("separation", 10)
 	center_wrap.add_child(v)
 
-	v.add_child(MenuWidgets.breadcrumb("SINGLE PLAYER"))
+	v.add_child(MenuWidgets.breadcrumb("PLAY"))
 	v.add_child(MenuWidgets.heading("SELECT YOUR ROLE"))
 	v.add_child(MenuWidgets.spacer(14.0))
 	hbox.reparent(v)

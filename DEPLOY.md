@@ -37,25 +37,33 @@ the container). Note it: CORS / `FRONTEND_URL` is **not** needed (raw WebSocket)
 
 ---
 
-## Part 3 — Export the web client & publish on itch.io
+## Part 3: Tester builds (macOS and Windows)
 
-8. In Godot: **Editor → Manage Export Templates → Download and Install** (once).
-9. **Project → Export → Add… → Web**. Leave defaults; set **Export Path** to
-   `build/web/index.html`. (Create the `build/web` folder if needed.)
-10. Click **Export Project** (untick "Export With Debug"). This writes
-    `index.html`, `index.wasm`, `index.pck`, `index.js`, etc. into `build/web/`.
-11. Zip the **contents** of `build/web/` (so `index.html` is at the zip root) —
-    e.g. `web-build.zip`.
-12. Go to <https://itch.io>, sign up, **Dashboard → Create new project**:
-    - **Kind of project:** HTML
-    - **Upload** `web-build.zip` and tick **"This file will be played in the
-      browser."**
-    - **Embed options:** set a size (e.g. 1280×720) and enable
-      **"SharedArrayBuffer support"** (required for Godot 4 web).
-    - Set visibility to Draft/Public, **Save**.
-13. Open the project page → **Run game**. Share the link with a friend: both open
-    it, click **MULTIPLAYER → CONNECT** (URL is pre-filled with your server) →
-    pick **Human**/**Zombie** → play.
+The web build is gone. The 3D game needs the Forward+ renderer, which browsers
+can't run, so testers get a native app. `export_presets.cfg` has two presets.
+Export templates for 4.6.3 must be installed (Editor → Manage Export Templates).
+
+8. **Export.** In the editor: **Project → Export → macOS** (or **Windows**) →
+   **Export Project**, and untick "Export With Debug". From a terminal, with the
+   editor closed:
+   ```
+   Godot --headless --path . --export-release "macOS" build/mac/ZombieGame.zip
+   Godot --headless --path . --export-release "Windows" build/windows/ZombieGame.exe
+   ```
+   The Mac build is a universal (Intel and Apple Silicon) `.app` inside a zip,
+   about 70 MB. The Windows build is a single `.exe`, about 115 MB. `build/` is
+   gitignored.
+9. **Send it.** Share the zip, or the `.exe` zipped, through any file share.
+10. **First launch (the builds aren't signed):**
+    - **Mac:** unzip, then **right-click "Zombie Game" → Open → Open**. If macOS
+      says it "can't be opened", go to **System Settings → Privacy & Security**,
+      click **Open Anyway** next to the message, then open it again.
+    - **Windows:** double-click. If SmartScreen warns, click **More info → Run
+      anyway**.
+11. **What the tester gets:** the menu. PLAY → shooter or zombie commander →
+    the small 3D city. ESC opens the in-game menu: switch role, cheats (all
+    weapons + unlimited ammo), settings, restart, quit. H shows the debug
+    sliders. Online play is hidden until the 3D game is networked (plan phase 5).
 
 ---
 
@@ -70,8 +78,5 @@ the container). Note it: CORS / `FRONTEND_URL` is **not** needed (raw WebSocket)
   `ARCHITECTURE.md` → *Server topology*.
 - **Idle disconnects:** Railway drops idle WebSocket connections after ~15 min.
   Auto-reconnect is Phase D (not built yet) — fine for normal play sessions.
-- **Native download instead of web:** export a Windows/macOS/Linux build instead
-  of Web; it talks to the same Railway server and needs no special host (itch.io
-  optional). No header/SharedArrayBuffer concerns for native.
 - **Version match:** the Railway `GODOT_VERSION` and your editor version must
   match the project, or imports/exports can misbehave.

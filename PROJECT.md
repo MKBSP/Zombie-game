@@ -109,7 +109,9 @@ glass off lamp heads, blood on zombies and survivors (a part blown off bursts, a
 zombie hit without losing a part flinches). A tick around the crosshair confirms a hit:
 white, orange when a part comes off, big red on a kill.
 
-**Small dressed city (current test map):** `scenes/test/camera_test_v6_small_city.tscn`
+**Small dressed city (the game's map):** `scenes/game/city.tscn` (was
+`scenes/test/camera_test_v6_small_city.tscn`; the player, camera, HUDs, commander
+and ESC menu now live in the shared `scenes/game/rig.tscn`)
 runs the first-person rig on `assets/city/westvillage_small.glb`, a 250 x 170 m
 crop with procedural facades (doors, windows, shopfronts, lit windows) and road /
 sidewalk / crosswalk / backlot surfaces. Rebuild it from the source .blend with
@@ -118,7 +120,7 @@ sidewalk / crosswalk / backlot surfaces. Rebuild it from the source .blend with
 then reimport. Look tuning lives in the shader uniforms (`lit_windows`,
 `window_glow`, `shop_chance`, ...).
 
-**Zombie commander (3D, first slice):** in the v6 scene press **TAB** to swap between
+**Zombie commander (3D, first slice):** the ESC menu (or **TAB**) swaps between
 the shooter and the commander. Camera: WASD / screen edge pan, Q/E or middle-drag
 rotate, HOME back to north, wheel zoom (tilts toward top-down as you zoom out). Fog
 of war: you see what your zombies see (20 m, blocked by buildings); never-seen areas
@@ -140,6 +142,32 @@ turns a survivor into a zombie after 5 s; shooting one never does. The commander
 only sees them when a zombie does. Code: `scripts/3d/npc_3d.gd`; numbers in
 `Balance.NPC` (2D, converted) and `Balance.NPC_3D`.
 
+**Test museum:** main menu → **TEST MUSEUM** (or F6 on `scenes/museum/museum.tscn`).
+It's an open-air hall with a metre grid on the floor, built in code by
+`scripts/museum/museum.gd`, using the same rig as the city. The ESC menu has a
+**Go to** list.
+- **Zoo** (north): every character and zombie variant on turntables, the weapons
+  on pedestals, the crate (closed and opened), every pickup, a street light in
+  every state, and every `assets/props` model. Vehicles, the dumpsters, the
+  barrel and the trash can are shown again burnt and burning. Rows come from
+  listing the asset folders, so a new .glb shows up with its file name as its
+  sign.
+- **Lighting lab** (centre): **L** opens a panel with sun strength, height and
+  direction, moon, ambient, haze and mist, and NIGHT / TORCH / DAY presets. It
+  can add a flickering lamp, a fire, a street light, or a grey ball, chrome ball
+  and colour chart. **G** grabs and drops whatever you look at. The panel also
+  has live sliders for the facade shader, and RESET CRATES + LOOT.
+- **Facade wall** (south): five rows, one per wall type (shop street,
+  residential, alley, back, party wall). Each row has brick and stucco at 7, 13
+  and 19 m, on the real `city_building` shader, plus a roof sample.
+- **Survivors + crates** (east): three survivors and three crates by a cover
+  wall.
+
+Props are `Prop3D` (`scripts/3d/prop_3d.gd`): pick `model`, `state`
+(intact/burnt/burning) and `surface`. Fire is `Fire3D`. The stand-in models
+come from Poly Pizza (see CREDITS.md) and are scaled to real metres in their
+`.glb.import`.
+
 **Street lights:** the v6 scene's `StreetLights` node lines every kerb with lamps
 at runtime (working, blinking, dead, sparking, or fallen in four builds). Each lamp's
 state is rolled from its position, so it's the same on every run and every peer. Odds
@@ -156,10 +184,16 @@ Read it before starting any conversion work. See
 [CHANGELOG.md](CHANGELOG.md) → Phase 10 for the full measured history.
 
 ## How to run
-- **In editor:** open the project in Godot 4.6.3 and press Play (main scene is
-  `scenes/ui/main_menu.tscn`). With an MCP session live, use `project_run` /
-  `editor_screenshot`.
-- **Local multiplayer:** `./run_local_mp.command` launches host + client locally.
+- **In editor:** open the project in Godot 4.6.3 and press Play. The loading
+  screen leads to the menu. **PLAY** → shooter or zombie commander → the 3D
+  city (`scenes/game/city.tscn`; F6 on that scene skips the menu and starts as
+  shooter). In game, **ESC** opens the menu: resume, switch role, cheats (all
+  weapons + unlimited ammo, in any build), settings, restart, quit to menu.
+  **H** shows the debug sliders and camera readout (hidden by default). With an
+  MCP session live, use `project_run` / `editor_screenshot`.
+- **Tester builds:** macOS and Windows presets; see `DEPLOY.md` Part 3.
+- **Local multiplayer (old 2D game):** `./run_local_mp.command` launches host +
+  client locally. The menu's MULTIPLAYER row is hidden until the 3D game is online.
 - **Dedicated server:** run headless with `--server`; see `DEPLOY.md` (Dockerfile
   + Railway) for hosted play.
 - **3D camera tests:** open any scene in `scenes/test/` and press **F6** (run

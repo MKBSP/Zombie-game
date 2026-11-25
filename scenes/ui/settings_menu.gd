@@ -12,25 +12,32 @@ var overlay_mode := false
 
 const TABS := ["CONTROLS", "UI / HUD", "PROFILE"]
 
-## Shooter bindings resolved live from InputMap (action -> display name).
-const SHOOTER_ACTIONS := [
-	["MOVE", ["move_up", "move_left", "move_down", "move_right"]],
-	["SHOOT", []],  # empty = static mouse binding below
-	["FOCUS AIM", ["focus_aim"]],
-	["INTERACT", ["interact"]],
-	["SWAP WEAPON", ["swap_weapon"]],
-	["DROP WEAPON", ["drop_weapon"]],
-	["PISTOL / HEAVY / MELEE", ["select_pistol", "select_heavy", "select_melee"]],
-	["TOGGLE VIEW", ["toggle_view"]],
+## 3D game keys (most are hard-coded in scripts/3d + scripts/test, not InputMap).
+const SHOOTER_CONTROLS := [
+	["MOVE", ["W", "A", "S", "D"]],
+	["SPRINT / CROUCH / JUMP", ["SHIFT", "C", "SPACE"]],
+	["FIRE / SWING", ["LMB"]],
+	["AIM", ["RMB"]],
+	["RELOAD", ["R"]],
+	["TORCH", ["F"]],
+	["USE / PICK UP", ["E"]],
+	["WEAPONS", ["1-8", "WHEEL"]],
+	["MENU", ["ESC"]],
 ]
-const SHOOTER_STATIC := {"SHOOT": ["LMB"]}
 
 const ZOMBIE_CONTROLS := [
-	["SELECT UNIT", ["LMB"]],
-	["MULTI-SELECT", ["SHIFT", "LMB"]],
-	["BOX SELECT", ["LMB DRAG"]],
-	["MOVE ORDER", ["RMB"]],
-	["CAMERA PAN", ["ARROWS"]],
+	["SELECT / BOX SELECT", ["LMB", "DRAG"]],
+	["ADD TO SELECTION", ["SHIFT", "LMB"]],
+	["SELECT ALL", ["CTRL", "A"]],
+	["MOVE / ATTACK", ["RMB"]],
+	["PAN", ["W", "A", "S", "D"]],
+	["ROTATE / NORTH", ["Q", "E", "HOME"]],
+	["ZOOM", ["WHEEL"]],
+	["GROUPS", ["CTRL", "1-9"]],
+	["AGGRESSIVE / HOLD / FREE", ["Z", "X", "C"]],
+	["PATROL / FLEE / RALLY", ["V", "B", "G"]],
+	["MERGE FAST / FAT", ["F", "T"]],
+	["CLEAR, THEN MENU", ["ESC"]],
 ]
 
 const HUD_TOGGLES := [
@@ -197,9 +204,8 @@ func _controls_tab() -> Control:
 	scroll.add_child(v)
 
 	v.add_child(_section_header("SHOOTER", UIStyle.FAST_CYAN))
-	for entry: Array in SHOOTER_ACTIONS:
-		var keys: Array = SHOOTER_STATIC.get(entry[0], _action_keys(entry[1]))
-		v.add_child(_binding_row(entry[0], keys))
+	for entry: Array in SHOOTER_CONTROLS:
+		v.add_child(_binding_row(entry[0], entry[1]))
 
 	v.add_child(MenuWidgets.spacer(14.0))
 	v.add_child(_section_header("ZOMBIE COMMANDER", UIStyle.INFECTION))
@@ -330,20 +336,3 @@ func _paint_toggle(b: Button) -> void:
 func _settings() -> Node:
 	return get_node("/root/Settings")
 
-
-## Human-readable key list for a set of InputMap actions.
-func _action_keys(actions: Array) -> Array:
-	var keys: Array = []
-	for action: String in actions:
-		if not InputMap.has_action(action):
-			continue
-		for ev in InputMap.action_get_events(action):
-			if ev is InputEventKey:
-				var kc: Key = ev.physical_keycode if ev.physical_keycode != KEY_NONE else ev.keycode
-				keys.append(OS.get_keycode_string(kc))
-				break  # first key binding per action is enough
-			elif ev is InputEventMouseButton:
-				keys.append("LMB" if ev.button_index == MOUSE_BUTTON_LEFT
-					else "RMB" if ev.button_index == MOUSE_BUTTON_RIGHT else "MMB")
-				break
-	return keys

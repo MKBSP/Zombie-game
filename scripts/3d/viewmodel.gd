@@ -1,6 +1,6 @@
 extends Node3D
 ## First-person arms + weapons for the 3D test player. Child of the player's
-## Camera3D (scenes/test/camera_test_v6_small_city.tscn).
+## Camera3D (scenes/game/rig.tscn).
 ##
 ## Keys 1-8 / mouse wheel: hands, torch, pistol, pistol + torch, shotgun, rifle,
 ## uzi, bat. LMB fires (uzi: hold) or swings, RMB aims (owned by test_player),
@@ -647,12 +647,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			for id in MODELS:
 				_ammo[id] = L.new_ammo(id)
 		elif k == Balance.FP.cheat_key and OS.is_debug_build():
-			cheat = not cheat
-			if cheat:
-				for id in MODELS:
-					_ammo[id] = L.new_ammo(id)
-			else:
-				select(L.fallback(_target(), _avail()))
+			set_cheat(not cheat)
 	elif event is InputEventMouseButton and event.pressed:
 		var b := event as InputEventMouseButton
 		if b.button_index == MOUSE_BUTTON_WHEEL_UP:
@@ -661,6 +656,17 @@ func _unhandled_input(event: InputEvent) -> void:
 			select(_cycle(1))
 		elif b.button_index == MOUSE_BUTTON_LEFT and _captured():
 			_trigger()
+
+
+## Cheats (ESC menu in any build, F9 in debug builds): every weapon, no carry
+## limit, and the mag never empties.
+func set_cheat(on: bool) -> void:
+	cheat = on
+	if cheat:
+		for id in MODELS:
+			_ammo[id] = L.new_ammo(id)
+	else:
+		select(L.fallback(_target(), _avail()))
 
 
 func select(n: int) -> void:
@@ -1098,7 +1104,8 @@ func _trigger() -> void:
 	if a.mag <= 0:
 		_try_reload()
 		return
-	a.mag -= 1
+	if not cheat:
+		a.mag -= 1
 	_cooldown = maxf(d.cooldown, 0.05)
 	_shoot(d)
 	_fire_fx(id)

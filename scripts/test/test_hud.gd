@@ -134,6 +134,8 @@ func _build_sliders() -> void:
 	style.set_content_margin_all(8)
 	_panel.add_theme_stylebox_override("panel", style)
 	add_child(_panel)
+	_panel.visible = false  # debug: H shows the sliders and the camera readout
+	_set_debug_label(false)
 	var box := VBoxContainer.new()
 	_panel.add_child(box)
 	_hint = Label.new()
@@ -203,7 +205,7 @@ func _adapt_eyes(delta: float) -> void:
 	var target := 1.0 if torch_on else adapt_gain
 	var rate := (adapt_gain - 1.0) / (dazzle_time if torch_on else adapt_time)
 	_attrs.exposure_multiplier = move_toward(_attrs.exposure_multiplier, target, rate * delta)
-	_hint.text = "ESC frees mouse · F flashlight · H hide   eyes: x%.2f  torch %s" % [
+	_hint.text = "ESC menu · F flashlight · H hide   eyes: x%.2f  torch %s" % [
 		_attrs.exposure_multiplier, "ON" if torch_on else "OFF"]
 
 
@@ -214,3 +216,15 @@ func _unhandled_input(event: InputEvent) -> void:
 				_player.flashlight_enabled = not _player.flashlight_enabled
 			KEY_H:  # Tab swaps to the zombie commander (scripts/3d/commander.gd)
 				_panel.visible = not _panel.visible
+				_set_debug_label(_panel.visible)
+				if _panel.visible:  # sliders need the cursor; clicking the world recaptures it
+					_player.set("_mouse_freed", true)
+					Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+## The camera rig's readout (../DebugHUD/Label) goes with the sliders. The
+## Label, not its CanvasLayer: the commander re-shows the layers on TAB.
+func _set_debug_label(on: bool) -> void:
+	var l := get_node_or_null("../DebugHUD/Label")
+	if l:
+		l.visible = on

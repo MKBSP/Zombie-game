@@ -3,6 +3,39 @@
 Open work only, grouped by theme. Completed items live in [CHANGELOG.md](../CHANGELOG.md).
 Keep this current: check items off here, move finished ones to the changelog.
 
+## Now: open tracks (in this order unless Mads changes it)
+
+All phases are in `docs/superpowers/plans/2026-11-25-3d-game.md` (approved 2026-11-25).
+
+0. **3D game shell** (phase 1), done 2026-11-25. See CHANGELOG.
+    - [x] Main menu: PLAY → shooter or zombie commander → the 3D city.
+          MULTIPLAYER hidden until 3D multiplayer (S10) works.
+    - [x] ESC menu in game: resume, switch role, cheats (all weapons + unlimited
+          ammo), settings, restart, quit to menu. TAB and F9 stay as shortcuts.
+    - [x] 2D files kept: 3D multiplayer reuses the online lobby and relay, and
+          the Railway server still runs the 2D game. Delete at S11.
+    - [x] Tester builds: macOS + Windows presets, instructions in DEPLOY.md Part 3.
+    - [ ] Owner playtest from the menu, both roles, and the Mac build on a
+          second laptop. The Windows build has never been run.
+    - [ ] Hide the cheats menu item before any public release.
+1. **Test museum.** Phase 2 (zoo, lighting lab, facade wall, stand-in props,
+   menu button) is done (2026-11-25). Phase 3 (stations + gym) is next. See
+   section D3.
+    - [ ] The commander view in the museum is black (fog of war, no zombies yet).
+          Phase 3's commander station adds a few.
+2. **3D HUD** (phase 4). The mockup (v4) is at https://claude.ai/artifact/5hAuRpAShsPkGvKjN127Mc.
+   The commander panel is laid out like Age of Empires II: three fixed slots, with
+   commands, selection and the whole-city map.
+    - [ ] Build it as the plan says. It shows the loadouts the game has now;
+          dual-wielding and the one-/two-hand bat grip are separate features (below).
+    - [ ] Fix the shooter minimap showing zombies it shouldn't.
+    - [x] The H tuning panel is hidden by default (2026-11-25).
+    - [x] `docs/design_system.md` matches the v2 palette (2026-11-25).
+    - [ ] Later features the mockup shows: a gun in each hand (LMB right, RMB
+          left, no aiming), and switching the bat between one and two hands.
+3. **Online multiplayer in 3D** (phase 5, stage S10: netcode + HUD reconnect). See section D2.
+4. **Delete the 2D game** (phase 6, stage S11).
+
 ## A. Zombie commander experience (current pain points — Phase 9b)
 
 - [x] **Zombie fog rework** (2026-07-10) — shooter-style lighting fog with
@@ -112,20 +145,78 @@ See [PROJECT.md](../PROJECT.md) → *3D conversion* for what exists today and
 Street dressing, in rough priority order. Each wants a low-poly model, a
 collision shape, and — for anything that emits or blocks light — a light setup.
 
-- [ ] **Vehicles:** car (intact), broken/burnt car, van/truck. Also cover.
-- [ ] **Street furniture:** dumpster (plain + burning), lightpost with a working
-      lamp, lightpost dark/broken, bins, benches, bollards, barriers.
+Every new asset goes into the test museum's zoo (D3) as soon as it lands.
+
+**Source (decided 2026-11-25):** free low-poly models from [Poly Pizza](https://poly.pizza)
+for now, as rough stand-ins until the style gets dialled in. Prefer CC0 authors
+(Quaternius, Kenney). CC-BY models (e.g. "Poly by Google") are fine but get a
+line in CREDITS.md. Each model is scaled to real metres, sits on the ground and
+gets a collision box. Burnt = the same model with a charred material. Burning =
+burnt + the shared fire effect. Anything Poly Pizza lacks gets a simple Blender
+model.
+
+- [x] (stand-ins, 2026-11-25) **Vehicles:** cars of several types, a bus, a truck. Each one intact,
+      burnt-out and burning. They also work as cover.
+- [x] (stand-ins, 2026-11-25) **Street furniture:** dumpster (plain + burning), trash cans, bags of trash,
+      cinder blocks, street blockades, shopping cart, benches, bollards.
+- [x] Lightposts: working, blinking, dead, sparking and fallen (`StreetLight`).
+- [x] (2026-11-25, `Fire3D`) **Fire:** flames + smoke + a flickering light, shared by burning cars,
+      dumpsters and barrels.
 - [ ] **Fences:** chain-link and slatted — must let light *through* (alpha or
       real gaps), since the night look is built on beams and shadow.
-- [ ] **Vegetation:** trees, shrubs, hedges, grass/weeds.
-- [ ] **Facades:** the OSM greybox has flat untextured walls — needs windows,
-      doors, shopfronts, ground-floor detail, so the canyon reads as a street.
+- [x] (stand-ins, 2026-11-25) **Vegetation:** trees, shrubs, hedges, and grass and weeds, all overgrown.
+- [ ] **Facades:** the small city has procedural facades (windows, doors,
+      shopfronts, lit windows), but they don't look good enough yet. Rework
+      them on the museum's facade wall (D3).
 - [ ] **Characters:** shooter, zombie variants (standard / fast / fat / master),
       NPC survivors — modelled, rigged and animated. Head bone required if
       headshots become geometric.
 - [ ] **Critters:** rats, bugs, fireflies (3D versions of the 2D ambient life).
+- [ ] Place the props in the city (`Prop3D` can be added by hand). Replace the stand-ins once the style is set.
 - [ ] Decide the pipeline (Blender + glTF; hand-modelled vs. kitbash vs. bought
       packs) and a shared material/scale convention before mass-producing.
+
+## D3. Test museum (zoo · museum · gym)
+
+One test scene, `scenes/test/museum.tscn`, where you can look at every asset
+under any light, test each system on its own, and tune the look, without
+hunting across the city. Open it from the main menu's **Test museum** button
+(track 0). Until that lands, open the scene in the editor and press **F6**, the
+same as the v6 test map. Number keys jump between areas. The ESC menu swaps
+between shooter and zombie commander and turns cheats on. H opens the tuning
+panel. Everything has a name sign.
+The floor is a grid marked in metres. Nothing in the real game changes.
+A design doc comes before building.
+
+**Step 1: zoo, lighting lab, facade wall** (done 2026-11-25, plan phase 2)
+- [x] Lighting lab: a panel to set sunlight (strength and angle, i.e. time of
+      day) and ambient/moonlight. Lights you can pick up, carry and drop next
+      to any asset: flickering lamp, fire, street light, torch. Presets: game
+      night, torch only, neutral daylight. A grey ball, a chrome ball and a
+      colour chart to judge colour and darkness the same way every time.
+- [x] Zoo: every asset on display. The four zombie types, the survivor models,
+      the Adventurer, every weapon (world model and first-person), the crate
+      (closed and open), every loot item, every street-light state. New files
+      in the asset folders show up without editing the scene.
+- [x] Survivors and crates in the open, to test recruiting, giving a gun and
+      opening a crate.
+- [x] Facade wall: every facade variant using the same shader as the map, to
+      rework them in one place. That covers all five wall types (shop street,
+      residential street, alley, back, blank party wall with ghost sign), brick
+      and stucco, a few heights and random seeds, and roofs.
+
+**Step 2: museum.** Stations that each show one game system working, with a
+sign that says what to try:
+- [ ] Shoot off each body part (zombie crawls without legs, and so on).
+- [ ] A pen where zombies chase you, search, and lose sight of you.
+- [ ] A wall of every surface to shoot, for bullet holes, dust and sparks.
+- [ ] Survivors: recruit, give a gun, watch them shoot.
+- [ ] Commander fog of war.
+
+**Step 3: gym.** The player's measurements:
+- [ ] Firing range with markers at 5, 10, 20 and 40 m (spread and damage).
+- [ ] Doors, stairs and slopes, with their sizes marked.
+- [ ] A walk and sprint track.
 
 ## E. Meta / systems
 

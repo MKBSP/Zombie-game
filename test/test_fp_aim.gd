@@ -15,7 +15,7 @@ var Z = load("res://scripts/3d/zombie_3d.gd")
 
 func _initialize() -> void:
 	# --- the first-person city scene ---
-	change_scene_to_file("res://scenes/test/camera_test_v6_small_city.tscn")
+	change_scene_to_file("res://scenes/game/city.tscn")
 	for i in 10:
 		await process_frame
 	var sc := current_scene

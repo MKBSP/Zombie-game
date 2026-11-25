@@ -9,48 +9,62 @@ and applied to the root window at startup.
 **Voice: BRUTAL · TACTICAL · INFECTED** — old CRT military terminal meets biohazard ops
 center. No softness, nothing decorative, data-first.
 
-## Palette
+## Palette (v2: the HUD kit mockup, Nov 2026)
+
+The HUD kit mockup (https://claude.ai/artifact/5hAuRpAShsPkGvKjN127Mc) moved the
+grounds and text from green-black to warm brown-black and ash. `UIStyle` holds
+these values.
 
 | Token | Hex | Use |
 |---|---|---|
-| ABYSS | `#0d0f0b` | page/screen ground |
-| BUNKER | `#1a1e16` | panel surface |
-| TRENCH | `#2a2e22` | secondary surface |
-| PANEL_DARK | `#0a0c09` | recessed panel |
-| BAR_BG | `#0b0d0a` | HUD bars, modals |
-| ASH | `#c8d4b8` | body text |
-| MOSS | `#6b7a5a` | muted labels |
-| DIM | `#3a4a30` | faint micro labels |
-| INFECTION | `#39ff14` | primary accent — interactive/selected ONLY |
-| FAT_AMBER | `#ff8c00` | fat zombie, merge→fat |
-| FAST_CYAN | `#00e5ff` | fast zombie, shooter role |
-| HEMORRHAGE | `#b00020` | damage, death, destructive actions |
-| WOUND `#f87171` / HOLD `#60a5fa` / LURE `#facc15` / PATROL `#c084fc` | | stance colors |
-| WARN_YELLOW | `#ffcc00` | 30–60% HP |
+| ABYSS | `#080603` | page / screen ground |
+| BUNKER | `#0e0a06` | panel surface |
+| TRENCH | `#1c1409` | secondary surface |
+| PANEL_DARK | `#120d05` | recessed panel |
+| BAR_BG | `#060402` | HUD bars, modals |
+| ASH | `#c4b48a` | body text |
+| MOSS | `#7a6448` | muted labels |
+| DIM | `#4a3820` | faint micro labels |
+| INFECTION | `#39ff14` | you can press it, it's selected, or it's the zombie side |
+| HEMORRHAGE | `#c0141a` | damage and nothing else |
+| FAT_AMBER | `#d4780a` | fat zombie, merge→fat |
+| FAST_CYAN | `#00b4c8` | fast zombie, shooter role |
+| HOLD_BLUE `#5a9af0` / LURE_YELLOW `#c8920a` / PATROL_PURPLE `#a070e0` | | stance colours |
+| WARN_YELLOW | `#c8920a` | 30–60% HP |
+| BLOOD `#8b0000` / RUST `#7a3010` | | stains, rust accents |
 
-Borders: 1px hairline green — `rgba(57,255,20,0.18)` panel divider, `0.10` card edge.
+Borders: a 1 px amber hairline, `rgba(160,100,30,0.32)` for dividers and
+`0.16` for card edges.
 
 ## Typography
 
-- **Share Tech Mono** (`resources/fonts/ShareTechMono-Regular.ttf`) — ALL data, labels,
-  headings, counters, buttons. Wide tracking (FontVariation glyph spacing ~3).
-- **Rajdhani** (Regular/Medium/SemiBold/Bold) — body copy and descriptions only.
-- Type scale (mockup): 36 hero · 20 screen heading · 13 menu item · 11 stat value ·
-  10 button label · 9 HUD caption · 8 micro label. ALL-CAPS for mono text.
+- **Share Tech Mono** (`resources/fonts/ShareTechMono-Regular.ttf`): numbers and
+  labels, in caps with wide tracking (FontVariation glyph spacing ~3).
+- **Rajdhani** (Regular/Medium/SemiBold/Bold): sentences only.
+- **Special Elite**: titles only, never data.
 
-## Rules (do / don't)
+## Rules
 
-- **0px corner radius everywhere. Always sharp.**
-- Active/selected state = colored 1px border + ~8% same-color bg fill + soft glow
-  (StyleBoxFlat shadow). Inactive = dim border + MOSS text.
-- Acid green only for interactive/focus states — never for passive body text.
-- Mono font for every number; never Rajdhani for data.
-- No white backgrounds, no gradients (except the screen vignette), no drop shadows
-  (except border glows).
-- HP color rule: >60% INFECTION, 30–60% WARN_YELLOW, <30% HEMORRHAGE (`UIStyle.hp_color`).
-- Minimap: uniform green dots for all zombie types (no per-type colors there);
-  buildings ash rects; fog-of-war ~70% black.
-- Role colors: shooter = FAST_CYAN, zombie = INFECTION.
+- **Colour:** green means you can press it, you have it selected, or it's the
+  zombie side. Red means damage. Every other colour belongs to a zombie type, a
+  stance or a kind of message.
+- **Shape:** corners are sharp or cut, never round. Borders are 1 px hairlines.
+- **Selected state:** a coloured 1 px border, a ~8% fill of the same colour and a
+  soft glow. Inactive: a dim border and MOSS text.
+- **HP colour:** >60% INFECTION, 30–60% WARN_YELLOW, <30% HEMORRHAGE
+  (`UIStyle.hp_color`).
+- **Placement:** alerts on the left, prompts under the crosshair or cursor in both
+  roles. The shooter's map is top right. The commander's map sits in the bottom
+  panel, as in Age of Empires II.
+- **Survivor HUD (quiet):** health and hands are always on. The carried-weapons
+  row stays small until you switch.
+- **Command HUD (boxed):** everything is boxed. The bottom panel has three fixed
+  slots: commands, selection, map. Changing the selection only changes the middle
+  slot. Help is behind F1.
+- **Commander map:** always the whole city. Black is unexplored and fills in as
+  zombies see it. Lettered columns and numbered rows (A–F, 1–4), so messages
+  and units can say where they are.
+- **Debug:** the tuning sliders stay in the game, hidden. H brings them back.
 
 ## Building blocks
 
@@ -59,7 +73,9 @@ Borders: 1px hairline green — `rgba(57,255,20,0.18)` panel divider, `0.10` car
 - Theme type variations (set `theme_type_variation` on a Control):
   `TitleLabel`, `HeadingLabel`, `MonoLabel`, `MicroLabel`, `BodyLabel`,
   `MenuItemButton`, `DangerButton`, `CardPanel`, `ModalPanel`.
-- `GameBg` (`scenes/ui/game_bg.gd`) — full-screen ABYSS + 48px green grid + vignette.
+- `UIStyle.cut_box(...)`: the cut-corner panel. `UIStyle.rough_fill(color)`: the
+  jagged HP and ammo bar fill.
+- `GameBg` (`scenes/ui/game_bg.gd`): full-screen ABYSS + 48 px grid + vignette.
 - `LogoLockup` (`scenes/ui/logo_lockup.gd`) — ☣ mark + ZOMBIE/COMMAND wordmark, sm/md/lg.
 
 ## Screen inventory (mockup reference)
